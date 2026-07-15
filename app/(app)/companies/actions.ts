@@ -28,7 +28,7 @@ export async function createCompanyAction(
   const parsed = parseCompany(formData);
   if (!parsed.success) return { error: firstError(parsed.error) };
 
-  const id = createCompany(parsed.data);
+  const id = await createCompany(parsed.data);
   revalidatePath("/companies");
   redirect(`/companies/${id}`);
 }
@@ -44,7 +44,7 @@ export async function updateCompanyAction(
   const parsed = parseCompany(formData);
   if (!parsed.success) return { error: firstError(parsed.error) };
 
-  updateCompany(id, parsed.data);
+  await updateCompany(id, parsed.data);
   revalidatePath("/companies");
   revalidatePath(`/companies/${id}`);
   redirect(`/companies/${id}`);
@@ -54,7 +54,7 @@ export async function deleteCompanyAction(formData: FormData) {
   await requireSession();
   const id = Number(formData.get("id"));
   if (id) {
-    deleteCompany(id);
+    await deleteCompany(id);
     revalidatePath("/companies");
   }
   redirect("/companies");

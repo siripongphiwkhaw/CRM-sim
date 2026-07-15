@@ -10,7 +10,7 @@ export default async function CompaniesPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q } = await searchParams;
-  const companies = listCompaniesWithCounts(q);
+  const companies = await listCompaniesWithCounts(q);
 
   return (
     <div>

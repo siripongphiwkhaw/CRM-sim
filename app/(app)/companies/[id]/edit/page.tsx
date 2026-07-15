@@ -12,7 +12,7 @@ export default async function EditCompanyPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const company = getCompany(Number(id));
+  const company = await getCompany(Number(id));
   if (!company) notFound();
 
   return (

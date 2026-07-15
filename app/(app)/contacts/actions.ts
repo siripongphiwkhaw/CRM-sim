@@ -30,7 +30,7 @@ export async function createContactAction(
   const parsed = parseContact(formData);
   if (!parsed.success) return { error: firstError(parsed.error) };
 
-  const id = createContact(parsed.data);
+  const id = await createContact(parsed.data);
   revalidatePath("/contacts");
   redirect(`/contacts/${id}`);
 }
@@ -46,7 +46,7 @@ export async function updateContactAction(
   const parsed = parseContact(formData);
   if (!parsed.success) return { error: firstError(parsed.error) };
 
-  updateContact(id, parsed.data);
+  await updateContact(id, parsed.data);
   revalidatePath("/contacts");
   revalidatePath(`/contacts/${id}`);
   redirect(`/contacts/${id}`);
@@ -56,7 +56,7 @@ export async function deleteContactAction(formData: FormData) {
   await requireSession();
   const id = Number(formData.get("id"));
   if (id) {
-    deleteContact(id);
+    await deleteContact(id);
     revalidatePath("/contacts");
   }
   redirect("/contacts");

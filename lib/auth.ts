@@ -8,7 +8,7 @@ export interface LoginResult {
 }
 
 export async function login(email: string, password: string): Promise<LoginResult> {
-  const user = getUserByEmail(email);
+  const user = await getUserByEmail(email);
   if (!user) {
     return { success: false, error: "Invalid email or password" };
   }

@@ -8,7 +8,7 @@ import { StageSelect } from "./StageSelect";
 export const dynamic = "force-dynamic";
 
 export default async function DealsPage() {
-  const deals = listDeals();
+  const deals = await listDeals();
 
   const byStage = DEAL_STAGES.map((stage) => {
     const stageDeals = deals.filter((d) => d.stage === stage);

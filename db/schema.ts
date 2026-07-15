@@ -1,3 +1,6 @@
+// Runtime source of truth for the schema. Kept as a TS string (not read from
+// schema.sql at runtime) so it is always present in the serverless bundle.
+export const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
@@ -65,3 +68,4 @@ CREATE TABLE IF NOT EXISTS tasks (
 CREATE INDEX IF NOT EXISTS tasks_due_date ON tasks(due_date);
 CREATE INDEX IF NOT EXISTS tasks_contact_id ON tasks(contact_id);
 CREATE INDEX IF NOT EXISTS tasks_deal_id ON tasks(deal_id);
+`;

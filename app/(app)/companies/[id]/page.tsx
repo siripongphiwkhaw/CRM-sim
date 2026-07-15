@@ -31,11 +31,13 @@ export default async function CompanyDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const company = getCompany(Number(id));
+  const company = await getCompany(Number(id));
   if (!company) notFound();
 
-  const contacts = listContacts({ companyId: company.id });
-  const deals = listDealsByCompany(company.id);
+  const [contacts, deals] = await Promise.all([
+    listContacts({ companyId: company.id }),
+    listDealsByCompany(company.id),
+  ]);
 
   return (
     <div>

@@ -12,8 +12,10 @@ export default async function NewDealPage({
   searchParams: Promise<{ contact_id?: string; company_id?: string }>;
 }) {
   const { contact_id, company_id } = await searchParams;
-  const contacts = listContacts();
-  const companies = listCompanies();
+  const [contacts, companies] = await Promise.all([
+    listContacts(),
+    listCompanies(),
+  ]);
 
   return (
     <div>

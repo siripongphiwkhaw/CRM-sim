@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Keep sql.js (and its .wasm) out of the bundler so it loads from node_modules
+  // at runtime, including inside the Vercel serverless function.
+  serverExternalPackages: ["sql.js"],
 };
 
 export default nextConfig;

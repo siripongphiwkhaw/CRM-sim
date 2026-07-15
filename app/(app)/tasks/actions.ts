@@ -30,7 +30,7 @@ export async function createTaskAction(
   const parsed = parseTask(formData);
   if (!parsed.success) return { error: firstError(parsed.error) };
 
-  createTask({ ...parsed.data, owner_id: session.userId });
+  await createTask({ ...parsed.data, owner_id: session.userId });
   revalidatePath("/tasks");
   redirect("/tasks");
 }
@@ -46,7 +46,7 @@ export async function updateTaskAction(
   const parsed = parseTask(formData);
   if (!parsed.success) return { error: firstError(parsed.error) };
 
-  updateTask(id, { ...parsed.data, owner_id: session.userId });
+  await updateTask(id, { ...parsed.data, owner_id: session.userId });
   revalidatePath("/tasks");
   redirect("/tasks");
 }
@@ -54,7 +54,7 @@ export async function updateTaskAction(
 export async function toggleTaskAction(id: number) {
   await requireSession();
   if (id) {
-    toggleTaskComplete(id);
+    await toggleTaskComplete(id);
     revalidatePath("/tasks");
   }
 }
@@ -63,7 +63,7 @@ export async function deleteTaskAction(formData: FormData) {
   await requireSession();
   const id = Number(formData.get("id"));
   if (id) {
-    deleteTask(id);
+    await deleteTask(id);
     revalidatePath("/tasks");
   }
   redirect("/tasks");

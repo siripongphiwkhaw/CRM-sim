@@ -31,10 +31,10 @@ export default async function DealDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const deal = getDeal(Number(id));
+  const deal = await getDeal(Number(id));
   if (!deal) notFound();
 
-  const tasks = listTasksByDeal(deal.id);
+  const tasks = await listTasksByDeal(deal.id);
 
   return (
     <div>

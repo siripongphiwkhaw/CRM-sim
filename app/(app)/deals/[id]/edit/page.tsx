@@ -14,11 +14,13 @@ export default async function EditDealPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const deal = getDeal(Number(id));
+  const deal = await getDeal(Number(id));
   if (!deal) notFound();
 
-  const contacts = listContacts();
-  const companies = listCompanies();
+  const [contacts, companies] = await Promise.all([
+    listContacts(),
+    listCompanies(),
+  ]);
 
   return (
     <div>

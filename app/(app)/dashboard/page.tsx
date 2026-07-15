@@ -36,14 +36,24 @@ function Stat({
   return href ? <Link href={href}>{inner}</Link> : inner;
 }
 
-export default function DashboardPage() {
-  const dealsByStage = getDealsByStage();
-  const openPipeline = getOpenPipelineValue();
-  const wonValue = getWonValue();
-  const upcoming = getUpcomingTaskCount();
-  const overdue = getOverdueTaskCount();
-  const recent = getRecentActivity(8);
-  const counts = getCounts();
+export default async function DashboardPage() {
+  const [
+    dealsByStage,
+    openPipeline,
+    wonValue,
+    upcoming,
+    overdue,
+    recent,
+    counts,
+  ] = await Promise.all([
+    getDealsByStage(),
+    getOpenPipelineValue(),
+    getWonValue(),
+    getUpcomingTaskCount(),
+    getOverdueTaskCount(),
+    getRecentActivity(8),
+    getCounts(),
+  ]);
 
   const totalDeals = dealsByStage.reduce((sum, s) => sum + s.count, 0);
   const maxCount = Math.max(1, ...dealsByStage.map((s) => s.count));

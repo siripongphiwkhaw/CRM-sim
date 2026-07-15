@@ -13,10 +13,10 @@ export default async function EditContactPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const contact = getContact(Number(id));
+  const contact = await getContact(Number(id));
   if (!contact) notFound();
 
-  const companies = listCompanies();
+  const companies = await listCompanies();
 
   return (
     <div>

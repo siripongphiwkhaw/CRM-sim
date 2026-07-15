@@ -33,7 +33,7 @@ export async function createDealAction(
   const parsed = parseDeal(formData);
   if (!parsed.success) return { error: firstError(parsed.error) };
 
-  const id = createDeal({ ...parsed.data, owner_id: session.userId });
+  const id = await createDeal({ ...parsed.data, owner_id: session.userId });
   revalidatePath("/deals");
   redirect(`/deals/${id}`);
 }
@@ -49,8 +49,8 @@ export async function updateDealAction(
   const parsed = parseDeal(formData);
   if (!parsed.success) return { error: firstError(parsed.error) };
 
-  const existing = getDeal(id);
-  updateDeal(id, { ...parsed.data, owner_id: existing?.owner_id ?? null });
+  const existing = await getDeal(id);
+  await updateDeal(id, { ...parsed.data, owner_id: existing?.owner_id ?? null });
   revalidatePath("/deals");
   revalidatePath(`/deals/${id}`);
   redirect(`/deals/${id}`);
@@ -61,7 +61,7 @@ export async function moveDealStageAction(id: number, stage: string) {
   const parsed = z.enum(DEAL_STAGES).safeParse(stage);
   if (!parsed.success) return;
 
-  moveDealStage(id, parsed.data);
+  await moveDealStage(id, parsed.data);
   revalidatePath("/deals");
   revalidatePath(`/deals/${id}`);
 }
@@ -70,7 +70,7 @@ export async function deleteDealAction(formData: FormData) {
   await requireSession();
   const id = Number(formData.get("id"));
   if (id) {
-    deleteDeal(id);
+    await deleteDeal(id);
     revalidatePath("/deals");
   }
   redirect("/deals");

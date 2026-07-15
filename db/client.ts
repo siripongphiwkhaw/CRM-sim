@@ -1,52 +1,102 @@
-import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
+import initSqlJs, { type Database, type SqlValue } from "sql.js";
+import { SCHEMA_SQL } from "./schema";
+import { seedInto } from "./seed";
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const DB_PATH = path.join(DATA_DIR, "crm.db");
-const SCHEMA_PATH = path.join(process.cwd(), "db", "schema.sql");
+// This CRM runs entirely on an in-memory SQLite database (SQLite compiled to
+// WebAssembly via sql.js — no native modules, so it deploys to serverless hosts
+// like Vercel with zero configuration). The database is created and seeded with
+// demo data on first use and memoized per server instance. Reads and writes work
+// normally, but because the store is in memory it resets whenever the instance
+// is recycled (i.e. this is a demo, not durable storage).
+
+export type QueryArgs = SqlValue[] | Record<string, SqlValue>;
 
 declare global {
   // eslint-disable-next-line no-var
-  var __crmDb: Database.Database | undefined;
+  var __crmDbPromise: Promise<Database> | undefined;
 }
 
-function createConnection(): Database.Database {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-  const database = new Database(DB_PATH);
-  database.pragma("journal_mode = WAL");
-  database.pragma("foreign_keys = ON");
-  // Wait for the write lock instead of failing immediately when another
-  // process (e.g. a parallel build worker) is mid-transaction.
-  database.pragma("busy_timeout = 5000");
-  database.exec(fs.readFileSync(SCHEMA_PATH, "utf-8"));
-  return database;
-}
-
-// Reuse a single connection across Next.js dev-mode hot reloads.
-const isNewConnection = !global.__crmDb;
-export const db = global.__crmDb ?? createConnection();
-
-if (process.env.NODE_ENV !== "production") {
-  global.__crmDb = db;
-}
-
-if (isNewConnection) {
-  // Seed on first run. The check-and-seed runs inside an IMMEDIATE transaction
-  // so that parallel processes sharing this DB file (e.g. Next.js build workers)
-  // can't both observe an empty table and collide on the users.email UNIQUE
-  // constraint. The first worker seeds; the rest wait for the lock, then see a
-  // populated table and skip.
-  const seedIfEmpty = db.transaction(() => {
-    const userCount = db.prepare("SELECT COUNT(*) as count FROM users").get() as {
-      count: number;
-    };
-    if (userCount.count === 0) {
-      // Lazy require avoids a circular import (seed.ts imports this module for `db`).
-      (require("./seed") as typeof import("./seed")).seed();
+function loadWasmBinary(): ArrayBuffer {
+  // Read the wasm as a plain file at runtime (never as a bundler module request,
+  // which Turbopack can't externalize). sql.js is in serverExternalPackages, so
+  // its package — including this .wasm — ships in the serverless function.
+  const dist = path.join("node_modules", "sql.js", "dist", "sql-wasm.wasm");
+  const candidates = [
+    path.join(process.cwd(), dist),
+    path.join(process.cwd(), ".next", "server", dist),
+  ];
+  for (const file of candidates) {
+    if (fs.existsSync(file)) {
+      const buf = fs.readFileSync(file);
+      return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
     }
-  });
-  seedIfEmpty.immediate();
+  }
+  throw new Error(`Could not locate sql.js WebAssembly binary (looked in: ${candidates.join(", ")})`);
+}
+
+async function createDatabase(): Promise<Database> {
+  const SQL = await initSqlJs({ wasmBinary: loadWasmBinary() });
+  const db = new SQL.Database();
+  db.exec(SCHEMA_SQL);
+  seedInto(db);
+  return db;
+}
+
+function getDb(): Promise<Database> {
+  return (globalThis.__crmDbPromise ??= createDatabase());
+}
+
+// sql.js binds named parameters by their full placeholder (e.g. "@name"). The
+// query modules pass bare-keyed objects for their `@name` placeholders, so add
+// the sigil here; positional (?) args pass straight through as an array.
+function bindParams(args: QueryArgs): SqlValue[] | Record<string, SqlValue> {
+  if (Array.isArray(args)) return args;
+  const bound: Record<string, SqlValue> = {};
+  for (const [key, value] of Object.entries(args)) bound["@" + key] = value;
+  return bound;
+}
+
+export async function all<T>(sql: string, args: QueryArgs = []): Promise<T[]> {
+  const db = await getDb();
+  const stmt = db.prepare(sql);
+  try {
+    stmt.bind(bindParams(args));
+    const rows: T[] = [];
+    while (stmt.step()) rows.push(stmt.getAsObject() as T);
+    return rows;
+  } finally {
+    stmt.free();
+  }
+}
+
+export async function get<T>(
+  sql: string,
+  args: QueryArgs = []
+): Promise<T | undefined> {
+  return (await all<T>(sql, args))[0];
+}
+
+/** Runs a write and returns the last inserted rowid (0 when not applicable). */
+export async function run(sql: string, args: QueryArgs = []): Promise<number> {
+  const db = await getDb();
+  db.run(sql, bindParams(args));
+  const res = db.exec("SELECT last_insert_rowid() AS id");
+  return Number(res[0]?.values[0]?.[0] ?? 0);
+}
+
+/** Runs several writes atomically (stands in for the schema's ON DELETE rules). */
+export async function batch(
+  statements: { sql: string; args?: QueryArgs }[]
+): Promise<void> {
+  const db = await getDb();
+  db.run("BEGIN");
+  try {
+    for (const s of statements) db.run(s.sql, bindParams(s.args ?? []));
+    db.run("COMMIT");
+  } catch (err) {
+    db.run("ROLLBACK");
+    throw err;
+  }
 }

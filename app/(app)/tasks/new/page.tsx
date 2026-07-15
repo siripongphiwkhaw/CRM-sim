@@ -12,8 +12,10 @@ export default async function NewTaskPage({
   searchParams: Promise<{ contact_id?: string; deal_id?: string }>;
 }) {
   const { contact_id, deal_id } = await searchParams;
-  const contacts = listContacts();
-  const deals = listDeals();
+  const [contacts, deals] = await Promise.all([
+    listContacts(),
+    listDeals(),
+  ]);
 
   return (
     <div>

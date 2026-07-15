@@ -15,11 +15,13 @@ export default async function EditTaskPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const task = getTask(Number(id));
+  const task = await getTask(Number(id));
   if (!task) notFound();
 
-  const contacts = listContacts();
-  const deals = listDeals();
+  const [contacts, deals] = await Promise.all([
+    listContacts(),
+    listDeals(),
+  ]);
 
   return (
     <div>

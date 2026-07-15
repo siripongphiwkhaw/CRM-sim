@@ -6,7 +6,7 @@ import { createContactAction } from "../actions";
 export const dynamic = "force-dynamic";
 
 export default async function NewContactPage() {
-  const companies = listCompanies();
+  const companies = await listCompanies();
 
   return (
     <div>

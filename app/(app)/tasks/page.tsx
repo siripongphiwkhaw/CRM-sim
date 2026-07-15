@@ -45,7 +45,7 @@ export default async function TasksPage({
   const filter: FilterKey = FILTERS.some((f) => f.key === rawFilter)
     ? (rawFilter as FilterKey)
     : "open";
-  const tasks = queryTasks(filter);
+  const tasks = await queryTasks(filter);
 
   return (
     <div>

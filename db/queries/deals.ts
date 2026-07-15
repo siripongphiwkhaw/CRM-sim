@@ -1,4 +1,4 @@
-import { db } from "../client";
+import { get, all, run, batch } from "../client";
 import type { DealStage } from "@/lib/constants";
 
 export interface Deal {
@@ -30,57 +30,42 @@ export interface DealInput {
   expected_close_date?: string | null;
 }
 
-export function listDeals(): DealWithRelations[] {
-  return db
-    .prepare(
-      `SELECT d.*,
-         (ct.first_name || ' ' || ct.last_name) as contact_name,
-         co.name as company_name,
-         u.name as owner_name
-       FROM deals d
-       LEFT JOIN contacts ct ON ct.id = d.contact_id
-       LEFT JOIN companies co ON co.id = d.company_id
-       LEFT JOIN users u ON u.id = d.owner_id
-       ORDER BY d.created_at DESC`
-    )
-    .all() as DealWithRelations[];
+const WITH_RELATIONS = `SELECT d.*,
+    (ct.first_name || ' ' || ct.last_name) as contact_name,
+    co.name as company_name,
+    u.name as owner_name
+  FROM deals d
+  LEFT JOIN contacts ct ON ct.id = d.contact_id
+  LEFT JOIN companies co ON co.id = d.company_id
+  LEFT JOIN users u ON u.id = d.owner_id`;
+
+export function listDeals(): Promise<DealWithRelations[]> {
+  return all<DealWithRelations>(`${WITH_RELATIONS} ORDER BY d.created_at DESC`);
 }
 
-export function getDeal(id: number): DealWithRelations | undefined {
-  return db
-    .prepare(
-      `SELECT d.*,
-         (ct.first_name || ' ' || ct.last_name) as contact_name,
-         co.name as company_name,
-         u.name as owner_name
-       FROM deals d
-       LEFT JOIN contacts ct ON ct.id = d.contact_id
-       LEFT JOIN companies co ON co.id = d.company_id
-       LEFT JOIN users u ON u.id = d.owner_id
-       WHERE d.id = ?`
-    )
-    .get(id) as DealWithRelations | undefined;
+export function getDeal(id: number): Promise<DealWithRelations | undefined> {
+  return get<DealWithRelations>(`${WITH_RELATIONS} WHERE d.id = ?`, [id]);
 }
 
-export function listDealsByContact(contactId: number): Deal[] {
-  return db
-    .prepare("SELECT * FROM deals WHERE contact_id = ? ORDER BY created_at DESC")
-    .all(contactId) as Deal[];
+export function listDealsByContact(contactId: number): Promise<Deal[]> {
+  return all<Deal>(
+    "SELECT * FROM deals WHERE contact_id = ? ORDER BY created_at DESC",
+    [contactId]
+  );
 }
 
-export function listDealsByCompany(companyId: number): Deal[] {
-  return db
-    .prepare("SELECT * FROM deals WHERE company_id = ? ORDER BY created_at DESC")
-    .all(companyId) as Deal[];
+export function listDealsByCompany(companyId: number): Promise<Deal[]> {
+  return all<Deal>(
+    "SELECT * FROM deals WHERE company_id = ? ORDER BY created_at DESC",
+    [companyId]
+  );
 }
 
-export function createDeal(input: DealInput): number {
-  const result = db
-    .prepare(
-      `INSERT INTO deals (title, value, stage, contact_id, company_id, owner_id, expected_close_date)
-       VALUES (@title, @value, @stage, @contact_id, @company_id, @owner_id, @expected_close_date)`
-    )
-    .run({
+export async function createDeal(input: DealInput): Promise<number> {
+  const rowid = await run(
+    `INSERT INTO deals (title, value, stage, contact_id, company_id, owner_id, expected_close_date)
+     VALUES (@title, @value, @stage, @contact_id, @company_id, @owner_id, @expected_close_date)`,
+    {
       title: input.title,
       value: input.value,
       stage: input.stage,
@@ -88,34 +73,44 @@ export function createDeal(input: DealInput): number {
       company_id: input.company_id ?? null,
       owner_id: input.owner_id ?? null,
       expected_close_date: input.expected_close_date ?? null,
-    });
-  return Number(result.lastInsertRowid);
+    }
+  );
+  return Number(rowid);
 }
 
-export function updateDeal(id: number, input: DealInput): void {
-  db.prepare(
+export async function updateDeal(id: number, input: DealInput): Promise<void> {
+  await run(
     `UPDATE deals SET title = @title, value = @value, stage = @stage,
        contact_id = @contact_id, company_id = @company_id, owner_id = @owner_id,
        expected_close_date = @expected_close_date, updated_at = datetime('now')
-     WHERE id = @id`
-  ).run({
-    id,
-    title: input.title,
-    value: input.value,
-    stage: input.stage,
-    contact_id: input.contact_id ?? null,
-    company_id: input.company_id ?? null,
-    owner_id: input.owner_id ?? null,
-    expected_close_date: input.expected_close_date ?? null,
-  });
+     WHERE id = @id`,
+    {
+      id,
+      title: input.title,
+      value: input.value,
+      stage: input.stage,
+      contact_id: input.contact_id ?? null,
+      company_id: input.company_id ?? null,
+      owner_id: input.owner_id ?? null,
+      expected_close_date: input.expected_close_date ?? null,
+    }
+  );
 }
 
-export function moveDealStage(id: number, stage: DealStage): void {
-  db.prepare(
-    `UPDATE deals SET stage = ?, updated_at = datetime('now') WHERE id = ?`
-  ).run(stage, id);
+export async function moveDealStage(
+  id: number,
+  stage: DealStage
+): Promise<void> {
+  await run(
+    "UPDATE deals SET stage = ?, updated_at = datetime('now') WHERE id = ?",
+    [stage, id]
+  );
 }
 
-export function deleteDeal(id: number): void {
-  db.prepare("DELETE FROM deals WHERE id = ?").run(id);
+/** Mirrors tasks ON DELETE CASCADE, atomically. */
+export async function deleteDeal(id: number): Promise<void> {
+  await batch([
+    { sql: "DELETE FROM tasks WHERE deal_id = ?", args: [id] },
+    { sql: "DELETE FROM deals WHERE id = ?", args: [id] },
+  ]);
 }

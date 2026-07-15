@@ -32,11 +32,13 @@ export default async function ContactDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const contact = getContact(Number(id));
+  const contact = await getContact(Number(id));
   if (!contact) notFound();
 
-  const deals = listDealsByContact(contact.id);
-  const tasks = listTasksByContact(contact.id);
+  const [deals, tasks] = await Promise.all([
+    listDealsByContact(contact.id),
+    listTasksByContact(contact.id),
+  ]);
 
   return (
     <div>
