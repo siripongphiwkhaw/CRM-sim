@@ -25,12 +25,12 @@ function Checkbox({
   defaultChecked?: boolean;
 }) {
   return (
-    <label className="flex items-center gap-2 text-sm text-slate-700">
+    <label className="flex items-center gap-2 text-sm text-stone-700">
       <input
         type="checkbox"
         name={name}
         defaultChecked={defaultChecked}
-        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+        className="h-4 w-4 rounded border-stone-300 text-brand-600 focus:ring-brand-600"
       />
       {label}
     </label>
@@ -98,8 +98,8 @@ export function CustomerForm({
         </Field>
       </div>
 
-      <fieldset className="rounded-md border border-slate-200 p-4">
-        <legend className="px-1 text-sm font-medium text-slate-700">Consent (PDPA)</legend>
+      <fieldset className="rounded-md border border-stone-200 p-4">
+        <legend className="px-1 text-sm font-medium text-stone-700">Consent (PDPA)</legend>
         <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:gap-6">
           <Checkbox name="consent_pdpa" label="PDPA consent" defaultChecked={customer ? !!customer.consent_pdpa : true} />
           <Checkbox name="consent_marketing" label="Marketing" defaultChecked={customer ? !!customer.consent_marketing : false} />
@@ -111,7 +111,7 @@ export function CustomerForm({
         <SubmitButton>{customer ? "Save changes" : "Create member"}</SubmitButton>
         <Link
           href={customer ? `/customers/${customer.id}` : "/customers"}
-          className="text-sm text-slate-500 hover:text-slate-700"
+          className="text-sm text-stone-500 hover:text-stone-700"
         >
           Cancel
         </Link>

@@ -19,20 +19,20 @@ export default async function DataCloudPage() {
 
       <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
         <Card>
-          <p className="text-sm text-slate-500">Connected sources</p>
-          <p className="mt-1 text-2xl font-semibold text-slate-900">
+          <p className="text-sm text-stone-500">Connected sources</p>
+          <p className="mt-1 text-2xl font-semibold text-stone-900">
             {connected}/{sources.length}
           </p>
         </Card>
         <Card>
-          <p className="text-sm text-slate-500">Records linked</p>
-          <p className="mt-1 text-2xl font-semibold text-slate-900">
+          <p className="text-sm text-stone-500">Records linked</p>
+          <p className="mt-1 text-2xl font-semibold text-stone-900">
             {totalRecords.toLocaleString("en-US")}
           </p>
         </Card>
         <Card>
-          <p className="text-sm text-slate-500">Integration modes</p>
-          <p className="mt-1 text-2xl font-semibold text-slate-900">Real-time + Batch</p>
+          <p className="text-sm text-stone-500">Integration modes</p>
+          <p className="mt-1 text-2xl font-semibold text-stone-900">Real-time + Batch</p>
         </Card>
       </div>
 
@@ -41,18 +41,18 @@ export default async function DataCloudPage() {
           <Card key={s.id}>
             <div className="mb-2 flex items-start justify-between gap-3">
               <div>
-                <h3 className="font-medium text-slate-900">{s.name}</h3>
-                <p className="text-xs text-slate-400">
+                <h3 className="font-medium text-stone-900">{s.name}</h3>
+                <p className="text-xs text-stone-400">
                   {s.source_type} · {s.direction} · {s.mode}
                 </p>
               </div>
               <SourceStatusBadge status={s.status} />
             </div>
             {s.description && (
-              <p className="mb-3 text-sm text-slate-600">{s.description}</p>
+              <p className="mb-3 text-sm text-stone-600">{s.description}</p>
             )}
-            <div className="flex items-center justify-between border-t border-slate-100 pt-3">
-              <div className="text-xs text-slate-500">
+            <div className="flex items-center justify-between border-t border-stone-100 pt-3">
+              <div className="text-xs text-stone-500">
                 {s.records_synced.toLocaleString("en-US")} records · last synced{" "}
                 {formatDate(s.last_synced_at)}
               </div>

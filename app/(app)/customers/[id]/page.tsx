@@ -19,9 +19,9 @@ export const dynamic = "force-dynamic";
 
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex justify-between gap-4 border-b border-slate-100 py-2 last:border-0">
-      <dt className="text-sm text-slate-500">{label}</dt>
-      <dd className="text-right text-sm text-slate-800">{value || "—"}</dd>
+    <div className="flex justify-between gap-4 border-b border-stone-100 py-2 last:border-0">
+      <dt className="text-sm text-stone-500">{label}</dt>
+      <dd className="text-right text-sm text-stone-800">{value || "—"}</dd>
     </div>
   );
 }
@@ -61,7 +61,7 @@ export default async function CustomerDetailPage({
           <Card>
             <div className="mb-4 flex items-center justify-between">
               <TierBadge tier={customer.tier} />
-              <span className="text-sm text-slate-500">
+              <span className="text-sm text-stone-500">
                 {customer.points.toLocaleString("en-US")} pts
               </span>
             </div>
@@ -77,7 +77,7 @@ export default async function CustomerDetailPage({
           </Card>
 
           <Card>
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-stone-400">
               Consent (PDPA)
             </h2>
             <div className="flex flex-wrap gap-2">
@@ -90,7 +90,7 @@ export default async function CustomerDetailPage({
 
         <div className="lg:col-span-2">
           <Card>
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-stone-400">
               Interaction history
             </h2>
             <div className="mb-4">
@@ -99,19 +99,19 @@ export default async function CustomerDetailPage({
             {interactions.length === 0 ? (
               <EmptyState message="No interactions yet." />
             ) : (
-              <ul className="divide-y divide-slate-100">
+              <ul className="divide-y divide-stone-100">
                 {interactions.map((it) => (
                   <li key={it.id} className="flex items-center gap-3 py-2 text-sm">
                     <InteractionBadge type={it.type} />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-slate-800">{it.description ?? "—"}</p>
-                      <p className="text-xs text-slate-400">
+                      <p className="truncate text-stone-800">{it.description ?? "—"}</p>
+                      <p className="text-xs text-stone-400">
                         {it.channel ?? "—"} · {formatDate(it.occurred_at)}
                         {it.points ? ` · +${it.points} pts` : ""}
                       </p>
                     </div>
                     {it.amount > 0 && (
-                      <span className="shrink-0 text-slate-600">
+                      <span className="shrink-0 text-stone-600">
                         {formatCurrency(it.amount)}
                       </span>
                     )}

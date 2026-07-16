@@ -18,8 +18,8 @@ export function PageHeader({
   return (
     <div className="mb-6 flex items-start justify-between gap-4">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
+        <h1 className="font-display text-3xl text-stone-900">{title}</h1>
+        {subtitle && <p className="mt-1 text-sm text-stone-500">{subtitle}</p>}
       </div>
       {action}
     </div>
@@ -37,12 +37,12 @@ export function LinkButton({
 }) {
   const styles =
     variant === "primary"
-      ? "bg-indigo-600 text-white hover:bg-indigo-700"
-      : "border border-slate-300 text-slate-700 hover:bg-slate-100";
+      ? "bg-brand-600 text-white shadow-sm hover:bg-brand-700"
+      : "border border-stone-300 bg-white text-stone-700 hover:border-brand-600 hover:text-brand-700";
   return (
     <Link
       href={href}
-      className={`inline-flex items-center rounded-md px-4 py-2 text-sm font-medium ${styles}`}
+      className={`inline-flex items-center rounded-full px-5 py-2 text-sm font-medium transition-colors ${styles}`}
     >
       {children}
     </Link>
@@ -60,10 +60,10 @@ function Badge({ className, children }: { className: string; children: React.Rea
 }
 
 const TIER_STYLES: Record<Tier, string> = {
-  Bronze: "bg-amber-100 text-amber-800",
-  Silver: "bg-slate-200 text-slate-700",
-  Gold: "bg-yellow-100 text-yellow-800",
-  Platinum: "bg-violet-100 text-violet-700",
+  Bronze: "bg-cream-200 text-amber-900",
+  Silver: "bg-stone-200 text-stone-700",
+  Gold: "bg-gold-400/30 text-gold-600",
+  Platinum: "bg-stone-800 text-cream-100",
 };
 
 export function TierBadge({ tier }: { tier: Tier }) {
@@ -73,7 +73,7 @@ export function TierBadge({ tier }: { tier: Tier }) {
 const SOURCE_STATUS_STYLES: Record<SourceStatus, string> = {
   connected: "bg-emerald-100 text-emerald-700",
   syncing: "bg-amber-100 text-amber-700",
-  error: "bg-rose-100 text-rose-700",
+  error: "bg-brand-100 text-brand-700",
 };
 
 export function SourceStatusBadge({ status }: { status: SourceStatus }) {
@@ -81,10 +81,10 @@ export function SourceStatusBadge({ status }: { status: SourceStatus }) {
 }
 
 const INTERACTION_STYLES: Record<InteractionType, string> = {
-  register: "bg-blue-100 text-blue-700",
-  enrichment: "bg-indigo-100 text-indigo-700",
+  register: "bg-sky-100 text-sky-700",
+  enrichment: "bg-cream-200 text-amber-800",
   purchase: "bg-emerald-100 text-emerald-700",
-  engagement: "bg-violet-100 text-violet-700",
+  engagement: "bg-brand-100 text-brand-700",
 };
 
 export function InteractionBadge({ type }: { type: InteractionType }) {
@@ -101,7 +101,7 @@ export function ConsentPill({ granted, label }: { granted: boolean; label: strin
       className={
         granted
           ? "bg-emerald-100 text-emerald-700"
-          : "bg-slate-100 text-slate-500"
+          : "bg-stone-100 text-stone-500"
       }
     >
       {granted ? "✓" : "✕"} {label}
@@ -118,7 +118,7 @@ export function Card({
 }) {
   return (
     <div
-      className={`rounded-lg border border-slate-200 bg-white p-5 shadow-sm ${className}`}
+      className={`rounded-2xl border border-stone-200/80 bg-white p-5 shadow-[0_1px_3px_rgba(41,37,36,0.06)] ${className}`}
     >
       {children}
     </div>
@@ -127,7 +127,7 @@ export function Card({
 
 export function EmptyState({ message }: { message: string }) {
   return (
-    <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
+    <div className="rounded-2xl border border-dashed border-stone-300 bg-white p-8 text-center text-sm text-stone-500">
       {message}
     </div>
   );

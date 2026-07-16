@@ -22,8 +22,8 @@ function Stat({
 }) {
   return (
     <Card>
-      <p className="text-sm text-slate-500">{label}</p>
-      <p className={`mt-1 text-2xl font-semibold ${accent ?? "text-slate-900"}`}>
+      <p className="text-sm text-stone-500">{label}</p>
+      <p className={`mt-1 text-2xl font-semibold ${accent ?? "text-stone-900"}`}>
         {value}
       </p>
     </Card>
@@ -40,17 +40,17 @@ function BarList({
   const max = Math.max(1, ...rows.map((r) => r.count));
   return (
     <Card>
-      <h2 className="mb-4 text-lg font-medium text-slate-900">{title}</h2>
+      <h2 className="mb-4 text-lg font-medium text-stone-900">{title}</h2>
       <div className="space-y-3">
         {rows.map((r) => (
           <div key={r.label}>
             <div className="mb-1 flex items-center justify-between text-sm">
-              <span className="font-medium text-slate-700">{r.label}</span>
-              <span className="text-slate-500">{r.count}</span>
+              <span className="font-medium text-stone-700">{r.label}</span>
+              <span className="text-stone-500">{r.count}</span>
             </div>
-            <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+            <div className="h-2 overflow-hidden rounded-full bg-stone-100">
               <div
-                className="h-full rounded-full bg-indigo-500"
+                className="h-full rounded-full bg-brand-600"
                 style={{ width: `${(r.count / max) * 100}%` }}
               />
             </div>
@@ -79,19 +79,20 @@ export default async function DashboardPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-semibold text-slate-900">
-        Analytics Dashboard
-      </h1>
-      <p className="mb-6 text-sm text-slate-500">
-        Loyalty program overview across {overview.brands} brands
-      </p>
+      <div className="mb-6 overflow-hidden rounded-2xl bg-gradient-to-r from-brand-600 via-brand-500 to-brand-700 px-8 py-7 shadow-sm">
+        <h1 className="font-display text-3xl text-white">Analytics Dashboard</h1>
+        <p className="mt-1 text-sm text-brand-100">
+          สุขภาพดี เริ่มต้นที่นี่ — loyalty overview across {overview.brands} brands ·{" "}
+          {overview.total_customers} members
+        </p>
+      </div>
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Total members" value={String(overview.total_customers)} />
         <Stat
           label="Active (90d)"
           value={String(overview.active_customers)}
-          accent="text-indigo-600"
+          accent="text-brand-600"
         />
         <Stat
           label="Avg. CLV"
@@ -123,17 +124,17 @@ export default async function DashboardPage() {
 
       <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card>
-          <h2 className="mb-4 text-lg font-medium text-slate-900">Members by tier</h2>
+          <h2 className="mb-4 text-lg font-medium text-stone-900">Members by tier</h2>
           <div className="space-y-3">
             {tiers.map((t) => (
               <div key={t.tier}>
                 <div className="mb-1 flex items-center justify-between text-sm">
                   <TierBadge tier={t.tier} />
-                  <span className="text-slate-500">{t.count}</span>
+                  <span className="text-stone-500">{t.count}</span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                <div className="h-2 overflow-hidden rounded-full bg-stone-100">
                   <div
-                    className="h-full rounded-full bg-indigo-500"
+                    className="h-full rounded-full bg-brand-600"
                     style={{ width: `${(t.count / maxTier) * 100}%` }}
                   />
                 </div>
@@ -147,26 +148,26 @@ export default async function DashboardPage() {
 
       <Card>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-medium text-slate-900">Recent activity</h2>
-          <Link href="/customers" className="text-sm text-indigo-600 hover:underline">
+          <h2 className="text-lg font-medium text-stone-900">Recent activity</h2>
+          <Link href="/customers" className="text-sm text-brand-700 hover:underline">
             View members →
           </Link>
         </div>
         {recent.length === 0 ? (
-          <p className="text-sm text-slate-500">No activity yet.</p>
+          <p className="text-sm text-stone-500">No activity yet.</p>
         ) : (
-          <ul className="divide-y divide-slate-100">
+          <ul className="divide-y divide-stone-100">
             {recent.map((a) => (
               <li key={a.id} className="flex items-center gap-3 py-2 text-sm">
                 <InteractionBadge type={a.type} />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-slate-800">{a.description}</p>
-                  <p className="text-xs text-slate-400">
+                  <p className="truncate text-stone-800">{a.description}</p>
+                  <p className="text-xs text-stone-400">
                     {a.customer_name} · {a.member_code} · {formatDate(a.occurred_at)}
                   </p>
                 </div>
                 {a.amount > 0 && (
-                  <span className="shrink-0 text-sm text-slate-600">
+                  <span className="shrink-0 text-sm text-stone-600">
                     {formatCurrency(a.amount)}
                   </span>
                 )}

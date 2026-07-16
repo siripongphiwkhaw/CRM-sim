@@ -7,8 +7,8 @@ export const dynamic = "force-dynamic";
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <Card>
-      <p className="text-sm text-slate-500">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-slate-900">{value}</p>
+      <p className="text-sm text-stone-500">{label}</p>
+      <p className="mt-1 text-2xl font-semibold text-stone-900">{value}</p>
     </Card>
   );
 }
@@ -46,16 +46,16 @@ export default async function ChannelPage({
           name="q"
           defaultValue={q ?? ""}
           placeholder="Search dealer or product…"
-          className="w-full max-w-sm rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="w-full max-w-sm rounded-md border border-stone-300 px-3 py-2 text-sm focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
         />
       </form>
 
       {records.length === 0 ? (
         <EmptyState message="No channel records found." />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+        <div className="overflow-x-auto rounded-lg border border-stone-200 bg-white shadow-sm">
+          <table className="min-w-full divide-y divide-stone-200 text-sm">
+            <thead className="bg-stone-50 text-left text-xs font-medium uppercase tracking-wide text-stone-500">
               <tr>
                 <th className="px-4 py-3">Dealer</th>
                 <th className="px-4 py-3">Product</th>
@@ -66,19 +66,19 @@ export default async function ChannelPage({
                 <th className="px-4 py-3">Recorded</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-stone-100">
               {records.map((r) => (
-                <tr key={r.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-3 text-slate-800">{r.dealer_name}</td>
-                  <td className="px-4 py-3 text-slate-600">
+                <tr key={r.id} className="hover:bg-stone-50">
+                  <td className="px-4 py-3 text-stone-800">{r.dealer_name}</td>
+                  <td className="px-4 py-3 text-stone-600">
                     {r.product_name ?? "—"}
-                    {r.brand && <span className="ml-1 text-xs text-slate-400">({r.brand})</span>}
+                    {r.brand && <span className="ml-1 text-xs text-stone-400">({r.brand})</span>}
                   </td>
-                  <td className="px-4 py-3 text-slate-600">{r.channel ?? "—"}</td>
-                  <td className="px-4 py-3 text-right text-slate-600">{num(r.sell_out_qty)}</td>
-                  <td className="px-4 py-3 text-right text-slate-600">{num(r.stock_on_hand)}</td>
-                  <td className="px-4 py-3 text-right text-slate-600">{num(r.forecast_qty)}</td>
-                  <td className="px-4 py-3 text-slate-500">{formatDate(r.recorded_at)}</td>
+                  <td className="px-4 py-3 text-stone-600">{r.channel ?? "—"}</td>
+                  <td className="px-4 py-3 text-right text-stone-600">{num(r.sell_out_qty)}</td>
+                  <td className="px-4 py-3 text-right text-stone-600">{num(r.stock_on_hand)}</td>
+                  <td className="px-4 py-3 text-right text-stone-600">{num(r.forecast_qty)}</td>
+                  <td className="px-4 py-3 text-stone-500">{formatDate(r.recorded_at)}</td>
                 </tr>
               ))}
             </tbody>

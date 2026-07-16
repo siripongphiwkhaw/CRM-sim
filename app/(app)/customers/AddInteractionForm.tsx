@@ -22,7 +22,7 @@ export function AddInteractionForm({ customerId }: { customerId: number }) {
   );
 
   return (
-    <form action={formAction} className="space-y-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+    <form action={formAction} className="space-y-3 rounded-md border border-stone-200 bg-stone-50 p-3">
       <input type="hidden" name="customer_id" value={customerId} />
       <FormError message={state.error} />
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">

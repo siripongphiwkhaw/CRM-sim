@@ -1,12 +1,16 @@
 import Link from "next/link";
 import { listProducts } from "@/db/queries/products";
 import { PageHeader, LinkButton, EmptyState } from "@/app/components/ui";
+import { ProductImage } from "@/app/components/ProductImage";
 import { DeleteButton } from "@/app/components/form";
 import { formatCurrency } from "@/lib/format";
 import { BRANDS } from "@/lib/constants";
 import { deleteProductAction } from "./actions";
 
 export const dynamic = "force-dynamic";
+
+const filterClass =
+  "rounded-full border border-stone-300 bg-white px-4 py-2 text-sm focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600";
 
 export default async function ProductsPage({
   searchParams,
@@ -20,23 +24,19 @@ export default async function ProductsPage({
     <div>
       <PageHeader
         title="Products (S&I)"
-        subtitle={`${products.length} products`}
+        subtitle={`${products.length} products in the master database`}
         action={<LinkButton href="/products/new">New product</LinkButton>}
       />
 
-      <form method="get" className="mb-4 flex flex-wrap gap-2">
+      <form method="get" className="mb-6 flex flex-wrap gap-2">
         <input
           type="search"
           name="q"
           defaultValue={q ?? ""}
           placeholder="Search name or SKU…"
-          className="w-full max-w-xs rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className={`w-full max-w-xs ${filterClass}`}
         />
-        <select
-          name="brand"
-          defaultValue={brand ?? ""}
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-        >
+        <select name="brand" defaultValue={brand ?? ""} className={filterClass}>
           <option value="">All brands</option>
           {BRANDS.map((b) => (
             <option key={b} value={b}>{b}</option>
@@ -44,7 +44,7 @@ export default async function ProductsPage({
         </select>
         <button
           type="submit"
-          className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+          className="rounded-full border border-stone-300 bg-white px-5 py-2 text-sm font-medium text-stone-700 transition-colors hover:border-brand-600 hover:text-brand-700"
         >
           Filter
         </button>
@@ -53,37 +53,46 @@ export default async function ProductsPage({
       {products.length === 0 ? (
         <EmptyState message="No products match your filters." />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-4 py-3">SKU</th>
-                <th className="px-4 py-3">Name</th>
-                <th className="px-4 py-3">Brand</th>
-                <th className="px-4 py-3">Category</th>
-                <th className="px-4 py-3 text-right">Unit price</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {products.map((p) => (
-                <tr key={p.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-3 font-mono text-xs text-slate-500">{p.sku}</td>
-                  <td className="px-4 py-3">
-                    <Link href={`/products/${p.id}/edit`} className="font-medium text-indigo-600 hover:underline">
-                      {p.name}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3 text-slate-600">{p.brand}</td>
-                  <td className="px-4 py-3 text-slate-600">{p.category || "—"}</td>
-                  <td className="px-4 py-3 text-right text-slate-600">{formatCurrency(p.unit_price)}</td>
-                  <td className="px-4 py-3 text-right">
-                    <DeleteButton action={deleteProductAction} id={p.id} label="✕" confirmMessage={`Delete ${p.name}?`} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+          {products.map((p) => (
+            <div
+              key={p.id}
+              className="group flex flex-col overflow-hidden rounded-2xl border border-stone-200/80 bg-white shadow-[0_1px_3px_rgba(41,37,36,0.06)] transition-shadow hover:shadow-md"
+            >
+              <Link href={`/products/${p.id}/edit`} className="block p-4 pb-0">
+                <ProductImage
+                  brand={p.brand}
+                  category={p.category}
+                  className="mx-auto w-full max-w-[160px]"
+                />
+              </Link>
+              <div className="flex flex-1 flex-col p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-stone-400">
+                  {p.brand}
+                </p>
+                <Link
+                  href={`/products/${p.id}/edit`}
+                  className="mt-0.5 line-clamp-2 text-sm font-medium text-stone-800 group-hover:text-brand-700"
+                >
+                  {p.name}
+                </Link>
+                <p className="mt-1 text-xs text-stone-400">
+                  {p.category || "Uncategorized"} · <span className="font-mono">{p.sku}</span>
+                </p>
+                <div className="mt-auto flex items-center justify-between pt-3">
+                  <span className="text-lg font-semibold text-brand-600">
+                    {formatCurrency(p.unit_price)}
+                  </span>
+                  <DeleteButton
+                    action={deleteProductAction}
+                    id={p.id}
+                    label="✕"
+                    confirmMessage={`Delete ${p.name}?`}
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

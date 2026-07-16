@@ -25,16 +25,16 @@ export default async function SqlPage() {
         </div>
         <div className="lg:col-span-1">
           <Card>
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-stone-400">
               Schema
             </h2>
             <div className="space-y-4">
               {schema.map((t) => (
                 <div key={t.table}>
-                  <p className="font-mono text-sm font-medium text-slate-800">{t.table}</p>
+                  <p className="font-mono text-sm font-medium text-stone-800">{t.table}</p>
                   <ul className="mt-1 space-y-0.5">
                     {t.columns.map((c) => (
-                      <li key={c} className="font-mono text-xs text-slate-500">{c}</li>
+                      <li key={c} className="font-mono text-xs text-stone-500">{c}</li>
                     ))}
                   </ul>
                 </div>
