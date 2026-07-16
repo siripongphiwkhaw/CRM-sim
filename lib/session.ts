@@ -1,10 +1,12 @@
 import { getIronSession, type IronSession, type SessionOptions } from "iron-session";
 import { cookies } from "next/headers";
+import type { Role } from "./constants";
 
 export interface SessionData {
   userId?: number;
   email?: string;
   name?: string;
+  role?: Role;
 }
 
 // Falls back to a built-in key so the app runs with zero configuration (this is
@@ -31,4 +33,18 @@ export async function requireSession(): Promise<IronSession<SessionData>> {
     throw new Error("Not authenticated");
   }
   return session;
+}
+
+/** Throws unless the current session belongs to an admin. */
+export async function requireAdmin(): Promise<IronSession<SessionData>> {
+  const session = await requireSession();
+  if (session.role !== "admin") {
+    throw new Error("Forbidden: admin only");
+  }
+  return session;
+}
+
+export async function isAdmin(): Promise<boolean> {
+  const session = await getSession();
+  return session.role === "admin";
 }

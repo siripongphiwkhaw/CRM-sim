@@ -11,13 +11,20 @@ export async function proxy(request: NextRequest) {
     sessionOptions
   );
 
-  const isLoginPage = request.nextUrl.pathname === "/login";
+  const { pathname } = request.nextUrl;
+  const isLoginPage = pathname === "/login";
 
   if (!session.userId && !isLoginPage) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
   if (session.userId && isLoginPage) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  // Admin-only areas: SQL console and admin settings.
+  const adminOnly = pathname.startsWith("/sql") || pathname.startsWith("/admin");
+  if (adminOnly && session.role !== "admin") {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 

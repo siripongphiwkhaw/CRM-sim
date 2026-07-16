@@ -1,148 +1,180 @@
 import Link from "next/link";
 import {
-  getDealsByStage,
-  getOpenPipelineValue,
-  getWonValue,
-  getUpcomingTaskCount,
-  getOverdueTaskCount,
-  getRecentActivity,
-  getCounts,
-} from "@/db/queries/dashboard";
-import { Card, TaskTypeBadge } from "@/app/components/ui";
+  getOverview,
+  getTierDistribution,
+  getBrandDistribution,
+  getDataLevelDistribution,
+} from "@/db/queries/analytics";
+import { listRecentInteractions } from "@/db/queries/interactions";
+import { Card, InteractionBadge, TierBadge } from "@/app/components/ui";
 import { formatCurrency, formatDate } from "@/lib/format";
-import type { TaskType } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
 function Stat({
   label,
   value,
-  href,
   accent,
 }: {
   label: string;
   value: string;
-  href?: string;
   accent?: string;
 }) {
-  const inner = (
-    <Card className={href ? "transition-shadow hover:shadow-md" : ""}>
+  return (
+    <Card>
       <p className="text-sm text-slate-500">{label}</p>
       <p className={`mt-1 text-2xl font-semibold ${accent ?? "text-slate-900"}`}>
         {value}
       </p>
     </Card>
   );
-  return href ? <Link href={href}>{inner}</Link> : inner;
+}
+
+function BarList({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: { label: string; count: number }[];
+}) {
+  const max = Math.max(1, ...rows.map((r) => r.count));
+  return (
+    <Card>
+      <h2 className="mb-4 text-lg font-medium text-slate-900">{title}</h2>
+      <div className="space-y-3">
+        {rows.map((r) => (
+          <div key={r.label}>
+            <div className="mb-1 flex items-center justify-between text-sm">
+              <span className="font-medium text-slate-700">{r.label}</span>
+              <span className="text-slate-500">{r.count}</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full bg-indigo-500"
+                style={{ width: `${(r.count / max) * 100}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
 }
 
 export default async function DashboardPage() {
-  const [
-    dealsByStage,
-    openPipeline,
-    wonValue,
-    upcoming,
-    overdue,
-    recent,
-    counts,
-  ] = await Promise.all([
-    getDealsByStage(),
-    getOpenPipelineValue(),
-    getWonValue(),
-    getUpcomingTaskCount(),
-    getOverdueTaskCount(),
-    getRecentActivity(8),
-    getCounts(),
+  const [overview, tiers, brands, levels, recent] = await Promise.all([
+    getOverview(),
+    getTierDistribution(),
+    getBrandDistribution(),
+    getDataLevelDistribution(),
+    listRecentInteractions(8),
   ]);
 
-  const totalDeals = dealsByStage.reduce((sum, s) => sum + s.count, 0);
-  const maxCount = Math.max(1, ...dealsByStage.map((s) => s.count));
+  const consentPct =
+    overview.total_customers > 0
+      ? Math.round((overview.consent_pdpa / overview.total_customers) * 100)
+      : 0;
+
+  const maxTier = Math.max(1, ...tiers.map((x) => x.count));
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-semibold text-slate-900">Dashboard</h1>
+      <h1 className="mb-1 text-2xl font-semibold text-slate-900">
+        Analytics Dashboard
+      </h1>
+      <p className="mb-6 text-sm text-slate-500">
+        Loyalty program overview across {overview.brands} brands
+      </p>
 
-      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat label="Total members" value={String(overview.total_customers)} />
         <Stat
-          label="Open pipeline value"
-          value={formatCurrency(openPipeline)}
+          label="Active (90d)"
+          value={String(overview.active_customers)}
           accent="text-indigo-600"
         />
         <Stat
-          label="Won value"
-          value={formatCurrency(wonValue)}
+          label="Avg. CLV"
+          value={formatCurrency(overview.avg_clv)}
           accent="text-emerald-600"
         />
         <Stat
-          label="Upcoming tasks"
-          value={String(upcoming)}
-          href="/tasks"
-        />
-        <Stat
-          label="Overdue tasks"
-          value={String(overdue)}
-          href="/tasks?filter=overdue"
-          accent={overdue > 0 ? "text-rose-600" : "text-slate-900"}
+          label="Repeat purchase rate"
+          value={`${overview.repeat_rate.toFixed(1)}%`}
         />
       </div>
 
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Stat label="Contacts" value={String(counts.contacts)} href="/contacts" />
-        <Stat label="Companies" value={String(counts.companies)} href="/companies" />
-        <Stat label="Deals" value={String(counts.deals)} href="/deals" />
+        <Stat
+          label="Total CLV"
+          value={formatCurrency(overview.total_clv)}
+          accent="text-emerald-600"
+        />
+        <Stat
+          label="Points issued"
+          value={overview.total_points.toLocaleString("en-US")}
+        />
+        <Stat
+          label="PDPA consent"
+          value={`${consentPct}%`}
+          accent={consentPct >= 80 ? "text-emerald-600" : "text-amber-600"}
+        />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-medium text-slate-900">Pipeline by stage</h2>
-            <Link href="/deals" className="text-sm text-indigo-600 hover:underline">
-              View board →
-            </Link>
-          </div>
+          <h2 className="mb-4 text-lg font-medium text-slate-900">Members by tier</h2>
           <div className="space-y-3">
-            {dealsByStage.map((s) => (
-              <div key={s.stage}>
+            {tiers.map((t) => (
+              <div key={t.tier}>
                 <div className="mb-1 flex items-center justify-between text-sm">
-                  <span className="font-medium text-slate-700">{s.stage}</span>
-                  <span className="text-slate-500">
-                    {s.count} · {formatCurrency(s.value)}
-                  </span>
+                  <TierBadge tier={t.tier} />
+                  <span className="text-slate-500">{t.count}</span>
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-slate-100">
                   <div
                     className="h-full rounded-full bg-indigo-500"
-                    style={{ width: `${(s.count / maxCount) * 100}%` }}
+                    style={{ width: `${(t.count / maxTier) * 100}%` }}
                   />
                 </div>
               </div>
             ))}
-            <p className="pt-2 text-sm text-slate-500">{totalDeals} deals total</p>
           </div>
         </Card>
-
-        <Card>
-          <h2 className="mb-4 text-lg font-medium text-slate-900">Recent activity</h2>
-          {recent.length === 0 ? (
-            <p className="text-sm text-slate-500">No activity yet.</p>
-          ) : (
-            <ul className="space-y-3">
-              {recent.map((a) => (
-                <li key={a.id} className="flex items-start gap-3 text-sm">
-                  <TaskTypeBadge type={a.type as TaskType} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-slate-800">{a.subject}</p>
-                    <p className="text-xs text-slate-400">
-                      {a.contact_name ?? a.deal_title ?? "General"} ·{" "}
-                      {formatDate(a.created_at)}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
+        <BarList title="Members by brand" rows={brands} />
+        <BarList title="Data collection level" rows={levels} />
       </div>
+
+      <Card>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-medium text-slate-900">Recent activity</h2>
+          <Link href="/customers" className="text-sm text-indigo-600 hover:underline">
+            View members →
+          </Link>
+        </div>
+        {recent.length === 0 ? (
+          <p className="text-sm text-slate-500">No activity yet.</p>
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {recent.map((a) => (
+              <li key={a.id} className="flex items-center gap-3 py-2 text-sm">
+                <InteractionBadge type={a.type} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-slate-800">{a.description}</p>
+                  <p className="text-xs text-slate-400">
+                    {a.customer_name} · {a.member_code} · {formatDate(a.occurred_at)}
+                  </p>
+                </div>
+                {a.amount > 0 && (
+                  <span className="shrink-0 text-sm text-slate-600">
+                    {formatCurrency(a.amount)}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
     </div>
   );
 }

@@ -22,6 +22,7 @@ export async function login(email: string, password: string): Promise<LoginResul
   session.userId = user.id;
   session.email = user.email;
   session.name = user.name;
+  session.role = user.role;
   await session.save();
 
   return { success: true };

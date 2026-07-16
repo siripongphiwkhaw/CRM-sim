@@ -1,71 +1,89 @@
-// Runtime source of truth for the schema. Kept as a TS string (not read from
-// schema.sql at runtime) so it is always present in the serverless bundle.
+// Runtime source of truth for the schema. Kept as a TS string (not read from a
+// .sql file at runtime) so it is always present in the serverless bundle.
 export const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('admin','user')),
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
-CREATE TABLE IF NOT EXISTS companies (
+-- Customer / Master Data (CDP): unified member profile across all brands.
+CREATE TABLE IF NOT EXISTS customers (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  industry TEXT,
-  website TEXT,
-  phone TEXT,
-  address TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
-CREATE TABLE IF NOT EXISTS contacts (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  member_code TEXT NOT NULL UNIQUE,
   first_name TEXT NOT NULL,
   last_name TEXT NOT NULL,
   email TEXT,
   phone TEXT,
-  title TEXT,
-  company_id INTEGER REFERENCES companies(id) ON DELETE SET NULL,
-  notes TEXT,
+  brand TEXT NOT NULL,
+  tier TEXT NOT NULL DEFAULT 'Bronze' CHECK (tier IN ('Bronze','Silver','Gold','Platinum')),
+  points INTEGER NOT NULL DEFAULT 0,
+  register_channel TEXT,
+  data_level TEXT NOT NULL DEFAULT 'Register',
+  consent_pdpa INTEGER NOT NULL DEFAULT 0,
+  consent_marketing INTEGER NOT NULL DEFAULT 0,
+  consent_migration INTEGER NOT NULL DEFAULT 0,
+  clv REAL NOT NULL DEFAULT 0,
+  last_purchase_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE INDEX IF NOT EXISTS customers_brand ON customers(brand);
+CREATE INDEX IF NOT EXISTS customers_tier ON customers(tier);
 
-CREATE INDEX IF NOT EXISTS contacts_company_id ON contacts(company_id);
-
-CREATE TABLE IF NOT EXISTS deals (
+-- Interaction history: register / enrichment / purchase / engagement events.
+CREATE TABLE IF NOT EXISTS interactions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  title TEXT NOT NULL,
-  value REAL NOT NULL DEFAULT 0,
-  stage TEXT NOT NULL CHECK (stage IN ('New','Contacted','Qualified','Proposal','Won','Lost')),
-  contact_id INTEGER REFERENCES contacts(id) ON DELETE SET NULL,
-  company_id INTEGER REFERENCES companies(id) ON DELETE SET NULL,
-  owner_id INTEGER REFERENCES users(id),
-  expected_close_date TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
-CREATE INDEX IF NOT EXISTS deals_stage ON deals(stage);
-CREATE INDEX IF NOT EXISTS deals_contact_id ON deals(contact_id);
-CREATE INDEX IF NOT EXISTS deals_company_id ON deals(company_id);
-
-CREATE TABLE IF NOT EXISTS tasks (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  type TEXT NOT NULL CHECK (type IN ('call','email','note','meeting','follow_up')),
-  subject TEXT NOT NULL,
+  customer_id INTEGER REFERENCES customers(id) ON DELETE CASCADE,
+  type TEXT NOT NULL CHECK (type IN ('register','enrichment','purchase','engagement')),
+  channel TEXT,
+  amount REAL NOT NULL DEFAULT 0,
+  points INTEGER NOT NULL DEFAULT 0,
   description TEXT,
-  due_date TEXT,
-  completed INTEGER NOT NULL DEFAULT 0,
-  completed_at TEXT,
-  contact_id INTEGER REFERENCES contacts(id) ON DELETE CASCADE,
-  deal_id INTEGER REFERENCES deals(id) ON DELETE CASCADE,
-  owner_id INTEGER REFERENCES users(id),
+  occurred_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS interactions_customer ON interactions(customer_id);
+CREATE INDEX IF NOT EXISTS interactions_type ON interactions(type);
+
+-- S&I product master.
+CREATE TABLE IF NOT EXISTS products (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  sku TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  brand TEXT NOT NULL,
+  category TEXT,
+  unit_price REAL NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE INDEX IF NOT EXISTS products_brand ON products(brand);
 
-CREATE INDEX IF NOT EXISTS tasks_due_date ON tasks(due_date);
-CREATE INDEX IF NOT EXISTS tasks_contact_id ON tasks(contact_id);
-CREATE INDEX IF NOT EXISTS tasks_deal_id ON tasks(deal_id);
+-- Sales / Trade / Channel: sell-out, inventory on-hand and demand forecast.
+CREATE TABLE IF NOT EXISTS channel_records (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  dealer_name TEXT NOT NULL,
+  product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
+  channel TEXT,
+  sell_out_qty INTEGER NOT NULL DEFAULT 0,
+  stock_on_hand INTEGER NOT NULL DEFAULT 0,
+  forecast_qty INTEGER NOT NULL DEFAULT 0,
+  recorded_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS channel_product ON channel_records(product_id);
+
+-- Data Cloud: linked source systems for data integration & migration.
+CREATE TABLE IF NOT EXISTS data_sources (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  source_type TEXT NOT NULL,
+  direction TEXT NOT NULL DEFAULT 'inbound',
+  mode TEXT NOT NULL DEFAULT 'batch',
+  status TEXT NOT NULL DEFAULT 'connected',
+  records_synced INTEGER NOT NULL DEFAULT 0,
+  last_synced_at TEXT,
+  description TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 `;

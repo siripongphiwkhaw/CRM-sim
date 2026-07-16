@@ -11,8 +11,8 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
       <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
-        <h1 className="mb-1 text-2xl font-semibold text-slate-900">Simulated CRM</h1>
-        <p className="mb-6 text-sm text-slate-500">Sign in to your demo account</p>
+        <h1 className="mb-1 text-2xl font-semibold text-slate-900">Loyalty CRM</h1>
+        <p className="mb-6 text-sm text-slate-500">Customer Data Platform — demo sign in</p>
 
         <form action={formAction} className="space-y-4">
           <div>
@@ -56,7 +56,7 @@ export default function LoginPage() {
         </form>
 
         <p className="mt-4 text-xs text-slate-400">
-          Demo credentials are pre-filled. Second user: jordan@crm.local / demo123
+          Admin: admin@crm.local · Staff: staff@crm.local — password demo123
         </p>
       </div>
     </div>

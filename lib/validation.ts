@@ -1,40 +1,46 @@
 import { z } from "zod";
-import { DEAL_STAGES, TASK_TYPES } from "./constants";
+import {
+  BRANDS,
+  TIERS,
+  DATA_LEVELS,
+  INTERACTION_TYPES,
+  PRODUCT_CATEGORIES,
+  ROLES,
+} from "./constants";
 
-export const contactSchema = z.object({
+export const customerSchema = z.object({
   first_name: z.string().min(1, "First name is required"),
   last_name: z.string().min(1, "Last name is required"),
   email: z.string().email().or(z.literal("")).optional(),
   phone: z.string().optional(),
-  title: z.string().optional(),
-  company_id: z.coerce.number().int().positive().optional().nullable(),
-  notes: z.string().optional(),
+  brand: z.enum(BRANDS),
+  tier: z.enum(TIERS),
+  points: z.coerce.number().int().min(0).default(0),
+  register_channel: z.string().optional(),
+  data_level: z.enum(DATA_LEVELS),
+  consent_pdpa: z.boolean(),
+  consent_marketing: z.boolean(),
+  consent_migration: z.boolean(),
 });
 
-export const companySchema = z.object({
-  name: z.string().min(1, "Company name is required"),
-  industry: z.string().optional(),
-  website: z.string().optional(),
-  phone: z.string().optional(),
-  address: z.string().optional(),
+export const productSchema = z.object({
+  sku: z.string().min(1, "SKU is required"),
+  name: z.string().min(1, "Product name is required"),
+  brand: z.enum(BRANDS),
+  category: z.enum(PRODUCT_CATEGORIES).or(z.literal("")).optional(),
+  unit_price: z.coerce.number().min(0).default(0),
 });
 
-export const dealSchema = z.object({
-  title: z.string().min(1, "Deal title is required"),
-  value: z.coerce.number().min(0).default(0),
-  stage: z.enum(DEAL_STAGES),
-  contact_id: z.coerce.number().int().positive().optional().nullable(),
-  company_id: z.coerce.number().int().positive().optional().nullable(),
-  expected_close_date: z.string().optional(),
-});
-
-export const taskSchema = z.object({
-  type: z.enum(TASK_TYPES),
-  subject: z.string().min(1, "Subject is required"),
+export const interactionSchema = z.object({
+  type: z.enum(INTERACTION_TYPES),
+  channel: z.string().optional(),
+  amount: z.coerce.number().min(0).default(0),
+  points: z.coerce.number().int().default(0),
   description: z.string().optional(),
-  due_date: z.string().optional(),
-  contact_id: z.coerce.number().int().positive().optional().nullable(),
-  deal_id: z.coerce.number().int().positive().optional().nullable(),
+});
+
+export const roleSchema = z.object({
+  role: z.enum(ROLES),
 });
 
 export const loginSchema = z.object({

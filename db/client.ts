@@ -86,6 +86,17 @@ export async function run(sql: string, args: QueryArgs = []): Promise<number> {
   return Number(res[0]?.values[0]?.[0] ?? 0);
 }
 
+/**
+ * Runs raw SQL and returns sql.js result sets ({columns, values}). Used only by
+ * the admin SQL console, which validates the statement is read-only first.
+ */
+export async function execRaw(
+  sql: string
+): Promise<{ columns: string[]; values: SqlValue[][] }[]> {
+  const db = await getDb();
+  return db.exec(sql);
+}
+
 /** Runs several writes atomically (stands in for the schema's ON DELETE rules). */
 export async function batch(
   statements: { sql: string; args?: QueryArgs }[]

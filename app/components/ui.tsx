@@ -1,5 +1,10 @@
 import Link from "next/link";
-import type { DealStage, TaskType } from "@/lib/constants";
+import type {
+  Tier,
+  SourceStatus,
+  InteractionType,
+} from "@/lib/constants";
+import { INTERACTION_TYPE_LABELS } from "@/lib/constants";
 
 export function PageHeader({
   title,
@@ -44,48 +49,63 @@ export function LinkButton({
   );
 }
 
-const STAGE_STYLES: Record<DealStage, string> = {
-  New: "bg-slate-100 text-slate-700",
-  Contacted: "bg-blue-100 text-blue-700",
-  Qualified: "bg-violet-100 text-violet-700",
-  Proposal: "bg-amber-100 text-amber-700",
-  Won: "bg-emerald-100 text-emerald-700",
-  Lost: "bg-rose-100 text-rose-700",
-};
-
-export function StageBadge({ stage }: { stage: DealStage }) {
+function Badge({ className, children }: { className: string; children: React.ReactNode }) {
   return (
     <span
-      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${STAGE_STYLES[stage]}`}
+      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${className}`}
     >
-      {stage}
+      {children}
     </span>
   );
 }
 
-const TASK_TYPE_STYLES: Record<TaskType, string> = {
-  call: "bg-blue-100 text-blue-700",
-  email: "bg-indigo-100 text-indigo-700",
-  note: "bg-slate-100 text-slate-700",
-  meeting: "bg-violet-100 text-violet-700",
-  follow_up: "bg-amber-100 text-amber-700",
+const TIER_STYLES: Record<Tier, string> = {
+  Bronze: "bg-amber-100 text-amber-800",
+  Silver: "bg-slate-200 text-slate-700",
+  Gold: "bg-yellow-100 text-yellow-800",
+  Platinum: "bg-violet-100 text-violet-700",
 };
 
-const TASK_TYPE_LABELS: Record<TaskType, string> = {
-  call: "Call",
-  email: "Email",
-  note: "Note",
-  meeting: "Meeting",
-  follow_up: "Follow-up",
+export function TierBadge({ tier }: { tier: Tier }) {
+  return <Badge className={TIER_STYLES[tier]}>{tier}</Badge>;
+}
+
+const SOURCE_STATUS_STYLES: Record<SourceStatus, string> = {
+  connected: "bg-emerald-100 text-emerald-700",
+  syncing: "bg-amber-100 text-amber-700",
+  error: "bg-rose-100 text-rose-700",
 };
 
-export function TaskTypeBadge({ type }: { type: TaskType }) {
+export function SourceStatusBadge({ status }: { status: SourceStatus }) {
+  return <Badge className={SOURCE_STATUS_STYLES[status]}>{status}</Badge>;
+}
+
+const INTERACTION_STYLES: Record<InteractionType, string> = {
+  register: "bg-blue-100 text-blue-700",
+  enrichment: "bg-indigo-100 text-indigo-700",
+  purchase: "bg-emerald-100 text-emerald-700",
+  engagement: "bg-violet-100 text-violet-700",
+};
+
+export function InteractionBadge({ type }: { type: InteractionType }) {
   return (
-    <span
-      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${TASK_TYPE_STYLES[type]}`}
+    <Badge className={INTERACTION_STYLES[type]}>
+      {INTERACTION_TYPE_LABELS[type]}
+    </Badge>
+  );
+}
+
+export function ConsentPill({ granted, label }: { granted: boolean; label: string }) {
+  return (
+    <Badge
+      className={
+        granted
+          ? "bg-emerald-100 text-emerald-700"
+          : "bg-slate-100 text-slate-500"
+      }
     >
-      {TASK_TYPE_LABELS[type]}
-    </span>
+      {granted ? "✓" : "✕"} {label}
+    </Badge>
   );
 }
 
