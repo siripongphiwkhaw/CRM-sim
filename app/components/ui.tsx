@@ -150,12 +150,12 @@ export function LinkButton({
 }) {
   const styles =
     variant === "primary"
-      ? "border border-brand-600 bg-brand-600 text-white hover:bg-brand-700 hover:border-brand-700"
+      ? "border border-brand-600 bg-brand-600 text-white shadow-sm hover:bg-brand-700 hover:border-brand-700 hover:shadow"
       : "border border-[#c9c9c9] bg-white text-brand-600 hover:bg-[#f3f3f3]";
   return (
     <Link
       href={href}
-      className={`inline-flex items-center rounded px-4 py-1.5 text-sm font-medium transition-colors ${styles}`}
+      className={`inline-flex items-center rounded px-4 py-1.5 text-sm font-medium transition duration-150 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ${styles}`}
     >
       {children}
     </Link>
@@ -322,7 +322,7 @@ export function SortableTh({
     >
       <Link
         href={`${baseHref}?${qs.toString()}`}
-        className="inline-flex items-center gap-1 hover:text-brand-600"
+        className="inline-flex items-center gap-1 transition-colors hover:text-brand-600"
       >
         {label}
         {active && <span aria-hidden>{currentDir === "asc" ? "▲" : "▼"}</span>}

@@ -24,7 +24,7 @@ function HubTile({
   return (
     <Link
       href={href}
-      className="flex items-start gap-3 rounded border border-[#e5e5e5] bg-white p-4 transition-shadow hover:shadow-md"
+      className="flex items-start gap-3 rounded border border-[#e5e5e5] bg-white p-4 transition-[box-shadow,transform] duration-150 hover:-translate-y-0.5 hover:shadow-md"
     >
       <ObjectIcon kind={icon} size="lg" />
       <div className="min-w-0">

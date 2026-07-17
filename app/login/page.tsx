@@ -61,8 +61,15 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={pending}
-              className="w-full rounded bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700 disabled:opacity-50"
+              aria-busy={pending}
+              className="inline-flex w-full items-center justify-center rounded bg-brand-600 px-4 py-2 text-sm font-medium text-white transition duration-150 hover:bg-brand-700 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-50 disabled:active:scale-100"
             >
+              {pending && (
+                <svg className="mr-2 h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z" />
+                </svg>
+              )}
               {pending ? "Signing in…" : "Log In"}
             </button>
           </form>

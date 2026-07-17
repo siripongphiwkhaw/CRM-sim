@@ -10,12 +10,11 @@ import {
   forceFulfillOrderAction,
 } from "./actions";
 
-const btnPrimary =
-  "rounded border border-brand-600 bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50";
-const btnSecondary =
-  "rounded border border-[#c9c9c9] bg-white px-3 py-1.5 text-sm font-medium text-[#444] hover:bg-[#f3f3f3] disabled:opacity-50";
-const btnDanger =
-  "rounded border border-[#fead9a] bg-white px-3 py-1.5 text-sm font-medium text-[#8e030f] hover:bg-[#feded8] disabled:opacity-50";
+const btnBase =
+  "rounded border px-3 py-1.5 text-sm font-medium transition duration-150 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-50 disabled:active:scale-100";
+const btnPrimary = `${btnBase} border-brand-600 bg-brand-600 text-white hover:bg-brand-700`;
+const btnSecondary = `${btnBase} border-[#c9c9c9] bg-white text-[#444] hover:bg-[#f3f3f3]`;
+const btnDanger = `${btnBase} border-[#fead9a] bg-white text-[#8e030f] hover:bg-[#feded8]`;
 
 export function OrderActions({
   orderId,
@@ -88,13 +87,13 @@ export function OrderActions({
       </div>
 
       {showReject && (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <input
             type="text"
             value={rejectNote}
             onChange={(e) => setRejectNote(e.target.value)}
             placeholder="Rejection reason (required)"
-            className="w-64 rounded border border-[#c9c9c9] px-2 py-1 text-sm focus:border-brand-600 focus:outline-none"
+            className="w-full rounded border border-[#c9c9c9] px-2 py-1 text-sm focus:border-brand-600 focus:outline-none sm:w-64"
           />
           <button
             disabled={pending || !rejectNote.trim()}

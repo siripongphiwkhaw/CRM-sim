@@ -42,7 +42,7 @@ export function ActivityComposer({ customerId }: { customerId: number }) {
         <input type="hidden" name="customer_id" value={customerId} />
         <input type="hidden" name="type" value={type} />
         <FormError message={state.error} />
-        <div className={`grid gap-2 ${type === "purchase" ? "grid-cols-3" : "grid-cols-2"}`}>
+        <div className={`grid grid-cols-1 gap-2 ${type === "purchase" ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
           <Select name="channel" aria-label="Channel" defaultValue={CHANNELS[0]}>
             {CHANNELS.map((c) => (
               <option key={c} value={c}>{c}</option>

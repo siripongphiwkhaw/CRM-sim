@@ -53,7 +53,8 @@ export default async function AdminPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <SectionHeader title="Users & Roles" count={users.length} />
-          <table className="mb-4 min-w-full divide-y divide-[#f3f3f3] text-sm">
+          <div className="mb-4 overflow-x-auto">
+          <table className="min-w-full divide-y divide-[#f3f3f3] text-sm">
             <thead className="text-left text-xs font-semibold uppercase tracking-wide text-[#444]">
               <tr>
                 <th className="py-2">Name</th>
@@ -73,6 +74,7 @@ export default async function AdminPage() {
               ))}
             </tbody>
           </table>
+          </div>
           <NewUserForm />
         </Card>
 

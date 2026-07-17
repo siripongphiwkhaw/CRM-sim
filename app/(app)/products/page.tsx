@@ -52,7 +52,7 @@ export default async function ProductsPage({
         </select>
         <button
           type="submit"
-          className="rounded border border-[#c9c9c9] bg-white px-4 py-1.5 text-sm font-medium text-[#444] hover:bg-[#f3f3f3]"
+          className="rounded border border-[#c9c9c9] bg-white px-4 py-1.5 text-sm font-medium text-[#444] transition duration-150 hover:bg-[#f3f3f3] active:scale-[0.98]"
         >
           Filter
         </button>
@@ -65,7 +65,7 @@ export default async function ProductsPage({
           {products.map((p) => (
             <div
               key={p.id}
-              className="group flex flex-col overflow-hidden rounded border border-[#e5e5e5] bg-white transition-shadow hover:shadow-md"
+              className="group flex flex-col overflow-hidden rounded border border-[#e5e5e5] bg-white transition-[box-shadow,transform] duration-150 hover:-translate-y-0.5 hover:shadow-md"
             >
               <Link href={`/products/${p.id}/edit`} className="block p-3 pb-0">
                 <ProductImage

@@ -41,7 +41,7 @@ export default async function OrdersPage({
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
-        <button type="submit" className="rounded border border-[#c9c9c9] bg-white px-4 py-1.5 text-sm font-medium text-[#444] hover:bg-[#f3f3f3]">
+        <button type="submit" className="rounded border border-[#c9c9c9] bg-white px-4 py-1.5 text-sm font-medium text-[#444] transition duration-150 hover:bg-[#f3f3f3] active:scale-[0.98]">
           Filter
         </button>
       </form>
@@ -62,7 +62,7 @@ export default async function OrdersPage({
             </thead>
             <tbody className="divide-y divide-[#f3f3f3]">
               {orders.map((o) => (
-                <tr key={o.id} className="hover:bg-[#f3f3f3]">
+                <tr key={o.id} className="transition-colors hover:bg-[#f3f3f3]">
                   <td className="px-4 py-2.5">
                     <Link href={`/channel/orders/${o.id}`} className="font-medium text-brand-600 hover:underline">
                       {o.order_number}

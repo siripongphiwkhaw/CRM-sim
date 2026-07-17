@@ -31,13 +31,13 @@ export function ProductForm({
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <Field label="SKU" htmlFor="sku" required>
-          <TextInput id="sku" name="sku" defaultValue={product?.sku ?? ""} required />
+          <TextInput id="sku" name="sku" placeholder="e.g. SKU-1001" defaultValue={product?.sku ?? ""} required />
         </Field>
         <Field label="Unit price" htmlFor="unit_price">
-          <TextInput id="unit_price" name="unit_price" type="number" min="0" step="0.01" defaultValue={product?.unit_price ?? 0} />
+          <TextInput id="unit_price" name="unit_price" type="number" min="0" step="0.01" placeholder="e.g. 199.00" defaultValue={product?.unit_price ?? 0} />
         </Field>
         <Field label="Product name" htmlFor="name" required>
-          <TextInput id="name" name="name" defaultValue={product?.name ?? ""} required />
+          <TextInput id="name" name="name" placeholder="e.g. Premium Gift Set" defaultValue={product?.name ?? ""} required />
         </Field>
         <Field label="Brand" htmlFor="brand" required>
           <Select id="brand" name="brand" defaultValue={product?.brand ?? BRANDS[0]}>

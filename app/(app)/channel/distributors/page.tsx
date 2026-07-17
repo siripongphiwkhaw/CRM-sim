@@ -40,7 +40,7 @@ export default async function DistributorsPage({
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </select>
-        <button type="submit" className="rounded border border-[#c9c9c9] bg-white px-4 py-1.5 text-sm font-medium text-[#444] hover:bg-[#f3f3f3]">
+        <button type="submit" className="rounded border border-[#c9c9c9] bg-white px-4 py-1.5 text-sm font-medium text-[#444] transition duration-150 hover:bg-[#f3f3f3] active:scale-[0.98]">
           Filter
         </button>
       </form>
@@ -62,7 +62,7 @@ export default async function DistributorsPage({
             </thead>
             <tbody className="divide-y divide-[#f3f3f3]">
               {distributors.map((d) => (
-                <tr key={d.id} className="hover:bg-[#f3f3f3]">
+                <tr key={d.id} className="transition-colors hover:bg-[#f3f3f3]">
                   <td className="px-4 py-2.5">
                     <Link href={`/channel/distributors/${d.id}`} className="font-medium text-brand-600 hover:underline">
                       {d.name}

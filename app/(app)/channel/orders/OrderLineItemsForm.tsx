@@ -65,7 +65,7 @@ export function OrderLineItemsForm({
 
       <div>
         <p className="mb-2 text-xs font-semibold text-[#444]">Line items</p>
-        <div className="overflow-hidden rounded border border-[#e5e5e5] bg-white">
+        <div className="overflow-x-auto rounded border border-[#e5e5e5] bg-white">
           <table className="min-w-full divide-y divide-[#e5e5e5] text-sm">
             <thead className="bg-[#fafaf9] text-left text-xs font-semibold uppercase tracking-wide text-[#444]">
               <tr>

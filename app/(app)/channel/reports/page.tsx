@@ -85,7 +85,7 @@ export default async function ReportsPage({
           placeholder="Search distributor or product…"
           className={`w-full max-w-xs ${filterClass}`}
         />
-        <button type="submit" className="rounded border border-[#c9c9c9] bg-white px-4 py-1.5 text-sm font-medium text-[#444] hover:bg-[#f3f3f3]">
+        <button type="submit" className="rounded border border-[#c9c9c9] bg-white px-4 py-1.5 text-sm font-medium text-[#444] transition duration-150 hover:bg-[#f3f3f3] active:scale-[0.98]">
           Search
         </button>
       </form>
@@ -107,7 +107,7 @@ export default async function ReportsPage({
             </thead>
             <tbody className="divide-y divide-[#f3f3f3]">
               {reports.map((r) => (
-                <tr key={r.id} className="hover:bg-[#f3f3f3]">
+                <tr key={r.id} className="transition-colors hover:bg-[#f3f3f3]">
                   <td className="px-4 py-2.5 text-[#181818]">{r.distributor_name}</td>
                   <td className="px-4 py-2.5 text-[#444]">
                     {r.product_name} <span className="text-xs text-[#706e6b]">({r.brand})</span>

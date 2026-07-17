@@ -62,7 +62,7 @@ export default async function CustomersPage({
         </select>
         <button
           type="submit"
-          className="rounded border border-[#c9c9c9] bg-white px-4 py-1.5 text-sm font-medium text-[#444] hover:bg-[#f3f3f3]"
+          className="rounded border border-[#c9c9c9] bg-white px-4 py-1.5 text-sm font-medium text-[#444] transition duration-150 hover:bg-[#f3f3f3] active:scale-[0.98]"
         >
           Filter
         </button>
@@ -87,7 +87,7 @@ export default async function CustomersPage({
             </thead>
             <tbody className="divide-y divide-[#f3f3f3]">
               {customers.map((c) => (
-                <tr key={c.id} className="hover:bg-[#f3f3f3]">
+                <tr key={c.id} className="transition-colors hover:bg-[#f3f3f3]">
                   <td className="px-4 py-2.5">
                     <Link href={`/customers/${c.id}`} className="font-medium text-brand-600 hover:underline">
                       {c.first_name} {c.last_name}

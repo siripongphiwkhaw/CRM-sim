@@ -56,7 +56,7 @@ export default async function InventoryPage() {
           {onHand.length === 0 ? (
             <EmptyState message="No stock recorded yet." />
           ) : (
-            <div className="max-h-96 overflow-y-auto">
+            <div className="max-h-96 overflow-auto">
               <table className="min-w-full text-sm">
                 <tbody className="divide-y divide-[#f3f3f3]">
                   {onHand.map((row) => (
@@ -111,7 +111,7 @@ export default async function InventoryPage() {
           {transactions.length === 0 ? (
             <EmptyState message="No transactions yet." />
           ) : (
-            <div className="max-h-96 overflow-y-auto">
+            <div className="max-h-96 overflow-auto">
               <table className="min-w-full text-sm">
                 <thead className="sticky top-0 bg-white text-left text-xs font-semibold uppercase tracking-wide text-[#444]">
                   <tr>

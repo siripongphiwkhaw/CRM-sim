@@ -83,7 +83,7 @@ export default async function OrderDetailPage({
         <div className="space-y-4 lg:col-span-2">
           <Card>
             <SectionHeader title="Line items" count={items.length} />
-            <div className="overflow-hidden rounded border border-[#e5e5e5]">
+            <div className="overflow-x-auto rounded border border-[#e5e5e5]">
               <table className="min-w-full divide-y divide-[#e5e5e5] text-sm">
                 <thead className="bg-[#fafaf9] text-left text-xs font-semibold uppercase tracking-wide text-[#444]">
                   <tr>

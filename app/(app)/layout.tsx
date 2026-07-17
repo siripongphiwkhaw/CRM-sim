@@ -40,26 +40,31 @@ export default async function AppLayout({
   return (
     <div className="flex min-h-screen flex-1 flex-col bg-background">
       <div className="h-1 bg-brand-600" />
-      <header className="flex items-center gap-4 border-b border-[#e5e5e5] bg-white px-4 py-2">
+      <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-[#e5e5e5] bg-white px-3 py-2 sm:gap-x-4 sm:px-4">
         {/* app-launcher waffle */}
         <span aria-hidden className="grid grid-cols-3 gap-[3px] p-1">
           {Array.from({ length: 9 }).map((_, i) => (
             <span key={i} className="h-1 w-1 rounded-[1px] bg-[#747474]" />
           ))}
         </span>
-        <span className="text-base font-bold text-[#032d60]">Loyalty Cloud</span>
+        <span className="whitespace-nowrap text-base font-bold text-[#032d60]">Loyalty Cloud</span>
 
-        <form action="/search" method="get" className="mx-auto w-full max-w-xl">
+        {/* Drops to its own full-width row below sm */}
+        <form
+          action="/search"
+          method="get"
+          className="order-last min-w-0 basis-full sm:order-none sm:mx-auto sm:max-w-xl sm:flex-1 sm:basis-0"
+        >
           <input
             type="search"
             name="q"
             placeholder="Search customers, products and more…"
-            className="w-full rounded-full border border-[#c9c9c9] bg-[#f3f3f3] px-4 py-1.5 text-sm focus:border-brand-600 focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-600"
+            className="w-full rounded-full border border-[#c9c9c9] bg-[#f3f3f3] px-4 py-2 text-sm transition-colors focus:border-brand-600 focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-600 sm:py-1.5"
           />
         </form>
 
-        <div className="flex shrink-0 items-center gap-3">
-          <div className="text-right">
+        <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+          <div className="hidden text-right md:block">
             <p className="text-xs font-semibold leading-tight text-[#181818]">
               {session.name}
             </p>
@@ -67,13 +72,16 @@ export default async function AppLayout({
               {session.role}
             </p>
           </div>
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-700 text-xs font-semibold text-white">
+          <span
+            title={`${session.name} (${session.role})`}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-700 text-xs font-semibold text-white"
+          >
             {initials}
           </span>
           <form action={logoutAction}>
             <button
               type="submit"
-              className="rounded border border-[#c9c9c9] bg-white px-3 py-1 text-xs text-[#444] hover:bg-[#f3f3f3]"
+              className="whitespace-nowrap rounded border border-[#c9c9c9] bg-white px-3 py-1 text-xs text-[#444] transition duration-150 hover:bg-[#f3f3f3] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
             >
               Sign out
             </button>

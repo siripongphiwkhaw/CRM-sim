@@ -53,16 +53,16 @@ export function CustomerForm({
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="First name" htmlFor="first_name" required>
-          <TextInput id="first_name" name="first_name" defaultValue={customer?.first_name ?? ""} required />
+          <TextInput id="first_name" name="first_name" placeholder="e.g. Somsri" defaultValue={customer?.first_name ?? ""} required />
         </Field>
         <Field label="Last name" htmlFor="last_name" required>
-          <TextInput id="last_name" name="last_name" defaultValue={customer?.last_name ?? ""} required />
+          <TextInput id="last_name" name="last_name" placeholder="e.g. Jaidee" defaultValue={customer?.last_name ?? ""} required />
         </Field>
         <Field label="Email" htmlFor="email">
-          <TextInput id="email" name="email" type="email" defaultValue={customer?.email ?? ""} />
+          <TextInput id="email" name="email" type="email" placeholder="name@example.com" defaultValue={customer?.email ?? ""} />
         </Field>
         <Field label="Phone" htmlFor="phone">
-          <TextInput id="phone" name="phone" defaultValue={customer?.phone ?? ""} />
+          <TextInput id="phone" name="phone" placeholder="081-234-5678" defaultValue={customer?.phone ?? ""} />
         </Field>
         <Field label="Brand" htmlFor="brand" required>
           <Select id="brand" name="brand" defaultValue={customer?.brand ?? BRANDS[0]}>
