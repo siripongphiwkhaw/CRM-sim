@@ -1,4 +1,5 @@
 import { getSession } from "@/lib/session";
+import { isPicOfAny } from "@/db/queries/departments";
 import { GlobalNav, type NavTab } from "@/app/components/GlobalNav";
 import { logoutAction } from "./actions";
 
@@ -22,7 +23,13 @@ export default async function AppLayout({
 }) {
   const session = await getSession();
   const isAdmin = session.role === "admin";
-  const tabs = isAdmin ? [...BASE_TABS, ...ADMIN_TABS] : BASE_TABS;
+  const isPic = session.userId ? await isPicOfAny(session.userId) : false;
+
+  const tabs = [
+    ...BASE_TABS,
+    ...(isPic ? [{ href: "/department", label: "My Department" }] : []),
+    ...(isAdmin ? ADMIN_TABS : []),
+  ];
   const initials = (session.name ?? "?")
     .split(/\s+/)
     .map((p) => p.charAt(0))

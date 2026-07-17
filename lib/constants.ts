@@ -67,3 +67,12 @@ export type ProductCategory = (typeof PRODUCT_CATEGORIES)[number];
 
 export const ROLES = ["admin", "user"] as const;
 export type Role = (typeof ROLES)[number];
+
+// Sales/Trade & Channel Enablement: trade channels distributors sell through.
+export const TRADE_CHANNELS = [
+  "Modern Trade",
+  "Traditional Trade",
+  "E-Commerce",
+  "Food Service",
+] as const;
+export type TradeChannel = (typeof TRADE_CHANNELS)[number];

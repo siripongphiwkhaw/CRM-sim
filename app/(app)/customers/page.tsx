@@ -1,50 +1,60 @@
 import Link from "next/link";
 import { listCustomers } from "@/db/queries/customers";
-import { PageHeader, LinkButton, EmptyState, TierBadge } from "@/app/components/ui";
+import {
+  PageHeader,
+  LinkButton,
+  EmptyState,
+  TierBadge,
+  SortableTh,
+} from "@/app/components/ui";
 import { formatCurrency } from "@/lib/format";
 import { BRANDS, TIERS } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
+const filterClass =
+  "rounded border border-[#c9c9c9] bg-white px-3 py-1.5 text-sm focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600";
+
 export default async function CustomersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; brand?: string; tier?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    brand?: string;
+    tier?: string;
+    sort?: string;
+    dir?: string;
+  }>;
 }) {
-  const { q, brand, tier } = await searchParams;
-  const customers = await listCustomers({ search: q, brand, tier });
+  const { q, brand, tier, sort, dir } = await searchParams;
+  const customers = await listCustomers({ search: q, brand, tier, sort, dir });
+  const params = { q, brand, tier, sort, dir };
 
   return (
     <div>
       <PageHeader
-        title="Customers (CDP)"
-        subtitle={`${customers.length} ${customers.length === 1 ? "member" : "members"}`}
-        action={<LinkButton href="/customers/new">New member</LinkButton>}
+        icon="customer"
+        overline="Customers"
+        title="All Members"
+        subtitle={`${customers.length} ${customers.length === 1 ? "record" : "records"}`}
+        action={<LinkButton href="/customers/new">New</LinkButton>}
       />
 
-      <form method="get" className="mb-4 flex flex-wrap gap-2">
+      <form method="get" className="mb-3 flex flex-wrap gap-2">
         <input
           type="search"
           name="q"
           defaultValue={q ?? ""}
           placeholder="Search name, email, member code…"
-          className="w-full max-w-xs rounded-md border border-stone-300 px-3 py-2 text-sm focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
+          className={`w-full max-w-xs ${filterClass}`}
         />
-        <select
-          name="brand"
-          defaultValue={brand ?? ""}
-          className="rounded-md border border-stone-300 px-3 py-2 text-sm focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
-        >
+        <select name="brand" defaultValue={brand ?? ""} className={filterClass}>
           <option value="">All brands</option>
           {BRANDS.map((b) => (
             <option key={b} value={b}>{b}</option>
           ))}
         </select>
-        <select
-          name="tier"
-          defaultValue={tier ?? ""}
-          className="rounded-md border border-stone-300 px-3 py-2 text-sm focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
-        >
+        <select name="tier" defaultValue={tier ?? ""} className={filterClass}>
           <option value="">All tiers</option>
           {TIERS.map((t) => (
             <option key={t} value={t}>{t}</option>
@@ -52,7 +62,7 @@ export default async function CustomersPage({
         </select>
         <button
           type="submit"
-          className="rounded-md border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
+          className="rounded border border-[#c9c9c9] bg-white px-4 py-1.5 text-sm font-medium text-[#444] hover:bg-[#f3f3f3]"
         >
           Filter
         </button>
@@ -61,36 +71,38 @@ export default async function CustomersPage({
       {customers.length === 0 ? (
         <EmptyState message="No members match your filters." />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-stone-200 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-stone-200 text-sm">
-            <thead className="bg-stone-50 text-left text-xs font-medium uppercase tracking-wide text-stone-500">
+        <div className="overflow-x-auto rounded border border-[#e5e5e5] bg-white">
+          <table className="min-w-full divide-y divide-[#e5e5e5] text-sm">
+            <thead className="bg-[#fafaf9]">
               <tr>
-                <th className="px-4 py-3">Member</th>
-                <th className="px-4 py-3">Brand</th>
-                <th className="px-4 py-3">Tier</th>
-                <th className="px-4 py-3 text-right">Points</th>
-                <th className="px-4 py-3 text-right">CLV</th>
-                <th className="px-4 py-3">Data level</th>
+                <SortableTh label="Member" column="name" params={params} baseHref="/customers" />
+                <SortableTh label="Brand" column="brand" params={params} baseHref="/customers" />
+                <SortableTh label="Tier" column="tier" params={params} baseHref="/customers" />
+                <SortableTh label="Points" column="points" params={params} baseHref="/customers" align="right" />
+                <SortableTh label="CLV" column="clv" params={params} baseHref="/customers" align="right" />
+                <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[#444]">
+                  Data level
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-stone-100">
+            <tbody className="divide-y divide-[#f3f3f3]">
               {customers.map((c) => (
-                <tr key={c.id} className="hover:bg-stone-50">
-                  <td className="px-4 py-3">
-                    <Link href={`/customers/${c.id}`} className="font-medium text-brand-700 hover:underline">
+                <tr key={c.id} className="hover:bg-[#f3f3f3]">
+                  <td className="px-4 py-2.5">
+                    <Link href={`/customers/${c.id}`} className="font-medium text-brand-600 hover:underline">
                       {c.first_name} {c.last_name}
                     </Link>
-                    <div className="text-xs text-stone-400">{c.member_code}</div>
+                    <div className="text-xs text-[#706e6b]">{c.member_code}</div>
                   </td>
-                  <td className="px-4 py-3 text-stone-600">{c.brand}</td>
-                  <td className="px-4 py-3"><TierBadge tier={c.tier} /></td>
-                  <td className="px-4 py-3 text-right text-stone-600">
+                  <td className="px-4 py-2.5 text-[#444]">{c.brand}</td>
+                  <td className="px-4 py-2.5"><TierBadge tier={c.tier} /></td>
+                  <td className="px-4 py-2.5 text-right text-[#444]">
                     {c.points.toLocaleString("en-US")}
                   </td>
-                  <td className="px-4 py-3 text-right text-stone-600">
+                  <td className="px-4 py-2.5 text-right text-[#444]">
                     {formatCurrency(c.clv)}
                   </td>
-                  <td className="px-4 py-3 text-stone-600">{c.data_level}</td>
+                  <td className="px-4 py-2.5 text-[#444]">{c.data_level}</td>
                 </tr>
               ))}
             </tbody>

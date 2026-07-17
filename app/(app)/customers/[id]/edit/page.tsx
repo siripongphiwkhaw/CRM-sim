@@ -17,7 +17,11 @@ export default async function EditCustomerPage({
 
   return (
     <div>
-      <PageHeader title={`Edit ${customer.first_name} ${customer.last_name}`} />
+      <PageHeader
+        icon="customer"
+        overline="Customer"
+        title={`Edit ${customer.first_name} ${customer.last_name}`}
+      />
       <CustomerForm action={updateCustomerAction} customer={customer} />
     </div>
   );

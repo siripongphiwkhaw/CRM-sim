@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export default function NewCustomerPage() {
   return (
     <div>
-      <PageHeader title="New member" />
+      <PageHeader icon="customer" overline="Customer" title="New Member" />
       <CustomerForm action={createCustomerAction} />
     </div>
   );

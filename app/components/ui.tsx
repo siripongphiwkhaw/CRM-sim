@@ -5,6 +5,8 @@ import type {
   InteractionType,
 } from "@/lib/constants";
 import { INTERACTION_TYPE_LABELS } from "@/lib/constants";
+import type { OrderStatus } from "@/lib/orderWorkflow";
+import { ORDER_STATUS_LABELS } from "@/lib/orderWorkflow";
 
 /* ---------- Object icons (SLDS-style colored squares) ---------- */
 
@@ -16,7 +18,10 @@ export type ObjectKind =
   | "datacloud"
   | "sql"
   | "setup"
-  | "search";
+  | "search"
+  | "distributor"
+  | "order"
+  | "department";
 
 const OBJECT_ICONS: Record<ObjectKind, { bg: string; glyph: React.ReactNode }> = {
   home: {
@@ -58,6 +63,22 @@ const OBJECT_ICONS: Record<ObjectKind, { bg: string; glyph: React.ReactNode }> =
     glyph: (
       <path d="M10 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12zm0 2.2A3.8 3.8 0 1 0 10 13.8 3.8 3.8 0 0 0 10 6.2zM15.3 14l4.7 4.7-1.3 1.3-4.7-4.7 1.3-1.3z" />
     ),
+  },
+  distributor: {
+    bg: "#b0702c",
+    glyph: (
+      <path d="M12 3 3 8v2h1v9h5v-6h6v6h5V10h1V8l-9-5zm-3 8V9h2v2H9zm4 0V9h2v2h-2z" />
+    ),
+  },
+  order: {
+    bg: "#ba0517",
+    glyph: (
+      <path d="M6 4h13l-1.6 9.2a2 2 0 0 1-2 1.6H8.9l-.3 1.6H18v2H8.2a1.6 1.6 0 0 1-1.6-1.9L8 12.6 5.6 4H2V2h4.8L6 4zm.6 2 1.6 7h9l1.2-7H6.6zM8.5 20a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm7 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z" />
+    ),
+  },
+  department: {
+    bg: "#5c6f7d",
+    glyph: <path d="M4 21V9.5l8-5.3 8 5.3V21h-5v-6H9v6H4z" />,
   },
 };
 
@@ -189,6 +210,23 @@ export function InteractionBadge({ type }: { type: InteractionType }) {
   );
 }
 
+const ORDER_STATUS_STYLES: Record<OrderStatus, string> = {
+  draft: "bg-[#ecebea] text-[#514f4d]",
+  submitted: "bg-[#fbf3e0] text-[#5f3e02]",
+  approved: "bg-[#cdefc4] text-[#194e31]",
+  rejected: "bg-[#feded8] text-[#8e030f]",
+  fulfilled: "bg-brand-800 text-white",
+  cancelled: "bg-[#ecebea] text-[#706e6b]",
+};
+
+export function OrderStatusBadge({ status }: { status: OrderStatus }) {
+  return (
+    <Badge className={ORDER_STATUS_STYLES[status]}>
+      {ORDER_STATUS_LABELS[status]}
+    </Badge>
+  );
+}
+
 export function ConsentPill({ granted, label }: { granted: boolean; label: string }) {
   return (
     <Badge
@@ -244,6 +282,52 @@ export function SectionHeader({
       </div>
       {action}
     </div>
+  );
+}
+
+/**
+ * A `<th>` that links to the same list with `sort`/`dir` toggled, preserving
+ * every other current query param (search text, filters, etc.). Server-
+ * renderable — no client state, just a Link with a recomputed query string.
+ */
+export function SortableTh({
+  label,
+  column,
+  params,
+  baseHref,
+  align = "left",
+}: {
+  label: string;
+  column: string;
+  params: Record<string, string | undefined>;
+  baseHref: string;
+  align?: "left" | "right";
+}) {
+  const active = params.sort === column;
+  const currentDir = params.dir === "asc" ? "asc" : "desc";
+  const nextDir = active && currentDir === "desc" ? "asc" : "desc";
+
+  const qs = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value && key !== "sort" && key !== "dir") qs.set(key, value);
+  }
+  qs.set("sort", column);
+  qs.set("dir", nextDir);
+
+  return (
+    <th
+      className={`px-4 py-2 text-xs font-semibold uppercase tracking-wide text-[#444] ${
+        align === "right" ? "text-right" : "text-left"
+      }`}
+    >
+      <Link
+        href={`${baseHref}?${qs.toString()}`}
+        className="inline-flex items-center gap-1 hover:text-brand-600"
+      >
+        {label}
+        {active && <span aria-hidden>{currentDir === "asc" ? "▲" : "▼"}</span>}
+      </Link>
+    </th>
   );
 }
 

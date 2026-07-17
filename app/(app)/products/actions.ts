@@ -8,6 +8,7 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
+  isReferencedByOrders,
 } from "@/db/queries/products";
 
 function parseProduct(formData: FormData) {
@@ -53,6 +54,9 @@ export async function deleteProductAction(formData: FormData) {
   await requireSession();
   const id = Number(formData.get("id"));
   if (id) {
+    if (await isReferencedByOrders(id)) {
+      redirect("/products?error=has-orders");
+    }
     await deleteProduct(id);
     revalidatePath("/products");
   }

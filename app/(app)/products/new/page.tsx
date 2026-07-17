@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export default function NewProductPage() {
   return (
     <div>
-      <PageHeader title="New product" />
+      <PageHeader icon="product" overline="Product" title="New Product" />
       <ProductForm action={createProductAction} />
     </div>
   );

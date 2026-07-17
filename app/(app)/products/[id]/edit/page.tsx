@@ -17,7 +17,7 @@ export default async function EditProductPage({
 
   return (
     <div>
-      <PageHeader title={`Edit ${product.name}`} />
+      <PageHeader icon="product" overline="Product" title={`Edit ${product.name}`} />
       <ProductForm action={updateProductAction} product={product} />
     </div>
   );

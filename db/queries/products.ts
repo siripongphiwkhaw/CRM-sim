@@ -76,6 +76,16 @@ export async function updateProduct(
   );
 }
 
+/** True if any order line references this product — deletion is blocked to
+ * avoid silently corrupting historical/approved orders. */
+export async function isReferencedByOrders(id: number): Promise<boolean> {
+  const row = await get<{ n: number }>(
+    "SELECT COUNT(*) AS n FROM order_items WHERE product_id = ?",
+    [id]
+  );
+  return (row?.n ?? 0) > 0;
+}
+
 export async function deleteProduct(id: number): Promise<void> {
   await run("DELETE FROM products WHERE id = ?", [id]);
 }

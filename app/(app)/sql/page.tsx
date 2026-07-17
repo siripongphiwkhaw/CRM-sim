@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/session";
 import { getSchemaInfo } from "@/db/queries/sqlconsole";
-import { PageHeader, Card } from "@/app/components/ui";
+import { PageHeader, Card, SectionHeader } from "@/app/components/ui";
 import { SqlConsole } from "./SqlConsole";
 
 export const dynamic = "force-dynamic";
@@ -15,26 +15,26 @@ export default async function SqlPage() {
   return (
     <div>
       <PageHeader
+        icon="sql"
+        overline="Setup · Developer"
         title="SQL Console"
         subtitle="Run read-only queries against the platform database (admin only)"
       />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
         <div className="lg:col-span-3">
           <SqlConsole />
         </div>
         <div className="lg:col-span-1">
           <Card>
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-stone-400">
-              Schema
-            </h2>
-            <div className="space-y-4">
+            <SectionHeader title="Schema" />
+            <div className="space-y-3">
               {schema.map((t) => (
                 <div key={t.table}>
-                  <p className="font-mono text-sm font-medium text-stone-800">{t.table}</p>
-                  <ul className="mt-1 space-y-0.5">
+                  <p className="font-mono text-sm font-semibold text-[#181818]">{t.table}</p>
+                  <ul className="mt-0.5 space-y-0.5">
                     {t.columns.map((c) => (
-                      <li key={c} className="font-mono text-xs text-stone-500">{c}</li>
+                      <li key={c} className="font-mono text-xs text-[#706e6b]">{c}</li>
                     ))}
                   </ul>
                 </div>

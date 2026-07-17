@@ -3,7 +3,7 @@
 import { useFormStatus } from "react-dom";
 
 const inputClass =
-  "w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600 disabled:bg-stone-50";
+  "w-full rounded border border-[#c9c9c9] bg-white px-3 py-1.5 text-sm text-[#181818] focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600 disabled:bg-[#f3f3f3]";
 
 export function Field({
   label,
@@ -22,13 +22,13 @@ export function Field({
     <div>
       <label
         htmlFor={htmlFor}
-        className="mb-1 block text-sm font-medium text-stone-700"
+        className="mb-1 block text-xs font-semibold text-[#444]"
       >
         {label}
         {required && <span className="ml-0.5 text-brand-600">*</span>}
       </label>
       {children}
-      {hint && <p className="mt-1 text-xs text-stone-400">{hint}</p>}
+      {hint && <p className="mt-1 text-xs text-[#706e6b]">{hint}</p>}
     </div>
   );
 }
@@ -64,7 +64,16 @@ export function Select({
 export function FormError({ message }: { message?: string }) {
   if (!message) return null;
   return (
-    <div className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-700">
+    <div className="rounded border border-[#fead9a] bg-[#feded8] px-3 py-2 text-sm text-[#8e030f]">
+      {message}
+    </div>
+  );
+}
+
+export function FormSuccess({ message }: { message?: string }) {
+  if (!message) return null;
+  return (
+    <div className="rounded border border-[#9be6ae] bg-[#cdefc4] px-3 py-2 text-sm text-[#194e31]">
       {message}
     </div>
   );
@@ -80,7 +89,7 @@ export function SubmitButton({
     <button
       type="submit"
       disabled={pending}
-      className="inline-flex items-center rounded-full bg-brand-600 px-5 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-700 disabled:opacity-50"
+      className="inline-flex items-center rounded border border-brand-600 bg-brand-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-brand-700 hover:border-brand-700 disabled:opacity-50"
     >
       {pending ? "Saving…" : children}
     </button>
@@ -108,7 +117,7 @@ export function DeleteButton({
       <input type="hidden" name="id" value={id} />
       <button
         type="submit"
-        className="inline-flex items-center rounded-full border border-brand-200 px-4 py-2 text-sm font-medium text-brand-700 transition-colors hover:bg-brand-50"
+        className="inline-flex items-center rounded border border-[#c9c9c9] bg-white px-3 py-1.5 text-sm font-medium text-[#8e030f] transition-colors hover:bg-[#feded8]"
       >
         {label}
       </button>

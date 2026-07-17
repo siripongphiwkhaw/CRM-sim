@@ -12,7 +12,9 @@ import {
 
 const CUSTOMER_COUNT = 60;
 const PRODUCT_COUNT = 24;
-const CHANNEL_RECORD_COUNT = 60;
+const DISTRIBUTOR_COUNT = 8;
+const REPORT_COUNT = 40;
+const TRADE_CHANNELS_SEED = ["Modern Trade", "Traditional Trade", "E-Commerce", "Food Service"];
 
 function lastId(db: Database): number {
   const res = db.exec("SELECT last_insert_rowid() AS id");
@@ -47,20 +49,24 @@ export function seedInto(db: Database): void {
   db.run("BEGIN");
   try {
     // Users with roles: one admin, one regular staff user.
-    for (const [name, email, role] of [
-      ["Admin User", "admin@crm.local", "admin"],
-      ["Staff Member", "staff@crm.local", "user"],
-    ]) {
+    const userIds: Record<"admin" | "staff", number> = { admin: 0, staff: 0 };
+    for (const [key, name, email, role] of [
+      ["admin", "Admin User", "admin@crm.local", "admin"],
+      ["staff", "Staff Member", "staff@crm.local", "user"],
+    ] as const) {
       db.run(
         "INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)",
         [name, email, demoHash, role]
       );
+      userIds[key] = lastId(db);
     }
 
     // S&I product master.
     const productIds: number[] = [];
+    const productPrices = new Map<number, number>();
     for (let i = 0; i < PRODUCT_COUNT; i++) {
       const brand = faker.helpers.arrayElement(BRANDS);
+      const unitPrice = faker.number.int({ min: 15, max: 590 });
       db.run(
         `INSERT INTO products (sku, name, brand, category, unit_price)
          VALUES (?, ?, ?, ?, ?)`,
@@ -69,10 +75,12 @@ export function seedInto(db: Database): void {
           `${brand} ${faker.commerce.productName()}`,
           brand,
           faker.helpers.arrayElement(PRODUCT_CATEGORIES),
-          faker.number.int({ min: 15, max: 590 }),
+          unitPrice,
         ]
       );
-      productIds.push(lastId(db));
+      const id = lastId(db);
+      productIds.push(id);
+      productPrices.set(id, unitPrice);
     }
 
     // Customers (CDP master) + their interaction history.
@@ -204,25 +212,224 @@ export function seedInto(db: Database): void {
       }
     }
 
-    // Sell-out / inventory / forecast records across dealers.
-    const dealers = Array.from({ length: 8 }, () => faker.company.name());
-    for (let i = 0; i < CHANNEL_RECORD_COUNT; i++) {
-      const sellOut = faker.number.int({ min: 0, max: 500 });
+    // Distributors: FMCG trade master data (replaces the old free-text dealer name).
+    const distributorIds: number[] = [];
+    for (let i = 0; i < DISTRIBUTOR_COUNT; i++) {
+      const name = faker.company.name();
       db.run(
-        `INSERT INTO channel_records
-           (dealer_name, product_id, channel, sell_out_qty, stock_on_hand, forecast_qty, recorded_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO distributors
+           (distributor_code, name, region, channel, status, contact_name, phone, email, address, credit_limit)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          faker.helpers.arrayElement(dealers),
-          faker.helpers.arrayElement(productIds),
-          faker.helpers.arrayElement(["Modern Trade", "Traditional Trade", "E-Commerce", "Food Service"]),
-          sellOut,
-          faker.number.int({ min: 0, max: 800 }),
-          Math.round(sellOut * faker.number.float({ min: 0.8, max: 1.4 })),
-          faker.date.recent({ days: 30 }).toISOString(),
+          `DIST-${String(1000 + i)}`,
+          name,
+          faker.location.state(),
+          faker.helpers.arrayElement(TRADE_CHANNELS_SEED),
+          faker.datatype.boolean({ probability: 0.9 }) ? "active" : "inactive",
+          faker.person.fullName(),
+          faker.phone.number(),
+          faker.internet.email({ firstName: name.split(" ")[0] }).toLowerCase(),
+          `${faker.location.streetAddress()}, ${faker.location.city()}`,
+          faker.number.int({ min: 50000, max: 500000 }),
         ]
       );
+      distributorIds.push(lastId(db));
     }
+
+    // Inventory ledger: opening stock-in per distributor/product, so on-hand
+    // (always SUM(quantity) at query time) starts from a believable baseline.
+    for (const distributorId of distributorIds) {
+      const stockedProducts = faker.helpers.arrayElements(productIds, { min: 4, max: 8 });
+      for (const productId of stockedProducts) {
+        db.run(
+          `INSERT INTO inventory_transactions
+             (distributor_id, product_id, txn_type, quantity, reference_type, note, created_by, occurred_at)
+           VALUES (?, ?, 'stock_in', ?, 'manual', ?, ?, ?)`,
+          [
+            distributorId,
+            productId,
+            faker.number.int({ min: 100, max: 600 }),
+            "Opening stock balance",
+            userIds.admin,
+            faker.date.recent({ days: 60 }).toISOString(),
+          ]
+        );
+      }
+    }
+
+    // Sell-out reports: a report + its matching negative stock-out ledger
+    // entry, mirroring db/queries/reports.ts's createDistributorReport.
+    for (let i = 0; i < REPORT_COUNT; i++) {
+      const distributorId = faker.helpers.arrayElement(distributorIds);
+      const productId = faker.helpers.arrayElement(productIds);
+      const sellOut = faker.number.int({ min: 0, max: 150 });
+      const forecast = Math.round(sellOut * faker.number.float({ min: 0.8, max: 1.4 }));
+      const period = faker.date.recent({ days: 90 }).toISOString().slice(0, 7);
+      const recordedAt = faker.date.recent({ days: 30 }).toISOString();
+
+      db.run(
+        `INSERT INTO distributor_reports (distributor_id, product_id, period, sell_out_qty, forecast_qty, recorded_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [distributorId, productId, period, sellOut, forecast, recordedAt]
+      );
+      if (sellOut > 0) {
+        db.run(
+          `INSERT INTO inventory_transactions
+             (distributor_id, product_id, txn_type, quantity, reference_type, note, created_by, occurred_at)
+           VALUES (?, ?, 'stock_out', ?, 'sell_out_report', ?, ?, ?)`,
+          [distributorId, productId, -sellOut, `Sell-out report for ${period}`, userIds.staff, recordedAt]
+        );
+      }
+    }
+
+    // Orders: self-ordering with a full approval-workflow spread across every
+    // status, each with a matching order_status_history timeline.
+    const ORDER_PLAN: { status: string; steps: string[] }[] = [
+      { status: "draft", steps: ["draft"] },
+      { status: "draft", steps: ["draft"] },
+      { status: "draft", steps: ["draft"] },
+      { status: "submitted", steps: ["draft", "submitted"] },
+      { status: "submitted", steps: ["draft", "submitted"] },
+      { status: "submitted", steps: ["draft", "submitted"] },
+      { status: "submitted", steps: ["draft", "submitted"] },
+      { status: "approved", steps: ["draft", "submitted", "approved"] },
+      { status: "approved", steps: ["draft", "submitted", "approved"] },
+      { status: "approved", steps: ["draft", "submitted", "approved"] },
+      { status: "approved", steps: ["draft", "submitted", "approved"] },
+      { status: "approved", steps: ["draft", "submitted", "approved"] },
+      { status: "fulfilled", steps: ["draft", "submitted", "approved", "fulfilled"] },
+      { status: "fulfilled", steps: ["draft", "submitted", "approved", "fulfilled"] },
+      { status: "fulfilled", steps: ["draft", "submitted", "approved", "fulfilled"] },
+      { status: "fulfilled", steps: ["draft", "submitted", "approved", "fulfilled"] },
+      { status: "rejected", steps: ["draft", "submitted", "rejected"] },
+      { status: "rejected", steps: ["draft", "submitted", "rejected"] },
+      { status: "cancelled", steps: ["draft", "cancelled"] },
+      { status: "cancelled", steps: ["draft", "submitted", "cancelled"] },
+    ];
+
+    for (let i = 0; i < ORDER_PLAN.length; i++) {
+      const plan = ORDER_PLAN[i];
+      const orderNumber = `ORD-${String(10000 + i)}`;
+      const distributorId = faker.helpers.arrayElement(distributorIds);
+      const createdAt = faker.date.recent({ days: 45 }).toISOString();
+      const lineItems = faker.helpers
+        .arrayElements(productIds, { min: 1, max: 3 })
+        .map((productId) => ({
+          productId,
+          quantity: faker.number.int({ min: 5, max: 60 }),
+          unitPrice: productPrices.get(productId) ?? 0,
+        }));
+
+      db.run(
+        `INSERT INTO orders
+           (order_number, distributor_id, status, requested_delivery_date, created_by, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          orderNumber,
+          distributorId,
+          plan.status,
+          faker.date.soon({ days: 21 }).toISOString().slice(0, 10),
+          userIds.staff,
+          createdAt,
+          createdAt,
+        ]
+      );
+      const orderId = lastId(db);
+
+      for (const item of lineItems) {
+        db.run(
+          `INSERT INTO order_items (order_id, product_id, quantity, unit_price) VALUES (?, ?, ?, ?)`,
+          [orderId, item.productId, item.quantity, item.unitPrice]
+        );
+      }
+
+      let fromStatus: string | null = null;
+      for (const toStatus of plan.steps) {
+        const actor =
+          toStatus === "approved" || toStatus === "rejected" ? userIds.admin : userIds.staff;
+        const note =
+          toStatus === "rejected"
+            ? "Over credit limit for this period."
+            : toStatus === "fulfilled"
+              ? "Auto-fulfilled: all deliveries completed."
+              : null;
+        db.run(
+          `INSERT INTO order_status_history (order_id, from_status, to_status, note, changed_by, changed_at)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [orderId, fromStatus, toStatus, note, actor, createdAt]
+        );
+        fromStatus = toStatus;
+      }
+
+      if (plan.status === "approved" || plan.status === "fulfilled") {
+        const delivered = plan.status === "fulfilled";
+        for (const item of lineItems) {
+          db.run(
+            `INSERT INTO delivery_plans (distributor_id, product_id, order_id, plan_date, planned_qty, status, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [
+              distributorId,
+              item.productId,
+              orderId,
+              faker.date.soon({ days: 14 }).toISOString().slice(0, 10),
+              item.quantity,
+              delivered ? "delivered" : "planned",
+              createdAt,
+            ]
+          );
+          if (delivered) {
+            db.run(
+              `INSERT INTO inventory_transactions
+                 (distributor_id, product_id, txn_type, quantity, reference_type, reference_id, created_by, occurred_at)
+               VALUES (?, ?, 'stock_in', ?, 'delivery_plan', ?, ?, ?)`,
+              [distributorId, item.productId, item.quantity, lastId(db), userIds.admin, createdAt]
+            );
+          }
+        }
+      }
+    }
+
+    // Correct any distributor/product pair that went negative — opening
+    // stock, sell-out reports and fulfilled deliveries are drawn from
+    // independent random samples, so some combinations can oversell what was
+    // ever stocked in. Rather than widen the random ranges and hope, post one
+    // reconciling 'adjustment' transaction per negative pair, the same way a
+    // real warehouse count correction would. Deterministic: guarantees
+    // on-hand >= 0 everywhere instead of relying on probability.
+    const negativeRes = db.exec(
+      `SELECT distributor_id, product_id, SUM(quantity) AS on_hand
+       FROM inventory_transactions
+       GROUP BY distributor_id, product_id
+       HAVING on_hand < 0`
+    );
+    for (const row of negativeRes[0]?.values ?? []) {
+      const [distributorId, productId, onHand] = row as [number, number, number];
+      db.run(
+        `INSERT INTO inventory_transactions
+           (distributor_id, product_id, txn_type, quantity, reference_type, note, created_by, occurred_at)
+         VALUES (?, ?, 'adjustment', ?, 'manual', 'Stock count reconciliation', ?, datetime('now'))`,
+        [distributorId, productId, -onHand + 20, userIds.admin]
+      );
+    }
+
+    // Departments & PICs: the admin backoffice / employee frontend split.
+    const departments: [string, string][] = [
+      ["Trade & Sales", "Owns distributor relationships, orders and sell-out reporting."],
+      ["Data Governance", "Owns PDPA consent policy and customer data quality."],
+      ["Finance", "Owns distributor credit limits and order approval thresholds."],
+      ["IT & Data Cloud", "Owns source-system integrations and data migration."],
+    ];
+    const departmentIds: number[] = [];
+    for (const [name, description] of departments) {
+      db.run("INSERT INTO departments (name, description) VALUES (?, ?)", [name, description]);
+      departmentIds.push(lastId(db));
+    }
+    // Seed both demo users as PICs so /department has something to show
+    // out of the box, without making PIC-ness the same thing as admin.
+    db.run("INSERT INTO department_pics (department_id, user_id) VALUES (?, ?)", [departmentIds[0], userIds.staff]);
+    db.run("INSERT INTO department_pics (department_id, user_id) VALUES (?, ?)", [departmentIds[1], userIds.admin]);
+    db.run("INSERT INTO department_pics (department_id, user_id) VALUES (?, ?)", [departmentIds[2], userIds.admin]);
+    db.run("INSERT INTO department_pics (department_id, user_id) VALUES (?, ?)", [departmentIds[0], userIds.admin]);
 
     // Data Cloud: linked source systems.
     const sources: [string, string, string, string, string, number, string][] = [

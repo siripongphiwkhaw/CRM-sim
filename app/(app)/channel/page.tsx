@@ -1,90 +1,100 @@
-import { listChannelRecords, getChannelSummary } from "@/db/queries/channel";
-import { PageHeader, Card, EmptyState } from "@/app/components/ui";
-import { formatDate } from "@/lib/format";
+import Link from "next/link";
+import { getDistributorSummary } from "@/db/queries/distributors";
+import { getPendingApprovalCount } from "@/db/queries/orders";
+import { getTotalOnHandValue } from "@/db/queries/inventory";
+import { getReportSummary } from "@/db/queries/reports";
+import { PageHeader, Card, ObjectIcon } from "@/app/components/ui";
+import { formatCurrency } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-function Stat({ label, value }: { label: string; value: string }) {
+function HubTile({
+  href,
+  icon,
+  title,
+  stat,
+  description,
+}: {
+  href: string;
+  icon: "distributor" | "order" | "channel" | "product";
+  title: string;
+  stat: string;
+  description: string;
+}) {
   return (
-    <Card>
-      <p className="text-sm text-stone-500">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-stone-900">{value}</p>
-    </Card>
+    <Link
+      href={href}
+      className="flex items-start gap-3 rounded border border-[#e5e5e5] bg-white p-4 transition-shadow hover:shadow-md"
+    >
+      <ObjectIcon kind={icon} size="lg" />
+      <div className="min-w-0">
+        <h3 className="font-semibold text-[#181818]">{title}</h3>
+        <p className="text-lg font-bold text-brand-600">{stat}</p>
+        <p className="text-xs text-[#706e6b]">{description}</p>
+      </div>
+    </Link>
   );
 }
 
-export default async function ChannelPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ q?: string }>;
-}) {
-  const { q } = await searchParams;
-  const [summary, records] = await Promise.all([
-    getChannelSummary(),
-    listChannelRecords({ search: q }),
+export default async function ChannelHubPage() {
+  const [distributors, pendingApprovals, onHandValue, reports] = await Promise.all([
+    getDistributorSummary(),
+    getPendingApprovalCount(),
+    getTotalOnHandValue(),
+    getReportSummary(),
   ]);
-
-  const num = (n: number) => n.toLocaleString("en-US");
 
   return (
     <div>
       <PageHeader
-        title="Sales & Channel"
-        subtitle="Sell-out, inventory and demand forecast across dealers"
+        icon="channel"
+        overline="Sales & Channel"
+        title="Trade Operations"
+        subtitle="Distributors, self-ordering, inventory and sell-out reporting"
       />
 
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat label="Total sell-out" value={num(summary.total_sell_out)} />
-        <Stat label="Stock on hand" value={num(summary.total_stock)} />
-        <Stat label="Forecast demand" value={num(summary.total_forecast)} />
-        <Stat label="Dealers" value={num(summary.dealer_count)} />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <HubTile
+          href="/channel/distributors"
+          icon="distributor"
+          title="Distributors"
+          stat={`${distributors.active} active`}
+          description={`${distributors.total} total distributors on file`}
+        />
+        <HubTile
+          href="/channel/orders"
+          icon="order"
+          title="Orders"
+          stat={`${pendingApprovals} pending approval`}
+          description="Self-ordering with an approval workflow"
+        />
+        <HubTile
+          href="/channel/inventory"
+          icon="channel"
+          title="Inventory"
+          stat={formatCurrency(onHandValue)}
+          description="On-hand stock value, ledger and delivery plans"
+        />
+        <HubTile
+          href="/channel/reports"
+          icon="product"
+          title="Sell-out Reports"
+          stat={`${reports.total_sell_out.toLocaleString("en-US")} units`}
+          description={`${reports.distributor_count} distributors reporting`}
+        />
       </div>
 
-      <form method="get" className="mb-4">
-        <input
-          type="search"
-          name="q"
-          defaultValue={q ?? ""}
-          placeholder="Search dealer or product…"
-          className="w-full max-w-sm rounded-md border border-stone-300 px-3 py-2 text-sm focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
-        />
-      </form>
-
-      {records.length === 0 ? (
-        <EmptyState message="No channel records found." />
-      ) : (
-        <div className="overflow-x-auto rounded-lg border border-stone-200 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-stone-200 text-sm">
-            <thead className="bg-stone-50 text-left text-xs font-medium uppercase tracking-wide text-stone-500">
-              <tr>
-                <th className="px-4 py-3">Dealer</th>
-                <th className="px-4 py-3">Product</th>
-                <th className="px-4 py-3">Channel</th>
-                <th className="px-4 py-3 text-right">Sell-out</th>
-                <th className="px-4 py-3 text-right">Stock</th>
-                <th className="px-4 py-3 text-right">Forecast</th>
-                <th className="px-4 py-3">Recorded</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-100">
-              {records.map((r) => (
-                <tr key={r.id} className="hover:bg-stone-50">
-                  <td className="px-4 py-3 text-stone-800">{r.dealer_name}</td>
-                  <td className="px-4 py-3 text-stone-600">
-                    {r.product_name ?? "—"}
-                    {r.brand && <span className="ml-1 text-xs text-stone-400">({r.brand})</span>}
-                  </td>
-                  <td className="px-4 py-3 text-stone-600">{r.channel ?? "—"}</td>
-                  <td className="px-4 py-3 text-right text-stone-600">{num(r.sell_out_qty)}</td>
-                  <td className="px-4 py-3 text-right text-stone-600">{num(r.stock_on_hand)}</td>
-                  <td className="px-4 py-3 text-right text-stone-600">{num(r.forecast_qty)}</td>
-                  <td className="px-4 py-3 text-stone-500">{formatDate(r.recorded_at)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <Card className="mt-4">
+        <p className="text-sm text-[#444]">
+          Distributor master data, an inventory ledger, and self-ordering with
+          submit → approve/reject → fulfil replace the old flat channel-numbers
+          view. Product Management lives under{" "}
+          <Link href="/products" className="text-brand-600 hover:underline">
+            Products
+          </Link>
+          .
+        </p>
+      </Card>
     </div>
   );
 }

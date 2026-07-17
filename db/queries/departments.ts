@@ -1,0 +1,125 @@
+import { get, all, run } from "../client";
+
+export interface Department {
+  id: number;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DepartmentWithPics extends Department {
+  pic_count: number;
+  pic_names: string | null;
+}
+
+export interface PicUser {
+  id: number;
+  name: string;
+  email: string;
+}
+
+export function listDepartments(): Promise<DepartmentWithPics[]> {
+  return all<DepartmentWithPics>(
+    `SELECT d.*,
+       COUNT(dp.user_id) AS pic_count,
+       GROUP_CONCAT(u.name, ', ') AS pic_names
+     FROM departments d
+     LEFT JOIN department_pics dp ON dp.department_id = d.id
+     LEFT JOIN users u ON u.id = dp.user_id
+     GROUP BY d.id
+     ORDER BY d.name`
+  );
+}
+
+export function getDepartment(id: number): Promise<Department | undefined> {
+  return get<Department>("SELECT * FROM departments WHERE id = ?", [id]);
+}
+
+/** Departments where the given user is a PIC — powers the "My Department"
+ * page and whether that nav tab is shown at all. */
+export function listDepartmentsForUser(userId: number): Promise<Department[]> {
+  return all<Department>(
+    `SELECT d.* FROM departments d
+     JOIN department_pics dp ON dp.department_id = d.id
+     WHERE dp.user_id = ?
+     ORDER BY d.name`,
+    [userId]
+  );
+}
+
+export async function isPicOfAny(userId: number): Promise<boolean> {
+  const row = await get<{ n: number }>(
+    "SELECT COUNT(*) AS n FROM department_pics WHERE user_id = ?",
+    [userId]
+  );
+  return (row?.n ?? 0) > 0;
+}
+
+export async function isPicOfDepartment(
+  userId: number,
+  departmentId: number
+): Promise<boolean> {
+  const row = await get<{ n: number }>(
+    "SELECT COUNT(*) AS n FROM department_pics WHERE user_id = ? AND department_id = ?",
+    [userId, departmentId]
+  );
+  return (row?.n ?? 0) > 0;
+}
+
+export function listPicsForDepartment(departmentId: number): Promise<PicUser[]> {
+  return all<PicUser>(
+    `SELECT u.id, u.name, u.email
+     FROM department_pics dp
+     JOIN users u ON u.id = dp.user_id
+     WHERE dp.department_id = ?
+     ORDER BY u.name`,
+    [departmentId]
+  );
+}
+
+export interface DepartmentInput {
+  name: string;
+  description?: string | null;
+}
+
+export function createDepartment(input: DepartmentInput): Promise<number> {
+  return run(
+    "INSERT INTO departments (name, description) VALUES (@name, @description)",
+    { name: input.name, description: input.description ?? null }
+  );
+}
+
+export async function updateDepartment(
+  id: number,
+  input: DepartmentInput
+): Promise<void> {
+  await run(
+    "UPDATE departments SET name = @name, description = @description, updated_at = datetime('now') WHERE id = @id",
+    { id, name: input.name, description: input.description ?? null }
+  );
+}
+
+export async function deleteDepartment(id: number): Promise<void> {
+  await run("DELETE FROM departments WHERE id = ?", [id]);
+}
+
+export async function addDepartmentPic(
+  departmentId: number,
+  userId: number
+): Promise<void> {
+  await run(
+    "INSERT OR IGNORE INTO department_pics (department_id, user_id) VALUES (?, ?)",
+    [departmentId, userId]
+  );
+}
+
+export async function removeDepartmentPic(
+  departmentId: number,
+  userId: number
+): Promise<void> {
+  await run(
+    "DELETE FROM department_pics WHERE department_id = ? AND user_id = ?",
+    [departmentId, userId]
+  );
+}

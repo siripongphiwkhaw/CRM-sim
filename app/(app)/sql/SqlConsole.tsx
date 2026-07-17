@@ -25,18 +25,18 @@ export function SqlConsole() {
   const result = state.result;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <form action={formAction} className="space-y-3">
         <textarea
           name="query"
           rows={6}
           defaultValue={state.query ?? SAMPLE}
           spellCheck={false}
-          className="w-full rounded-md border border-stone-300 bg-stone-900 px-3 py-2 font-mono text-sm text-stone-100 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
+          className="w-full rounded border border-[#c9c9c9] bg-[#032d60] px-3 py-2 font-mono text-sm text-[#eef4ff] focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
         />
         <div className="flex items-center gap-3">
           <SubmitButton>Run query</SubmitButton>
-          <span className="text-xs text-stone-400">
+          <span className="text-xs text-[#706e6b]">
             Read-only — SELECT statements only. Max 500 rows.
           </span>
         </div>
@@ -46,27 +46,27 @@ export function SqlConsole() {
 
       {result && (
         <div>
-          <p className="mb-2 text-sm text-stone-500">
+          <p className="mb-2 text-sm text-[#706e6b]">
             {result.rowCount} row{result.rowCount === 1 ? "" : "s"}
             {result.truncated && " (showing first 500)"}
           </p>
           {result.columns.length === 0 ? (
-            <p className="text-sm text-stone-500">Query returned no columns.</p>
+            <p className="text-sm text-[#706e6b]">Query returned no columns.</p>
           ) : (
-            <div className="overflow-x-auto rounded-lg border border-stone-200 bg-white shadow-sm">
-              <table className="min-w-full divide-y divide-stone-200 text-sm">
-                <thead className="bg-stone-50 text-left text-xs font-medium uppercase tracking-wide text-stone-500">
+            <div className="overflow-x-auto rounded border border-[#e5e5e5] bg-white">
+              <table className="min-w-full divide-y divide-[#e5e5e5] text-sm">
+                <thead className="bg-[#fafaf9] text-left text-xs font-semibold uppercase tracking-wide text-[#444]">
                   <tr>
                     {result.columns.map((c) => (
                       <th key={c} className="whitespace-nowrap px-4 py-2 font-mono">{c}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-stone-100">
+                <tbody className="divide-y divide-[#f3f3f3]">
                   {result.rows.map((row, i) => (
-                    <tr key={i} className="hover:bg-stone-50">
+                    <tr key={i} className="hover:bg-[#f3f3f3]">
                       {row.map((v, j) => (
-                        <td key={j} className="whitespace-nowrap px-4 py-2 font-mono text-stone-700">
+                        <td key={j} className="whitespace-nowrap px-4 py-2 font-mono text-[#444]">
                           {cell(v)}
                         </td>
                       ))}
