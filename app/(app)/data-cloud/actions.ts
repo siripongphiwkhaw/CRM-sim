@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/session";
-import { markSourceSynced } from "@/db/queries/dataSources";
+import { markSourceSynced, syncAllSources } from "@/db/queries/dataSources";
 
 export async function syncSourceAction(id: number) {
   await requireSession();
@@ -10,4 +10,10 @@ export async function syncSourceAction(id: number) {
     await markSourceSynced(id);
     revalidatePath("/data-cloud");
   }
+}
+
+export async function syncAllAction() {
+  await requireSession();
+  await syncAllSources();
+  revalidatePath("/data-cloud");
 }

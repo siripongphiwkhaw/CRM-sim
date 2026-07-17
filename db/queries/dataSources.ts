@@ -25,3 +25,10 @@ export async function markSourceSynced(id: number): Promise<void> {
     [id]
   );
 }
+
+/** Re-syncs every source at once. */
+export async function syncAllSources(): Promise<void> {
+  await run(
+    "UPDATE data_sources SET status = 'connected', last_synced_at = datetime('now')"
+  );
+}

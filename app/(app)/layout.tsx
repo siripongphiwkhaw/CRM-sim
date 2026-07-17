@@ -1,31 +1,19 @@
-import Link from "next/link";
 import { getSession } from "@/lib/session";
+import { GlobalNav, type NavTab } from "@/app/components/GlobalNav";
 import { logoutAction } from "./actions";
 
-const NAV_LINKS = [
-  { href: "/dashboard", label: "Dashboard", icon: "📊" },
-  { href: "/customers", label: "Customers (CDP)", icon: "👥" },
-  { href: "/products", label: "Products", icon: "🛒" },
-  { href: "/channel", label: "Sales & Channel", icon: "🏪" },
-  { href: "/data-cloud", label: "Data Cloud", icon: "☁️" },
+const BASE_TABS: NavTab[] = [
+  { href: "/dashboard", label: "Home" },
+  { href: "/customers", label: "Customers" },
+  { href: "/products", label: "Products" },
+  { href: "/channel", label: "Sales & Channel" },
+  { href: "/data-cloud", label: "Data Cloud" },
 ];
 
-const ADMIN_LINKS = [
-  { href: "/sql", label: "SQL Console", icon: "⌨️" },
-  { href: "/admin", label: "Administration", icon: "🛡️" },
+const ADMIN_TABS: NavTab[] = [
+  { href: "/sql", label: "SQL Console" },
+  { href: "/admin", label: "Setup" },
 ];
-
-function NavItem({ href, label, icon }: { href: string; label: string; icon: string }) {
-  return (
-    <Link
-      href={href}
-      className="flex items-center gap-2.5 rounded-full px-4 py-2 text-sm font-medium text-stone-700 transition-colors hover:bg-brand-50 hover:text-brand-700"
-    >
-      <span aria-hidden className="text-base leading-none">{icon}</span>
-      {label}
-    </Link>
-  );
-}
 
 export default async function AppLayout({
   children,
@@ -34,46 +22,61 @@ export default async function AppLayout({
 }) {
   const session = await getSession();
   const isAdmin = session.role === "admin";
+  const tabs = isAdmin ? [...BASE_TABS, ...ADMIN_TABS] : BASE_TABS;
+  const initials = (session.name ?? "?")
+    .split(/\s+/)
+    .map((p) => p.charAt(0))
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 
   return (
-    <div className="flex min-h-screen flex-1 bg-background">
-      <aside className="flex w-64 flex-col border-r border-stone-200 bg-white">
-        <div className="bg-gradient-to-br from-brand-600 to-brand-800 px-5 py-6">
-          <span className="font-display text-2xl text-white">Loyalty CRM</span>
-          <p className="mt-0.5 text-xs text-brand-100">
-            Well-being · Customer Data Platform
-          </p>
-        </div>
-        <nav className="flex-1 space-y-1 px-3 py-4">
-          {NAV_LINKS.map((link) => (
-            <NavItem key={link.href} {...link} />
+    <div className="flex min-h-screen flex-1 flex-col bg-background">
+      <div className="h-1 bg-brand-600" />
+      <header className="flex items-center gap-4 border-b border-[#e5e5e5] bg-white px-4 py-2">
+        {/* app-launcher waffle */}
+        <span aria-hidden className="grid grid-cols-3 gap-[3px] p-1">
+          {Array.from({ length: 9 }).map((_, i) => (
+            <span key={i} className="h-1 w-1 rounded-[1px] bg-[#747474]" />
           ))}
+        </span>
+        <span className="text-base font-bold text-[#032d60]">Loyalty Cloud</span>
 
-          {isAdmin && (
-            <>
-              <p className="px-4 pb-1 pt-5 text-xs font-semibold uppercase tracking-wide text-stone-400">
-                Admin
-              </p>
-              {ADMIN_LINKS.map((link) => (
-                <NavItem key={link.href} {...link} />
-              ))}
-            </>
-          )}
-        </nav>
-        <div className="border-t border-stone-200 bg-cream-50 px-5 py-4">
-          <p className="truncate text-sm font-medium text-stone-800">{session.name}</p>
-          <p className="mb-3 text-xs capitalize text-stone-400">{session.role} account</p>
+        <form action="/search" method="get" className="mx-auto w-full max-w-xl">
+          <input
+            type="search"
+            name="q"
+            placeholder="Search customers, products and more…"
+            className="w-full rounded-full border border-[#c9c9c9] bg-[#f3f3f3] px-4 py-1.5 text-sm focus:border-brand-600 focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-600"
+          />
+        </form>
+
+        <div className="flex shrink-0 items-center gap-3">
+          <div className="text-right">
+            <p className="text-xs font-semibold leading-tight text-[#181818]">
+              {session.name}
+            </p>
+            <p className="text-[11px] capitalize leading-tight text-[#706e6b]">
+              {session.role}
+            </p>
+          </div>
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-700 text-xs font-semibold text-white">
+            {initials}
+          </span>
           <form action={logoutAction}>
             <button
               type="submit"
-              className="w-full rounded-full border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-700 transition-colors hover:border-brand-600 hover:text-brand-700"
+              className="rounded border border-[#c9c9c9] bg-white px-3 py-1 text-xs text-[#444] hover:bg-[#f3f3f3]"
             >
               Sign out
             </button>
           </form>
         </div>
-      </aside>
-      <main className="flex-1 overflow-y-auto p-8">{children}</main>
+      </header>
+
+      <GlobalNav tabs={tabs} />
+
+      <main className="flex-1 overflow-y-auto p-4">{children}</main>
     </div>
   );
 }

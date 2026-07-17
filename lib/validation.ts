@@ -43,6 +43,13 @@ export const roleSchema = z.object({
   role: z.enum(ROLES),
 });
 
+export const newUserSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  email: z.string().email("A valid email is required"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  role: z.enum(ROLES),
+});
+
 export const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),

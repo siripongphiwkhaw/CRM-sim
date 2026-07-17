@@ -37,10 +37,22 @@ export interface CustomerInput {
   consent_migration: boolean;
 }
 
+// Sortable columns are allow-listed — the sort key comes from the URL.
+const SORT_COLUMNS: Record<string, string> = {
+  name: "last_name",
+  brand: "brand",
+  tier: "tier",
+  points: "points",
+  clv: "clv",
+  created: "created_at",
+};
+
 export function listCustomers(opts?: {
   search?: string;
   brand?: string;
   tier?: string;
+  sort?: string;
+  dir?: string;
 }): Promise<Customer[]> {
   const clauses: string[] = [];
   const params: (string | number)[] = [];
@@ -62,9 +74,29 @@ export function listCustomers(opts?: {
   }
 
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+  const column = SORT_COLUMNS[opts?.sort ?? ""] ?? "created_at";
+  const dir = opts?.dir === "asc" ? "ASC" : "DESC";
   return all<Customer>(
-    `SELECT * FROM customers ${where} ORDER BY created_at DESC`,
+    `SELECT * FROM customers ${where} ORDER BY ${column} ${dir}`,
     params
+  );
+}
+
+export function listRecentCustomers(limit = 5): Promise<Customer[]> {
+  return all<Customer>(
+    "SELECT * FROM customers ORDER BY updated_at DESC LIMIT ?",
+    [limit]
+  );
+}
+
+export function getTopCustomer(): Promise<Customer | undefined> {
+  return get<Customer>("SELECT * FROM customers ORDER BY clv DESC LIMIT 1");
+}
+
+export async function setCustomerTier(id: number, tier: Tier): Promise<void> {
+  await run(
+    "UPDATE customers SET tier = ?, updated_at = datetime('now') WHERE id = ?",
+    [tier, id]
   );
 }
 

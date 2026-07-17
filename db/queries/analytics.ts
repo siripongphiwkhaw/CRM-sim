@@ -84,6 +84,32 @@ export async function getBrandDistribution(): Promise<Bucket[]> {
   return BRANDS.map((brand) => ({ label: brand, count: map.get(brand) ?? 0 }));
 }
 
+export interface MonthlyPurchases {
+  month: string;
+  total: number;
+  orders: number;
+}
+
+/** Purchase revenue per month over the trailing six months (oldest first). */
+export function getMonthlyPurchases(): Promise<MonthlyPurchases[]> {
+  return all<MonthlyPurchases>(
+    `SELECT strftime('%Y-%m', occurred_at) AS month,
+       COALESCE(SUM(amount), 0) AS total,
+       COUNT(*) AS orders
+     FROM interactions
+     WHERE type = 'purchase' AND occurred_at >= datetime('now', '-6 months')
+     GROUP BY month
+     ORDER BY month ASC`
+  );
+}
+
+export async function getMembersWithoutPdpa(): Promise<number> {
+  const row = await get<{ n: number }>(
+    "SELECT COUNT(*) AS n FROM customers WHERE consent_pdpa = 0"
+  );
+  return row?.n ?? 0;
+}
+
 export interface ConsentStats {
   total: number;
   pdpa: number;

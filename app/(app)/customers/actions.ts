@@ -9,10 +9,13 @@ import {
   firstError,
   type FormState,
 } from "@/lib/validation";
+import { z } from "zod";
+import { TIERS } from "@/lib/constants";
 import {
   createCustomer,
   updateCustomer,
   deleteCustomer,
+  setCustomerTier,
 } from "@/db/queries/customers";
 import { createInteraction } from "@/db/queries/interactions";
 
@@ -71,6 +74,17 @@ export async function deleteCustomerAction(formData: FormData) {
     revalidatePath("/customers");
   }
   redirect("/customers");
+}
+
+/** Salesforce-style Path: move a member to a tier directly from the record page. */
+export async function setTierAction(id: number, tier: string) {
+  await requireSession();
+  const parsed = z.enum(TIERS).safeParse(tier);
+  if (!parsed.success || !id) return;
+
+  await setCustomerTier(id, parsed.data);
+  revalidatePath(`/customers/${id}`);
+  revalidatePath("/customers");
 }
 
 export async function addInteractionAction(

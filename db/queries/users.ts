@@ -35,3 +35,20 @@ export function listUsers(): Promise<UserSummary[]> {
 export async function setUserRole(id: number, role: Role): Promise<void> {
   await run("UPDATE users SET role = ? WHERE id = ?", [role, id]);
 }
+
+export async function createUser(input: {
+  name: string;
+  email: string;
+  password_hash: string;
+  role: Role;
+}): Promise<number> {
+  return run(
+    "INSERT INTO users (name, email, password_hash, role) VALUES (@name, @email, @password_hash, @role)",
+    {
+      name: input.name,
+      email: input.email,
+      password_hash: input.password_hash,
+      role: input.role,
+    }
+  );
+}

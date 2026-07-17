@@ -16,22 +16,61 @@ export interface ChannelRecordWithProduct extends ChannelRecord {
   brand: string | null;
 }
 
+// Trade channels present in the seed data (used for filters).
+export const TRADE_CHANNELS = [
+  "Modern Trade",
+  "Traditional Trade",
+  "E-Commerce",
+  "Food Service",
+] as const;
+
+const SORT_COLUMNS: Record<string, string> = {
+  dealer: "cr.dealer_name",
+  sellout: "cr.sell_out_qty",
+  stock: "cr.stock_on_hand",
+  forecast: "cr.forecast_qty",
+  recorded: "cr.recorded_at",
+};
+
 export function listChannelRecords(opts?: {
   search?: string;
+  channel?: string;
+  sort?: string;
+  dir?: string;
 }): Promise<ChannelRecordWithProduct[]> {
-  const where = opts?.search
-    ? "WHERE cr.dealer_name LIKE ? OR p.name LIKE ?"
-    : "";
-  const params = opts?.search
-    ? [`%${opts.search}%`, `%${opts.search}%`]
-    : [];
+  const clauses: string[] = [];
+  const params: (string | number)[] = [];
+  if (opts?.search) {
+    clauses.push("(cr.dealer_name LIKE ? OR p.name LIKE ?)");
+    params.push(`%${opts.search}%`, `%${opts.search}%`);
+  }
+  if (opts?.channel) {
+    clauses.push("cr.channel = ?");
+    params.push(opts.channel);
+  }
+  const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+  const column = SORT_COLUMNS[opts?.sort ?? ""] ?? "cr.recorded_at";
+  const dir = opts?.dir === "asc" ? "ASC" : "DESC";
   return all<ChannelRecordWithProduct>(
     `SELECT cr.*, p.name AS product_name, p.brand AS brand
      FROM channel_records cr
      LEFT JOIN products p ON p.id = cr.product_id
      ${where}
-     ORDER BY cr.recorded_at DESC`,
+     ORDER BY ${column} ${dir}`,
     params
+  );
+}
+
+export function listChannelRecordsByProduct(
+  productId: number
+): Promise<ChannelRecordWithProduct[]> {
+  return all<ChannelRecordWithProduct>(
+    `SELECT cr.*, p.name AS product_name, p.brand AS brand
+     FROM channel_records cr
+     LEFT JOIN products p ON p.id = cr.product_id
+     WHERE cr.product_id = ?
+     ORDER BY cr.recorded_at DESC`,
+    [productId]
   );
 }
 
@@ -61,5 +100,22 @@ export async function getChannelSummary(): Promise<ChannelSummary> {
       record_count: 0,
       dealer_count: 0,
     }
+  );
+}
+
+export interface ChannelBreakdownRow {
+  channel: string;
+  sell_out: number;
+  forecast: number;
+}
+
+export function getChannelBreakdown(): Promise<ChannelBreakdownRow[]> {
+  return all<ChannelBreakdownRow>(
+    `SELECT COALESCE(channel, 'Unassigned') AS channel,
+       COALESCE(SUM(sell_out_qty), 0) AS sell_out,
+       COALESCE(SUM(forecast_qty), 0) AS forecast
+     FROM channel_records
+     GROUP BY channel
+     ORDER BY sell_out DESC`
   );
 }
