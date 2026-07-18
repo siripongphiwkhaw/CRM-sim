@@ -16,7 +16,8 @@ import {
   getOrderItems,
 } from "@/db/queries/orders";
 import { forceFulfillOrder } from "@/db/queries/deliveryPlans";
-import { extractReceipt, OcrError } from "@/lib/receiptOcr";
+import { extractReceipt, OcrError, type ExtractedReceipt } from "@/lib/receiptOcr";
+import { parseReceiptText } from "@/lib/receiptParse";
 import { readReceiptImage } from "@/lib/receiptImage";
 import { matchAgainstOrder } from "@/lib/receiptMatch";
 import { createReceiptScan } from "@/db/queries/receiptScans";
@@ -110,15 +111,28 @@ export async function scanOrderReceiptAction(
   const order = await getOrder(orderId);
   if (!order) return { error: "Order not found." };
 
-  const image = await readReceiptImage(formData.get("receipt_image"));
-  if ("error" in image) return { error: image.error };
-
-  let extracted;
-  try {
-    extracted = await extractReceipt(image.data, image.mediaType);
-  } catch (error) {
-    if (error instanceof OcrError) return { error: error.message };
-    throw error;
+  // Free path: the browser already OCR'd the photo with Tesseract and posts
+  // the raw text — parse it server-side. AI path (key configured): the photo
+  // itself is uploaded and read by Claude vision.
+  const ocrText = String(formData.get("ocr_text") ?? "").trim();
+  let extracted: ExtractedReceipt;
+  if (ocrText) {
+    extracted = parseReceiptText(ocrText);
+    if (extracted.line_items.length === 0) {
+      return {
+        error:
+          "No line items could be read from this photo. Try a sharper, straight-on photo with the item section clearly visible.",
+      };
+    }
+  } else {
+    const image = await readReceiptImage(formData.get("receipt_image"));
+    if ("error" in image) return { error: image.error };
+    try {
+      extracted = await extractReceipt(image.data, image.mediaType);
+    } catch (error) {
+      if (error instanceof OcrError) return { error: error.message };
+      throw error;
+    }
   }
 
   const items = await getOrderItems(orderId);

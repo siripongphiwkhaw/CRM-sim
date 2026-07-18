@@ -6,22 +6,71 @@ const MAX_EDGE = 1600;
 
 /**
  * File input for receipt photos. Downscales large photos to a ~1600px JPEG on
- * the client (phone photos are 3–8 MB; the server action caps uploads), shows
- * a preview, and swaps the processed file back into the input via DataTransfer
- * so a plain <form action={...}> submit carries the smaller image.
+ * the client, shows a preview, and swaps the processed file back into the
+ * input via DataTransfer so a plain <form action={...}> submit carries the
+ * smaller image.
+ *
+ * With `localOcr` (the default, key-free path) it also reads the receipt in
+ * the browser with Tesseract (Thai + English) and posts the recognized text
+ * in a hidden `ocr_text` field — the server then parses that text instead of
+ * calling a paid vision API.
  */
-export function ReceiptFileInput({ name = "receipt_image" }: { name?: string }) {
+export function ReceiptFileInput({
+  name = "receipt_image",
+  localOcr = false,
+  onBusyChange,
+}: {
+  name?: string;
+  localOcr?: boolean;
+  onBusyChange?: (busy: boolean) => void;
+}) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [ocrText, setOcrText] = useState("");
+  const [progress, setProgress] = useState<number | null>(null);
+  const jobRef = useRef(0);
+
+  async function runLocalOcr(image: Blob) {
+    const job = ++jobRef.current;
+    onBusyChange?.(true);
+    setOcrText("");
+    setProgress(0);
+    try {
+      const { createWorker } = await import("tesseract.js");
+      const worker = await createWorker("eng+tha", 1, {
+        logger: (m) => {
+          if (jobRef.current === job && m.status === "recognizing text") {
+            setProgress(Math.round(m.progress * 100));
+          }
+        },
+      });
+      const result = await worker.recognize(image);
+      await worker.terminate();
+      if (jobRef.current !== job) return; // a newer file was chosen
+      setOcrText(result.data.text);
+      setProgress(null);
+      setInfo("Receipt read — press the scan button to verify it.");
+    } catch {
+      if (jobRef.current !== job) return;
+      setProgress(null);
+      setInfo(
+        "Could not read the receipt in this browser. Check your connection (the reader downloads Thai/English language data on first use) and try again."
+      );
+    } finally {
+      if (jobRef.current === job) onBusyChange?.(false);
+    }
+  }
 
   async function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) {
       setPreview(null);
       setInfo(null);
+      setOcrText("");
       return;
     }
+    let toScan: Blob = file;
     try {
       const bitmap = await createImageBitmap(file);
       const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
@@ -40,21 +89,19 @@ export function ReceiptFileInput({ name = "receipt_image" }: { name?: string }) 
             const dt = new DataTransfer();
             dt.items.add(processed);
             inputRef.current.files = dt.files;
-            setPreview(URL.createObjectURL(blob));
-            setInfo(`${Math.round(blob.size / 1024)} KB, ready to scan`);
-            bitmap.close();
-            return;
+            toScan = blob;
           }
         }
       }
       bitmap.close();
-      setPreview(URL.createObjectURL(file));
-      setInfo(`${Math.round(file.size / 1024)} KB, ready to scan`);
+      setPreview(URL.createObjectURL(toScan));
+      setInfo(`${Math.round(toScan.size / 1024)} KB`);
     } catch {
-      // Not decodable client-side (rare) — let the server validate it.
+      // Not decodable client-side (rare) — let the server handle the original.
       setPreview(null);
-      setInfo("Ready to scan");
+      setInfo("Ready");
     }
+    if (localOcr) await runLocalOcr(toScan);
   }
 
   return (
@@ -68,6 +115,7 @@ export function ReceiptFileInput({ name = "receipt_image" }: { name?: string }) 
         onChange={handleChange}
         className="block w-full text-sm text-[#444] file:mr-3 file:cursor-pointer file:rounded file:border file:border-[#c9c9c9] file:bg-white file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-brand-600 file:transition file:duration-150 hover:file:bg-[#f3f3f3]"
       />
+      {localOcr && <input type="hidden" name="ocr_text" value={ocrText} />}
       {preview && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -76,7 +124,21 @@ export function ReceiptFileInput({ name = "receipt_image" }: { name?: string }) 
           className="max-h-56 rounded border border-[#e5e5e5] object-contain"
         />
       )}
-      {info && <p className="text-xs text-[#706e6b]">{info}</p>}
+      {progress !== null && (
+        <div>
+          <div className="mb-1 flex items-center justify-between text-xs text-[#706e6b]">
+            <span>Reading receipt in your browser…</span>
+            <span>{progress}%</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-sm bg-[#f3f3f3]">
+            <div
+              className="h-full rounded-sm bg-brand-600 transition-[width] duration-300"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+      )}
+      {info && progress === null && <p className="text-xs text-[#706e6b]">{info}</p>}
     </div>
   );
 }

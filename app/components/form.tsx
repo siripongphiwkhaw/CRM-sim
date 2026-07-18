@@ -81,14 +81,16 @@ export function FormSuccess({ message }: { message?: string }) {
 
 export function SubmitButton({
   children = "Save",
+  disabled = false,
 }: {
   children?: React.ReactNode;
+  disabled?: boolean;
 }) {
   const { pending } = useFormStatus();
   return (
     <button
       type="submit"
-      disabled={pending}
+      disabled={pending || disabled}
       aria-busy={pending}
       className="inline-flex items-center rounded border border-brand-600 bg-brand-600 px-4 py-1.5 text-sm font-medium text-white transition duration-150 hover:border-brand-700 hover:bg-brand-700 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-50 disabled:active:scale-100"
     >

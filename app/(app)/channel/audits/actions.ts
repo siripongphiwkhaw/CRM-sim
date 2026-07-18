@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/session";
-import { extractReceipt, OcrError } from "@/lib/receiptOcr";
+import { extractReceipt, OcrError, type ExtractedReceipt } from "@/lib/receiptOcr";
+import { parseReceiptText } from "@/lib/receiptParse";
 import { readReceiptImage } from "@/lib/receiptImage";
 import { matchAgainstCatalog } from "@/lib/receiptMatch";
 import { listProducts } from "@/db/queries/products";
@@ -31,15 +32,27 @@ export async function scanRetailReceiptAction(
     : null;
   const storeOverride = nullifyEmpty(String(formData.get("store_name") ?? ""));
 
-  const image = await readReceiptImage(formData.get("receipt_image"));
-  if ("error" in image) return { error: image.error };
-
-  let extracted;
-  try {
-    extracted = await extractReceipt(image.data, image.mediaType);
-  } catch (error) {
-    if (error instanceof OcrError) return { error: error.message };
-    throw error;
+  // Free path: browser Tesseract text → server-side parse. AI path (key
+  // configured): the photo is uploaded and read by Claude vision.
+  const ocrText = String(formData.get("ocr_text") ?? "").trim();
+  let extracted: ExtractedReceipt;
+  if (ocrText) {
+    extracted = parseReceiptText(ocrText);
+    if (extracted.line_items.length === 0) {
+      return {
+        error:
+          "No line items could be read from this photo. Try a sharper, straight-on photo with the item section clearly visible.",
+      };
+    }
+  } else {
+    const image = await readReceiptImage(formData.get("receipt_image"));
+    if ("error" in image) return { error: image.error };
+    try {
+      extracted = await extractReceipt(image.data, image.mediaType);
+    } catch (error) {
+      if (error instanceof OcrError) return { error: error.message };
+      throw error;
+    }
   }
 
   const products = await listProducts();
