@@ -13,8 +13,13 @@ import {
   createOrder,
   applyOrderTransition,
   getOrder,
+  getOrderItems,
 } from "@/db/queries/orders";
 import { forceFulfillOrder } from "@/db/queries/deliveryPlans";
+import { extractReceipt, OcrError } from "@/lib/receiptOcr";
+import { readReceiptImage } from "@/lib/receiptImage";
+import { matchAgainstOrder } from "@/lib/receiptMatch";
+import { createReceiptScan } from "@/db/queries/receiptScans";
 
 export async function createOrderAction(
   _prev: FormState,
@@ -84,6 +89,86 @@ export async function cancelOrderAction(orderId: number, note?: string) {
   await applyOrderTransition(orderId, "cancelled", session.userId!, note || null);
   revalidatePath("/channel/orders");
   revalidatePath(`/channel/orders/${orderId}`);
+}
+
+export interface ScanState {
+  error?: string;
+  success?: string;
+}
+
+/**
+ * OCR a receipt/billing photo and verify it against this PO/SO's line items.
+ * Stores the structured comparison (never the image) as a receipt_scans row.
+ */
+export async function scanOrderReceiptAction(
+  _prev: ScanState,
+  formData: FormData
+): Promise<ScanState> {
+  const session = await requireSession();
+
+  const orderId = Number(formData.get("order_id"));
+  const order = await getOrder(orderId);
+  if (!order) return { error: "Order not found." };
+
+  const image = await readReceiptImage(formData.get("receipt_image"));
+  if ("error" in image) return { error: image.error };
+
+  let extracted;
+  try {
+    extracted = await extractReceipt(image.data, image.mediaType);
+  } catch (error) {
+    if (error instanceof OcrError) return { error: error.message };
+    throw error;
+  }
+
+  const items = await getOrderItems(orderId);
+  const result = matchAgainstOrder(
+    extracted,
+    items.map((it) => ({
+      productId: it.product_id,
+      name: it.product_name,
+      sku: it.sku,
+      unitPrice: it.unit_price,
+      quantity: it.quantity,
+    }))
+  );
+
+  const referencesOrder = extracted.reference_numbers.some((ref) =>
+    ref.toUpperCase().includes(order.order_number.toUpperCase())
+  );
+  const notes: string[] = [];
+  notes.push(
+    referencesOrder
+      ? `Document references ${order.order_number}.`
+      : `Document does not show ${order.order_number}.`
+  );
+  if (result.missingCandidates.length > 0) {
+    notes.push(
+      `Not on document: ${result.missingCandidates.map((c) => c.name).join(", ")}.`
+    );
+  }
+
+  await createReceiptScan({
+    scan_type: "order_verification",
+    order_id: orderId,
+    store_name: extracted.store_name,
+    receipt_date: extracted.receipt_date,
+    receipt_total: extracted.receipt_total,
+    currency: extracted.currency,
+    raw_summary: extracted.reference_numbers.join(", ") || null,
+    match_status: result.status,
+    note: notes.join(" "),
+    created_by: session.userId!,
+    lines: result.lines,
+  });
+
+  revalidatePath(`/channel/orders/${orderId}`);
+  return {
+    success:
+      result.status === "matched"
+        ? "Receipt matches this order."
+        : "Scan saved — review the differences below.",
+  };
 }
 
 export async function forceFulfillOrderAction(orderId: number) {

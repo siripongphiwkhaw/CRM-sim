@@ -21,7 +21,8 @@ export type ObjectKind =
   | "search"
   | "distributor"
   | "order"
-  | "department";
+  | "department"
+  | "audit";
 
 const OBJECT_ICONS: Record<ObjectKind, { bg: string; glyph: React.ReactNode }> = {
   home: {
@@ -79,6 +80,12 @@ const OBJECT_ICONS: Record<ObjectKind, { bg: string; glyph: React.ReactNode }> =
   department: {
     bg: "#5c6f7d",
     glyph: <path d="M4 21V9.5l8-5.3 8 5.3V21h-5v-6H9v6H4z" />,
+  },
+  audit: {
+    bg: "#0b827c",
+    glyph: (
+      <path d="M6 2h9l3 3v13a2 2 0 0 1-2 2h-3.3a5.5 5.5 0 0 0 .8-2H16V6.4L14.6 5H8v5.3a5.6 5.6 0 0 0-2 .6V4a2 2 0 0 1 2-2H6zm3.5 10a4.5 4.5 0 0 1 3.5 7.3l2.6 2.6-1.4 1.4-2.6-2.6A4.5 4.5 0 1 1 9.5 12zm0 2a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z" />
+    ),
   },
 };
 
@@ -218,6 +225,31 @@ const ORDER_STATUS_STYLES: Record<OrderStatus, string> = {
   fulfilled: "bg-brand-800 text-white",
   cancelled: "bg-[#ecebea] text-[#706e6b]",
 };
+
+const SCAN_MATCH_STYLES: Record<string, { className: string; label: string }> = {
+  matched: { className: "bg-[#cdefc4] text-[#194e31]", label: "Matched" },
+  partial: { className: "bg-[#fbf3e0] text-[#5f3e02]", label: "Partial match" },
+  mismatched: { className: "bg-[#feded8] text-[#8e030f]", label: "Mismatch" },
+  unmatched: { className: "bg-[#ecebea] text-[#514f4d]", label: "No match" },
+};
+
+export function ScanMatchBadge({ status }: { status: string }) {
+  const style = SCAN_MATCH_STYLES[status] ?? SCAN_MATCH_STYLES.unmatched;
+  return <Badge className={style.className}>{style.label}</Badge>;
+}
+
+const LINE_MATCH_STYLES: Record<string, { className: string; label: string }> = {
+  matched: { className: "bg-[#cdefc4] text-[#194e31]", label: "OK" },
+  qty_mismatch: { className: "bg-[#fbf3e0] text-[#5f3e02]", label: "Qty differs" },
+  price_mismatch: { className: "bg-[#fbf3e0] text-[#5f3e02]", label: "Price differs" },
+  not_in_order: { className: "bg-[#feded8] text-[#8e030f]", label: "Not in order" },
+  not_our_product: { className: "bg-[#ecebea] text-[#514f4d]", label: "Other brand" },
+};
+
+export function LineMatchBadge({ status }: { status: string }) {
+  const style = LINE_MATCH_STYLES[status] ?? LINE_MATCH_STYLES.not_our_product;
+  return <Badge className={style.className}>{style.label}</Badge>;
+}
 
 export function OrderStatusBadge({ status }: { status: OrderStatus }) {
   return (

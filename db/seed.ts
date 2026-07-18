@@ -431,6 +431,59 @@ export function seedInto(db: Database): void {
     db.run("INSERT INTO department_pics (department_id, user_id) VALUES (?, ?)", [departmentIds[2], userIds.admin]);
     db.run("INSERT INTO department_pics (department_id, user_id) VALUES (?, ?)", [departmentIds[0], userIds.admin]);
 
+    // Retail-audit receipt scans: a few store receipts already "scanned" so
+    // the OCR audit pages have data before anyone points a camera at one.
+    const productRows = (db.exec(
+      "SELECT id, name, unit_price FROM products ORDER BY id LIMIT 12"
+    )[0]?.values ?? []) as [number, string, number][];
+    const auditStores: [string, string][] = [
+      ["CityMart Sukhumvit", "Modern Trade"],
+      ["BigBasket Superstore", "Modern Trade"],
+      ["Somchai Minimart", "Traditional Trade"],
+      ["Golden Wok Restaurant", "Food Service"],
+    ];
+    for (const [storeName, channel] of auditStores) {
+      const ownPicks = faker.helpers.arrayElements(productRows, { min: 2, max: 4 });
+      const otherLines = faker.helpers.arrayElements(
+        ["Drinking Water 600ml", "Instant Noodles Cup", "Paper Towels 2pk", "น้ำแข็งหลอด"],
+        { min: 1, max: 2 }
+      );
+      const total =
+        ownPicks.reduce((sum, [, , price]) => sum + price, 0) + otherLines.length * 25;
+      db.run(
+        `INSERT INTO receipt_scans
+           (scan_type, store_name, channel, receipt_date, receipt_total, currency, match_status, note, created_by, created_at)
+         VALUES ('retail_audit', ?, ?, ?, ?, 'THB', 'matched', ?, ?, ?)`,
+        [
+          storeName,
+          channel,
+          faker.date.recent({ days: 30 }).toISOString().slice(0, 10),
+          total,
+          `${ownPicks.length} of ${ownPicks.length + otherLines.length} receipt lines are own products.`,
+          userIds.admin,
+          faker.date.recent({ days: 30 }).toISOString(),
+        ]
+      );
+      const scanId = lastId(db);
+      for (const [productId, name, price] of ownPicks) {
+        const qty = faker.number.int({ min: 1, max: 3 });
+        db.run(
+          `INSERT INTO receipt_scan_lines
+             (scan_id, product_id, ocr_name, quantity, unit_price, line_total, match_status, expected_price)
+           VALUES (?, ?, ?, ?, ?, ?, 'matched', ?)`,
+          [scanId, productId, name, qty, price, price * qty, price]
+        );
+      }
+      for (const name of otherLines) {
+        db.run(
+          `INSERT INTO receipt_scan_lines
+             (scan_id, ocr_name, quantity, unit_price, line_total, match_status)
+           VALUES (?, ?, 1, 25, 25, 'not_our_product')`,
+          [scanId, name]
+        );
+      }
+    }
+
     // Data Cloud: linked source systems.
     const sources: [string, string, string, string, string, number, string][] = [
       ["Customer Data Platform", "CDP", "inbound", "realtime", "connected", CUSTOMER_COUNT, "Primary customer data source for the loyalty program"],

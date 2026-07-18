@@ -159,6 +159,41 @@ CREATE TABLE IF NOT EXISTS distributor_reports (
 );
 CREATE INDEX IF NOT EXISTS distributor_reports_distributor ON distributor_reports(distributor_id);
 
+-- OCR receipt scans. Two flavours: order_verification (image checked against a
+-- PO/SO's line items) and retail_audit (any store receipt scanned to log where
+-- own products are being sold). Extraction happens via Claude vision; only the
+-- structured result is stored, never the image itself.
+CREATE TABLE IF NOT EXISTS receipt_scans (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  scan_type TEXT NOT NULL CHECK (scan_type IN ('order_verification','retail_audit')),
+  order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
+  store_name TEXT,
+  channel TEXT,
+  receipt_date TEXT,
+  receipt_total REAL,
+  currency TEXT,
+  raw_summary TEXT,
+  match_status TEXT NOT NULL CHECK (match_status IN ('matched','partial','mismatched','unmatched')),
+  note TEXT,
+  created_by INTEGER REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS receipt_scans_order ON receipt_scans(order_id);
+
+CREATE TABLE IF NOT EXISTS receipt_scan_lines (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  scan_id INTEGER NOT NULL REFERENCES receipt_scans(id) ON DELETE CASCADE,
+  product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
+  ocr_name TEXT NOT NULL,
+  quantity INTEGER,
+  unit_price REAL,
+  line_total REAL,
+  match_status TEXT NOT NULL CHECK (match_status IN ('matched','qty_mismatch','price_mismatch','not_in_order','not_our_product')),
+  expected_quantity INTEGER,
+  expected_price REAL
+);
+CREATE INDEX IF NOT EXISTS receipt_scan_lines_scan ON receipt_scan_lines(scan_id);
+
 -- Backoffice: departments and their PICs (Person In Charge). Functional units
 -- that will eventually route approvals — routing is deferred; this phase is
 -- just the data model plus the admin and PIC-facing management surfaces.

@@ -3,6 +3,7 @@ import { getDistributorSummary } from "@/db/queries/distributors";
 import { getPendingApprovalCount } from "@/db/queries/orders";
 import { getTotalOnHandValue } from "@/db/queries/inventory";
 import { getReportSummary } from "@/db/queries/reports";
+import { getAuditSummary } from "@/db/queries/receiptScans";
 import { PageHeader, Card, ObjectIcon } from "@/app/components/ui";
 import { formatCurrency } from "@/lib/format";
 
@@ -16,7 +17,7 @@ function HubTile({
   description,
 }: {
   href: string;
-  icon: "distributor" | "order" | "channel" | "product";
+  icon: "distributor" | "order" | "channel" | "product" | "audit";
   title: string;
   stat: string;
   description: string;
@@ -37,11 +38,12 @@ function HubTile({
 }
 
 export default async function ChannelHubPage() {
-  const [distributors, pendingApprovals, onHandValue, reports] = await Promise.all([
+  const [distributors, pendingApprovals, onHandValue, reports, audits] = await Promise.all([
     getDistributorSummary(),
     getPendingApprovalCount(),
     getTotalOnHandValue(),
     getReportSummary(),
+    getAuditSummary(),
   ]);
 
   return (
@@ -81,6 +83,13 @@ export default async function ChannelHubPage() {
           title="Sell-out Reports"
           stat={`${reports.total_sell_out.toLocaleString("en-US")} units`}
           description={`${reports.distributor_count} distributors reporting`}
+        />
+        <HubTile
+          href="/channel/audits"
+          icon="audit"
+          title="Retail Audit (OCR)"
+          stat={`${audits.own_item_lines} item sightings`}
+          description={`Scan store receipts — ${audits.store_count} stores covered`}
         />
       </div>
 

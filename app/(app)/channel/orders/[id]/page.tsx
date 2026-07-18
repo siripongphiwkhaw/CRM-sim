@@ -1,18 +1,23 @@
 import { notFound } from "next/navigation";
 import { getOrder, getOrderItems, getOrderStatusHistory } from "@/db/queries/orders";
 import { listDeliveryPlans } from "@/db/queries/deliveryPlans";
+import { listReceiptScans, getReceiptScanLines } from "@/db/queries/receiptScans";
+import { isOcrConfigured } from "@/lib/receiptOcr";
 import { getSession } from "@/lib/session";
 import {
   PageHeader,
   Card,
   SectionHeader,
   OrderStatusBadge,
+  ScanMatchBadge,
+  LineMatchBadge,
   EmptyState,
 } from "@/app/components/ui";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { ORDER_STATUS_LABELS } from "@/lib/orderWorkflow";
 import { OrderActions } from "../OrderActions";
 import { PlanDeliveryForm } from "../PlanDeliveryForm";
+import { ReceiptScanCard } from "./ReceiptScanCard";
 
 export const dynamic = "force-dynamic";
 
@@ -35,12 +40,16 @@ export default async function OrderDetailPage({
   const order = await getOrder(orderId);
   if (!order) notFound();
 
-  const [items, history, deliveries, session] = await Promise.all([
+  const [items, history, deliveries, session, scans] = await Promise.all([
     getOrderItems(orderId),
     getOrderStatusHistory(orderId),
     listDeliveryPlans({ orderId }),
     getSession(),
+    listReceiptScans({ orderId }),
   ]);
+  const scansWithLines = await Promise.all(
+    scans.map(async (scan) => ({ scan, lines: await getReceiptScanLines(scan.id) }))
+  );
 
   return (
     <div>
@@ -120,6 +129,74 @@ export default async function OrderDetailPage({
               </ul>
             </Card>
           )}
+
+          <Card>
+            <SectionHeader icon="audit" title="Receipt verification (OCR)" count={scans.length} />
+            <ReceiptScanCard orderId={order.id} ocrConfigured={isOcrConfigured()} />
+            {scansWithLines.length > 0 && (
+              <div className="mt-4 space-y-4">
+                {scansWithLines.map(({ scan, lines }) => (
+                  <div key={scan.id} className="rounded border border-[#e5e5e5] p-3">
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-semibold text-[#181818]">
+                          {scan.store_name || "Receipt"}
+                          {scan.receipt_total != null && (
+                            <span className="ml-2 font-normal text-[#706e6b]">
+                              {formatCurrency(scan.receipt_total)}
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-xs text-[#706e6b]">
+                          Scanned {formatDate(scan.created_at)} by {scan.created_by_name ?? "—"}
+                          {scan.receipt_date ? ` · document date ${formatDate(scan.receipt_date)}` : ""}
+                        </p>
+                      </div>
+                      <ScanMatchBadge status={scan.match_status} />
+                    </div>
+                    {scan.note && <p className="mb-2 text-xs text-[#706e6b]">{scan.note}</p>}
+                    {lines.length > 0 && (
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full text-sm">
+                          <thead className="text-left text-xs font-semibold uppercase tracking-wide text-[#444]">
+                            <tr>
+                              <th className="py-1.5 pr-2">On receipt</th>
+                              <th className="py-1.5 pr-2 text-right">Qty / expected</th>
+                              <th className="py-1.5 pr-2 text-right">Price / expected</th>
+                              <th className="py-1.5 text-right">Check</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[#f3f3f3]">
+                            {lines.map((line) => (
+                              <tr key={line.id}>
+                                <td className="py-1.5 pr-2 text-[#181818]">
+                                  {line.ocr_name}
+                                  {line.product_name && (
+                                    <span className="ml-1 text-xs text-[#706e6b]">→ {line.product_name}</span>
+                                  )}
+                                </td>
+                                <td className="py-1.5 pr-2 text-right text-[#444]">
+                                  {line.quantity ?? "—"}
+                                  {line.expected_quantity != null && ` / ${line.expected_quantity}`}
+                                </td>
+                                <td className="py-1.5 pr-2 text-right text-[#444]">
+                                  {line.unit_price != null ? formatCurrency(line.unit_price) : "—"}
+                                  {line.expected_price != null && ` / ${formatCurrency(line.expected_price)}`}
+                                </td>
+                                <td className="py-1.5 text-right">
+                                  <LineMatchBadge status={line.match_status} />
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
 
           <Card>
             <SectionHeader title="Status timeline" count={history.length} />
