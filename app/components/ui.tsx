@@ -22,7 +22,10 @@ export type ObjectKind =
   | "distributor"
   | "order"
   | "department"
-  | "audit";
+  | "audit"
+  | "loyalty"
+  | "cases"
+  | "insights";
 
 const OBJECT_ICONS: Record<ObjectKind, { bg: string; glyph: React.ReactNode }> = {
   home: {
@@ -85,6 +88,22 @@ const OBJECT_ICONS: Record<ObjectKind, { bg: string; glyph: React.ReactNode }> =
     bg: "#0b827c",
     glyph: (
       <path d="M6 2h9l3 3v13a2 2 0 0 1-2 2h-3.3a5.5 5.5 0 0 0 .8-2H16V6.4L14.6 5H8v5.3a5.6 5.6 0 0 0-2 .6V4a2 2 0 0 1 2-2H6zm3.5 10a4.5 4.5 0 0 1 3.5 7.3l2.6 2.6-1.4 1.4-2.6-2.6A4.5 4.5 0 1 1 9.5 12zm0 2a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z" />
+    ),
+  },
+  loyalty: {
+    bg: "#12a594",
+    glyph: <path d="M12 3l2.5 5.3 5.5.7-4 4 1 5.7-5-2.8-5 2.8 1-5.7-4-4 5.5-.7z" />,
+  },
+  cases: {
+    bg: "#6d5bd0",
+    glyph: (
+      <path d="M12 3a7 7 0 0 1 7 7v5a3 3 0 0 1-3 3h-1v-7h2v-1a5 5 0 0 0-10 0v1h2v7H8a3 3 0 0 1-3-3v-5a7 7 0 0 1 7-7z" />
+    ),
+  },
+  insights: {
+    bg: "#e8853a",
+    glyph: (
+      <path d="M12 2l1.8 4.7L18.5 8.5l-4.7 1.8L12 15l-1.8-4.7L5.5 8.5l4.7-1.8zM19 14l.9 2.4 2.4.9-2.4.9L19 20.5l-.9-2.3-2.4-.9 2.4-.9z" />
     ),
   },
 };
@@ -248,6 +267,39 @@ const LINE_MATCH_STYLES: Record<string, { className: string; label: string }> = 
 export function LineMatchBadge({ status }: { status: string }) {
   const style = LINE_MATCH_STYLES[status] ?? LINE_MATCH_STYLES.not_our_product;
   return <Badge className={style.className}>{style.label}</Badge>;
+}
+
+const CASE_STATUS_STYLES: Record<string, string> = {
+  OPEN: "bg-[#feded8] text-[#8e030f]",
+  IN_PROGRESS: "bg-[#fbf3e0] text-[#5f3e02]",
+  RESOLVED: "bg-[#cdefc4] text-[#194e31]",
+  CLOSED: "bg-[#e5eaec] text-[#514f4d]",
+};
+
+const CASE_PRIORITY_STYLES: Record<string, string> = {
+  LOW: "bg-[#e5eaec] text-[#514f4d]",
+  MEDIUM: "bg-brand-100 text-brand-800",
+  HIGH: "bg-[#fbf3e0] text-[#5f3e02]",
+  URGENT: "bg-[#feded8] text-[#8e030f]",
+};
+
+export function CaseStatusBadge({ status }: { status: string }) {
+  return <Badge className={CASE_STATUS_STYLES[status] ?? CASE_STATUS_STYLES.OPEN}>{status.replace("_", " ")}</Badge>;
+}
+
+export function CasePriorityBadge({ priority }: { priority: string }) {
+  return <Badge className={CASE_PRIORITY_STYLES[priority] ?? CASE_PRIORITY_STYLES.MEDIUM}>{priority}</Badge>;
+}
+
+const SEVERITY_STYLES: Record<string, string> = {
+  CRITICAL: "bg-[#feded8] text-[#8e030f]",
+  WARNING: "bg-[#fbf3e0] text-[#5f3e02]",
+  OPPORTUNITY: "bg-brand-100 text-brand-800",
+  INFO: "bg-[#e5eaec] text-[#514f4d]",
+};
+
+export function SeverityBadge({ severity }: { severity: string }) {
+  return <Badge className={SEVERITY_STYLES[severity] ?? SEVERITY_STYLES.INFO}>{severity}</Badge>;
 }
 
 export function OrderStatusBadge({ status }: { status: OrderStatus }) {

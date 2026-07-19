@@ -58,6 +58,30 @@ export function listOnHandByDistributor(
   );
 }
 
+export interface StockWithReorderRow {
+  product_id: number;
+  sku: string;
+  product_name: string;
+  on_hand: number;
+  reorder_point: number;
+  below_reorder: number;
+}
+
+/** On-hand per product for one dealer, with reorder-point flags. */
+export function listStockWithReorder(distributorId: number): Promise<StockWithReorderRow[]> {
+  return all<StockWithReorderRow>(
+    `SELECT p.id AS product_id, p.sku, p.name AS product_name, p.reorder_point,
+       COALESCE(SUM(it.quantity), 0) AS on_hand,
+       CASE WHEN COALESCE(SUM(it.quantity), 0) <= p.reorder_point THEN 1 ELSE 0 END AS below_reorder
+     FROM products p
+     JOIN inventory_transactions it ON it.product_id = p.id AND it.distributor_id = ?
+     GROUP BY p.id
+     HAVING on_hand != 0 OR below_reorder = 1
+     ORDER BY below_reorder DESC, p.name`,
+    [distributorId]
+  );
+}
+
 export interface OnHandByDistributorRow {
   distributor_id: number;
   distributor_name: string;

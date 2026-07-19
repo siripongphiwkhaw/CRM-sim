@@ -7,6 +7,9 @@ import { logoutAction } from "./actions";
 const BASE_ITEMS: RailItem[] = [
   { href: "/dashboard", label: "Home", icon: "home" },
   { href: "/customers", label: "Members", icon: "members" },
+  { href: "/loyalty", label: "Loyalty", icon: "loyalty" },
+  { href: "/cases", label: "Cases", icon: "cases" },
+  { href: "/insights", label: "AI Insights", icon: "insights" },
   { href: "/products", label: "Products", icon: "products" },
   { href: "/channel", label: "Sales & Channel", icon: "channel" },
   { href: "/data-cloud", label: "Data Cloud", icon: "datacloud" },

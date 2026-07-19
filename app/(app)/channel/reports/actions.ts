@@ -19,7 +19,7 @@ export async function createDistributorReportAction(
   });
   if (!parsed.success) return { error: firstError(parsed.error) };
 
-  await createDistributorReport({
+  const result = await createDistributorReport({
     distributor_id: parsed.data.distributor_id,
     product_id: parsed.data.product_id,
     period: parsed.data.period,
@@ -27,7 +27,11 @@ export async function createDistributorReportAction(
     forecast_qty: parsed.data.forecast_qty,
     created_by: session.userId,
   });
+  if (!result.ok) {
+    return { error: `Sell-out of ${parsed.data.sell_out_qty} exceeds on-hand stock (${result.on_hand}).` };
+  }
   revalidatePath("/channel/reports");
   revalidatePath("/channel/inventory");
-  return {};
+  revalidatePath("/insights");
+  return { success: "Sell-out report recorded." };
 }

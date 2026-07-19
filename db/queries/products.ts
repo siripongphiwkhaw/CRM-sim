@@ -8,6 +8,7 @@ export interface Product {
   brand: Brand;
   category: string | null;
   unit_price: number;
+  reorder_point: number;
   created_at: string;
 }
 
@@ -17,6 +18,7 @@ export interface ProductInput {
   brand: Brand;
   category?: string | null;
   unit_price: number;
+  reorder_point?: number;
 }
 
 export function listProducts(opts?: {
@@ -46,14 +48,15 @@ export function getProduct(id: number): Promise<Product | undefined> {
 
 export function createProduct(input: ProductInput): Promise<number> {
   return run(
-    `INSERT INTO products (sku, name, brand, category, unit_price)
-     VALUES (@sku, @name, @brand, @category, @unit_price)`,
+    `INSERT INTO products (sku, name, brand, category, unit_price, reorder_point)
+     VALUES (@sku, @name, @brand, @category, @unit_price, @reorder_point)`,
     {
       sku: input.sku,
       name: input.name,
       brand: input.brand,
       category: input.category ?? null,
       unit_price: input.unit_price,
+      reorder_point: input.reorder_point ?? 20,
     }
   );
 }
@@ -64,7 +67,7 @@ export async function updateProduct(
 ): Promise<void> {
   await run(
     `UPDATE products SET sku = @sku, name = @name, brand = @brand,
-       category = @category, unit_price = @unit_price WHERE id = @id`,
+       category = @category, unit_price = @unit_price, reorder_point = @reorder_point WHERE id = @id`,
     {
       id,
       sku: input.sku,
@@ -72,6 +75,7 @@ export async function updateProduct(
       brand: input.brand,
       category: input.category ?? null,
       unit_price: input.unit_price,
+      reorder_point: input.reorder_point ?? 20,
     }
   );
 }

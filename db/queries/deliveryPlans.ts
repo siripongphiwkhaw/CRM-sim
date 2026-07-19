@@ -1,5 +1,6 @@
 import { get, all, batch, type QueryArgs } from "../client";
 import { getOrderItems, applyOrderTransition } from "./orders";
+import { createTransaction } from "./transactions";
 
 export type DeliveryPlanStatus = "planned" | "delivered" | "cancelled";
 
@@ -109,6 +110,39 @@ export async function markDeliveryDelivered(
       },
     },
   ]);
+
+  // If the receiving dealer is linked to a CRM member, a delivered sell-in is a
+  // real B2B (SFA) purchase → record a transaction and earn loyalty points. The
+  // amount uses the order's snapshotted unit price when order-linked, else the
+  // current catalog price.
+  const dealer = await get<{ customer_id: number | null }>(
+    "SELECT customer_id FROM distributors WHERE id = ?",
+    [plan.distributor_id]
+  );
+  if (dealer?.customer_id) {
+    let unitPrice: number | null = null;
+    if (plan.order_id) {
+      const row = await get<{ unit_price: number }>(
+        "SELECT unit_price FROM order_items WHERE order_id = ? AND product_id = ? LIMIT 1",
+        [plan.order_id, plan.product_id]
+      );
+      unitPrice = row?.unit_price ?? null;
+    }
+    if (unitPrice == null) {
+      const row = await get<{ unit_price: number }>(
+        "SELECT unit_price FROM products WHERE id = ?",
+        [plan.product_id]
+      );
+      unitPrice = row?.unit_price ?? 0;
+    }
+    await createTransaction({
+      customer_id: dealer.customer_id,
+      channel: "SFA",
+      amount_thb: unitPrice * plan.planned_qty,
+      source_ref: `delivery_plan:${id}`,
+      created_by: actorUserId,
+    });
+  }
 
   if (plan.order_id) {
     const remaining = await get<{ n: number }>(

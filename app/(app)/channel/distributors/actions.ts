@@ -12,11 +12,15 @@ import {
 } from "@/db/queries/distributors";
 
 function parseDistributor(formData: FormData) {
+  const customerRaw = formData.get("customer_id");
   return distributorSchema.safeParse({
     name: formData.get("name"),
     region: formData.get("region") ?? "",
     channel: formData.get("channel") ?? "",
     status: formData.get("status"),
+    dealer_type: formData.get("dealer_type") || "Dealer",
+    area: formData.get("area") ?? "",
+    customer_id: customerRaw ? Number(customerRaw) : undefined,
     contact_name: formData.get("contact_name") ?? "",
     phone: formData.get("phone") ?? "",
     email: formData.get("email") ?? "",

@@ -1,4 +1,6 @@
 import { get, all, batch } from "../client";
+import { getOnHand } from "./inventory";
+import { createInsightIfAbsent } from "./insights";
 
 export interface DistributorReport {
   id: number;
@@ -101,14 +103,25 @@ export interface DistributorReportInput {
   created_by?: number | null;
 }
 
+export type CreateReportResult =
+  | { ok: true }
+  | { ok: false; error: "OVER_STOCK"; on_hand: number };
+
 /**
  * Records a sell-out/forecast report and posts a matching negative ledger
  * entry atomically, so on-hand stock never silently drifts from what's
- * actually being reported as sold out downstream.
+ * actually being reported as sold out downstream. Rejects a sell-out that
+ * exceeds current on-hand (can't sell more than was received), and posts a
+ * reorder / out-of-stock insight when the resulting stock crosses a threshold.
  */
 export async function createDistributorReport(
   input: DistributorReportInput
-): Promise<void> {
+): Promise<CreateReportResult> {
+  const onHand = await getOnHand(input.distributor_id, input.product_id);
+  if (input.sell_out_qty > onHand) {
+    return { ok: false, error: "OVER_STOCK", on_hand: onHand };
+  }
+
   await batch([
     {
       sql: `INSERT INTO distributor_reports (distributor_id, product_id, period, sell_out_qty, forecast_qty)
@@ -134,4 +147,40 @@ export async function createDistributorReport(
       },
     },
   ]);
+
+  // Post a transactional stock alert if this sell-out crossed a threshold.
+  const remaining = await getOnHand(input.distributor_id, input.product_id);
+  const meta = await get<{ product_name: string; reorder_point: number; distributor_name: string }>(
+    `SELECT p.name AS product_name, p.reorder_point, d.name AS distributor_name
+     FROM products p, distributors d WHERE p.id = ? AND d.id = ?`,
+    [input.product_id, input.distributor_id]
+  );
+  if (meta) {
+    if (remaining <= 0) {
+      await createInsightIfAbsent({
+        insight_type: "OUT_OF_STOCK",
+        severity: "CRITICAL",
+        entity_type: "distributor",
+        entity_id: input.distributor_id,
+        title: `Out of stock: ${meta.product_name} at ${meta.distributor_name}`,
+        description: "On-hand has reached zero after this sell-out.",
+        recommendation: `Urgent replenishment of ${meta.product_name}.`,
+        confidence: 1,
+      });
+    } else if (remaining <= meta.reorder_point) {
+      const qty = Math.max(12, meta.reorder_point * 2 - remaining);
+      await createInsightIfAbsent({
+        insight_type: "REORDER_POINT",
+        severity: "WARNING",
+        entity_type: "distributor",
+        entity_id: input.distributor_id,
+        title: `Reorder point hit: ${meta.product_name} at ${meta.distributor_name}`,
+        description: `On-hand ${remaining} is at/below the reorder point (${meta.reorder_point}).`,
+        recommendation: `Replenishment order of ${qty} units.`,
+        confidence: 0.9,
+      });
+    }
+  }
+
+  return { ok: true };
 }

@@ -287,8 +287,9 @@ export function seedInto(db: Database): void {
 
       finalizeCustomer(customerId, lifetime, lifetime - burned, clv, lastPurchaseAt);
 
-      // Consents: ~23% of members deny marketing (drives CONSENT_GAP > 20%).
-      const marketingGranted = i % 100 >= 23 ? i % 9 !== 4 : false;
+      // Consents: ~30% deny marketing, spread across the member base (drives
+      // CONSENT_GAP > 20%). A deterministic hash avoids clustering.
+      const marketingGranted = (i * 37 + 11) % 100 >= 30;
       seedConsents(customerId, marketingGranted, registeredAt, i % 13 === 5);
     }
 

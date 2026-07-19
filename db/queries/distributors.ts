@@ -7,6 +7,9 @@ export interface Distributor {
   region: string | null;
   channel: string | null;
   status: "active" | "inactive";
+  dealer_type: "Dealer" | "Retailer";
+  customer_id: number | null;
+  area: string | null;
   contact_name: string | null;
   phone: string | null;
   email: string | null;
@@ -21,11 +24,28 @@ export interface DistributorInput {
   region?: string | null;
   channel?: string | null;
   status: "active" | "inactive";
+  dealer_type: "Dealer" | "Retailer";
+  customer_id?: number | null;
+  area?: string | null;
   contact_name?: string | null;
   phone?: string | null;
   email?: string | null;
   address?: string | null;
   credit_limit: number;
+}
+
+export interface DistributorWithMember extends Distributor {
+  member_name: string | null;
+  member_code: string | null;
+}
+
+export function getDistributorWithMember(id: number): Promise<DistributorWithMember | undefined> {
+  return get<DistributorWithMember>(
+    `SELECT d.*, (c.first_name || ' ' || c.last_name) AS member_name, c.member_code
+     FROM distributors d LEFT JOIN customers c ON c.id = d.customer_id
+     WHERE d.id = ?`,
+    [id]
+  );
 }
 
 const SORT_COLUMNS: Record<string, string> = {
@@ -98,15 +118,18 @@ export async function createDistributor(
 
   return run(
     `INSERT INTO distributors
-       (distributor_code, name, region, channel, status, contact_name, phone, email, address, credit_limit)
+       (distributor_code, name, region, channel, status, dealer_type, customer_id, area, contact_name, phone, email, address, credit_limit)
      VALUES
-       (@code, @name, @region, @channel, @status, @contact_name, @phone, @email, @address, @credit_limit)`,
+       (@code, @name, @region, @channel, @status, @dealer_type, @customer_id, @area, @contact_name, @phone, @email, @address, @credit_limit)`,
     {
       code,
       name: input.name,
       region: input.region ?? null,
       channel: input.channel ?? null,
       status: input.status,
+      dealer_type: input.dealer_type,
+      customer_id: input.customer_id ?? null,
+      area: input.area ?? null,
       contact_name: input.contact_name ?? null,
       phone: input.phone ?? null,
       email: input.email ?? null,
@@ -123,6 +146,7 @@ export async function updateDistributor(
   await run(
     `UPDATE distributors SET
        name = @name, region = @region, channel = @channel, status = @status,
+       dealer_type = @dealer_type, customer_id = @customer_id, area = @area,
        contact_name = @contact_name, phone = @phone, email = @email,
        address = @address, credit_limit = @credit_limit, updated_at = datetime('now')
      WHERE id = @id`,
@@ -132,6 +156,9 @@ export async function updateDistributor(
       region: input.region ?? null,
       channel: input.channel ?? null,
       status: input.status,
+      dealer_type: input.dealer_type,
+      customer_id: input.customer_id ?? null,
+      area: input.area ?? null,
       contact_name: input.contact_name ?? null,
       phone: input.phone ?? null,
       email: input.email ?? null,

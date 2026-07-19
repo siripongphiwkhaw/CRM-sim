@@ -18,6 +18,7 @@ function parseProduct(formData: FormData) {
     brand: formData.get("brand"),
     category: formData.get("category") ?? "",
     unit_price: formData.get("unit_price") || 0,
+    reorder_point: formData.get("reorder_point") || 20,
   });
 }
 

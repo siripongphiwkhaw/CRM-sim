@@ -54,6 +54,9 @@ export function ProductForm({
             ))}
           </Select>
         </Field>
+        <Field label="Reorder point" htmlFor="reorder_point" hint="Alert when dealer stock falls to this level">
+          <TextInput id="reorder_point" name="reorder_point" type="number" min="0" step="1" placeholder="e.g. 20" defaultValue={product?.reorder_point ?? 20} />
+        </Field>
       </div>
 
       <div className="flex items-center gap-3">

@@ -10,7 +10,7 @@ import {
   FormError,
   SubmitButton,
 } from "@/app/components/form";
-import { TRADE_CHANNELS } from "@/lib/constants";
+import { TRADE_CHANNELS, DEALER_TYPES } from "@/lib/constants";
 import type { FormState } from "@/lib/validation";
 import type { Distributor } from "@/db/queries/distributors";
 
@@ -19,9 +19,11 @@ type Action = (prev: FormState, formData: FormData) => Promise<FormState>;
 export function DistributorForm({
   action,
   distributor,
+  b2bMembers,
 }: {
   action: Action;
   distributor?: Distributor;
+  b2bMembers: { id: number; label: string }[];
 }) {
   const [state, formAction] = useActionState<FormState, FormData>(action, {});
 
@@ -40,8 +42,26 @@ export function DistributorForm({
             <option value="inactive">Inactive</option>
           </Select>
         </Field>
+        <Field label="Dealer type" htmlFor="dealer_type" required>
+          <Select id="dealer_type" name="dealer_type" defaultValue={distributor?.dealer_type ?? "Dealer"}>
+            {DEALER_TYPES.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Linked member (B2B)" htmlFor="customer_id" hint="Links sell-in deliveries to loyalty earn">
+          <Select id="customer_id" name="customer_id" defaultValue={distributor?.customer_id ?? ""}>
+            <option value="">— Not linked —</option>
+            {b2bMembers.map((m) => (
+              <option key={m.id} value={m.id}>{m.label}</option>
+            ))}
+          </Select>
+        </Field>
         <Field label="Region" htmlFor="region">
           <TextInput id="region" name="region" placeholder="e.g. North" defaultValue={distributor?.region ?? ""} />
+        </Field>
+        <Field label="Area" htmlFor="area">
+          <TextInput id="area" name="area" placeholder="e.g. Chiang Mai" defaultValue={distributor?.area ?? ""} />
         </Field>
         <Field label="Trade channel" htmlFor="channel">
           <Select id="channel" name="channel" defaultValue={distributor?.channel ?? ""}>
