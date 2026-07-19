@@ -49,7 +49,7 @@ export default async function SearchPage({
           {customers.length > 0 && (
             <Card>
               <SectionHeader icon="customer" title="Customers" count={customers.length} />
-              <ul className="divide-y divide-[#f3f3f3]">
+              <ul className="divide-y divide-[#eef3f5]">
                 {customers.slice(0, 10).map((c) => (
                   <li key={c.id} className="flex items-center justify-between gap-2 py-2 text-sm">
                     <Link href={`/customers/${c.id}`} className="truncate font-medium text-brand-600 hover:underline">
@@ -65,13 +65,13 @@ export default async function SearchPage({
           {products.length > 0 && (
             <Card>
               <SectionHeader icon="product" title="Products" count={products.length} />
-              <ul className="divide-y divide-[#f3f3f3]">
+              <ul className="divide-y divide-[#eef3f5]">
                 {products.slice(0, 10).map((p) => (
                   <li key={p.id} className="flex items-center justify-between gap-2 py-2 text-sm">
                     <Link href={`/products/${p.id}/edit`} className="truncate font-medium text-brand-600 hover:underline">
                       {p.name}
                     </Link>
-                    <span className="text-[#706e6b]">{formatCurrency(p.unit_price)}</span>
+                    <span className="text-[#607785]">{formatCurrency(p.unit_price)}</span>
                   </li>
                 ))}
               </ul>
@@ -81,13 +81,13 @@ export default async function SearchPage({
           {distributors.length > 0 && (
             <Card>
               <SectionHeader icon="distributor" title="Distributors" count={distributors.length} />
-              <ul className="divide-y divide-[#f3f3f3]">
+              <ul className="divide-y divide-[#eef3f5]">
                 {distributors.slice(0, 10).map((d) => (
                   <li key={d.id} className="flex items-center justify-between gap-2 py-2 text-sm">
                     <Link href={`/channel/distributors/${d.id}`} className="truncate font-medium text-brand-600 hover:underline">
                       {d.name}
                     </Link>
-                    <span className="text-xs text-[#706e6b]">{d.status}</span>
+                    <span className="text-xs text-[#607785]">{d.status}</span>
                   </li>
                 ))}
               </ul>
@@ -97,7 +97,7 @@ export default async function SearchPage({
           {matchedOrders.length > 0 && (
             <Card>
               <SectionHeader icon="order" title="Orders" count={matchedOrders.length} />
-              <ul className="divide-y divide-[#f3f3f3]">
+              <ul className="divide-y divide-[#eef3f5]">
                 {matchedOrders.slice(0, 10).map((o) => (
                   <li key={o.id} className="flex items-center justify-between gap-2 py-2 text-sm">
                     <Link href={`/channel/orders/${o.id}`} className="truncate font-medium text-brand-600 hover:underline">

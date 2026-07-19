@@ -35,20 +35,20 @@ export default async function RetailAuditPage() {
 
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Card>
-          <p className="text-xs text-[#706e6b]">Receipts scanned</p>
-          <p className="mt-0.5 text-xl font-bold text-[#181818]">{summary.scan_count}</p>
+          <p className="text-xs text-[#607785]">Receipts scanned</p>
+          <p className="mt-0.5 text-xl font-bold text-[#14202b]">{summary.scan_count}</p>
         </Card>
         <Card>
-          <p className="text-xs text-[#706e6b]">Stores covered</p>
-          <p className="mt-0.5 text-xl font-bold text-[#181818]">{summary.store_count}</p>
+          <p className="text-xs text-[#607785]">Stores covered</p>
+          <p className="mt-0.5 text-xl font-bold text-[#14202b]">{summary.store_count}</p>
         </Card>
         <Card>
-          <p className="text-xs text-[#706e6b]">Own-item sightings</p>
-          <p className="mt-0.5 text-xl font-bold text-[#181818]">{summary.own_item_lines}</p>
+          <p className="text-xs text-[#607785]">Own-item sightings</p>
+          <p className="mt-0.5 text-xl font-bold text-[#14202b]">{summary.own_item_lines}</p>
         </Card>
         <Card>
-          <p className="text-xs text-[#706e6b]">Top store</p>
-          <p className="mt-0.5 truncate text-xl font-bold text-[#181818]">
+          <p className="text-xs text-[#607785]">Top store</p>
+          <p className="mt-0.5 truncate text-xl font-bold text-[#14202b]">
             {summary.top_store ?? "—"}
           </p>
         </Card>
@@ -63,7 +63,7 @@ export default async function RetailAuditPage() {
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
-                  <thead className="text-left text-xs font-semibold uppercase tracking-wide text-[#444]">
+                  <thead className="text-left text-xs font-semibold uppercase tracking-wide text-[#3c4f5e]">
                     <tr>
                       <th className="py-2 pr-2">Store</th>
                       <th className="py-2 pr-2">Channel</th>
@@ -73,9 +73,9 @@ export default async function RetailAuditPage() {
                       <th className="py-2">Result</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#f3f3f3]">
+                  <tbody className="divide-y divide-[#eef3f5]">
                     {scans.map((scan) => (
-                      <tr key={scan.id} className="transition-colors hover:bg-[#f3f3f3]">
+                      <tr key={scan.id} className="transition-colors hover:bg-[#eef3f5]">
                         <td className="py-2 pr-2">
                           <Link
                             href={`/channel/audits/${scan.id}`}
@@ -84,14 +84,14 @@ export default async function RetailAuditPage() {
                             {scan.store_name || "Unknown store"}
                           </Link>
                         </td>
-                        <td className="py-2 pr-2 text-[#706e6b]">{scan.channel ?? "—"}</td>
-                        <td className="py-2 pr-2 text-right text-[#444]">
+                        <td className="py-2 pr-2 text-[#607785]">{scan.channel ?? "—"}</td>
+                        <td className="py-2 pr-2 text-right text-[#3c4f5e]">
                           {scan.receipt_total != null ? formatCurrency(scan.receipt_total) : "—"}
                         </td>
-                        <td className="py-2 pr-2 text-right text-[#444]">
+                        <td className="py-2 pr-2 text-right text-[#3c4f5e]">
                           {scan.matched_count}/{scan.line_count}
                         </td>
-                        <td className="py-2 pr-2 text-xs text-[#706e6b]">
+                        <td className="py-2 pr-2 text-xs text-[#607785]">
                           {formatDate(scan.created_at)}
                         </td>
                         <td className="py-2">
@@ -112,12 +112,12 @@ export default async function RetailAuditPage() {
             {sightings.length === 0 ? (
               <EmptyState message="No store sightings yet." />
             ) : (
-              <ul className="divide-y divide-[#f3f3f3]">
+              <ul className="divide-y divide-[#eef3f5]">
                 {sightings.map((s) => (
                   <li key={s.store_name} className="flex items-center justify-between gap-2 py-2 text-sm">
                     <div className="min-w-0">
-                      <p className="truncate font-medium text-[#181818]">{s.store_name}</p>
-                      <p className="text-xs text-[#706e6b]">
+                      <p className="truncate font-medium text-[#14202b]">{s.store_name}</p>
+                      <p className="text-xs text-[#607785]">
                         {s.channel ?? "Channel unknown"} · last seen {formatDate(s.last_seen)}
                       </p>
                     </div>

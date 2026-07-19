@@ -13,7 +13,7 @@ import {
 const btnBase =
   "rounded border px-3 py-1.5 text-sm font-medium transition duration-150 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-50 disabled:active:scale-100";
 const btnPrimary = `${btnBase} border-brand-600 bg-brand-600 text-white hover:bg-brand-700`;
-const btnSecondary = `${btnBase} border-[#c9c9c9] bg-white text-[#444] hover:bg-[#f3f3f3]`;
+const btnSecondary = `${btnBase} border-[#c2d0d6] bg-white text-[#3c4f5e] hover:bg-[#eef3f5]`;
 const btnDanger = `${btnBase} border-[#fead9a] bg-white text-[#8e030f] hover:bg-[#feded8]`;
 
 export function OrderActions({
@@ -93,7 +93,7 @@ export function OrderActions({
             value={rejectNote}
             onChange={(e) => setRejectNote(e.target.value)}
             placeholder="Rejection reason (required)"
-            className="w-full rounded border border-[#c9c9c9] px-2 py-1 text-sm focus:border-brand-600 focus:outline-none sm:w-64"
+            className="w-full rounded border border-[#c2d0d6] px-2 py-1 text-sm focus:border-brand-600 focus:outline-none sm:w-64"
           />
           <button
             disabled={pending || !rejectNote.trim()}

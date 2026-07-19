@@ -15,7 +15,7 @@ export function PlanDeliveryForm({ orderId }: { orderId: number }) {
     <form action={formAction} className="flex flex-wrap items-end gap-2">
       <input type="hidden" name="order_id" value={orderId} />
       <div>
-        <label className="mb-1 block text-xs font-semibold text-[#444]">Delivery date</label>
+        <label className="mb-1 block text-xs font-semibold text-[#3c4f5e]">Delivery date</label>
         <TextInput name="plan_date" type="date" required />
       </div>
       <SubmitButton>Schedule delivery</SubmitButton>

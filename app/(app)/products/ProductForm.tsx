@@ -58,7 +58,7 @@ export function ProductForm({
 
       <div className="flex items-center gap-3">
         <SubmitButton>{product ? "Save changes" : "Create product"}</SubmitButton>
-        <Link href="/products" className="text-sm text-[#706e6b] hover:text-[#181818]">
+        <Link href="/products" className="text-sm text-[#607785] hover:text-[#14202b]">
           Cancel
         </Link>
       </div>

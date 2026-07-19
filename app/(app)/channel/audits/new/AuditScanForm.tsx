@@ -43,7 +43,7 @@ export function AuditScanForm({ ocrConfigured }: { ocrConfigured: boolean }) {
         <SubmitButton disabled={busy}>
           {busy ? "Reading receipt…" : "Scan receipt"}
         </SubmitButton>
-        <Link href="/channel/audits" className="text-sm text-[#706e6b] hover:text-[#181818]">
+        <Link href="/channel/audits" className="text-sm text-[#607785] hover:text-[#14202b]">
           Cancel
         </Link>
       </div>

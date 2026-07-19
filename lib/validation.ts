@@ -1,11 +1,19 @@
 import { z } from "zod";
 import {
   BRANDS,
-  TIERS,
   DATA_LEVELS,
   INTERACTION_TYPES,
   PRODUCT_CATEGORIES,
   ROLES,
+  CUST_TYPES,
+  TX_CHANNELS,
+  DEALER_TYPES,
+  CONSENT_PURPOSES,
+  CONSENT_STATUSES,
+  REWARD_TYPES,
+  CASE_CATEGORIES,
+  CASE_PRIORITIES,
+  CASE_STATUSES,
 } from "./constants";
 
 export const customerSchema = z.object({
@@ -14,13 +22,10 @@ export const customerSchema = z.object({
   email: z.string().email().or(z.literal("")).optional(),
   phone: z.string().optional(),
   brand: z.enum(BRANDS),
-  tier: z.enum(TIERS),
-  points: z.coerce.number().int().min(0).default(0),
+  cust_type: z.enum(CUST_TYPES),
   register_channel: z.string().optional(),
   data_level: z.enum(DATA_LEVELS),
-  consent_pdpa: z.boolean(),
-  consent_marketing: z.boolean(),
-  consent_migration: z.boolean(),
+  consent_mode: z.enum(["all", "no_marketing"]).default("all"),
 });
 
 export const productSchema = z.object({
@@ -29,6 +34,44 @@ export const productSchema = z.object({
   brand: z.enum(BRANDS),
   category: z.enum(PRODUCT_CATEGORIES).or(z.literal("")).optional(),
   unit_price: z.coerce.number().min(0).default(0),
+  reorder_point: z.coerce.number().int().min(0).default(20),
+});
+
+export const transactionCreateSchema = z.object({
+  customer_id: z.coerce.number().int().positive(),
+  channel: z.enum(TX_CHANNELS),
+  amount_thb: z.coerce.number().min(0),
+});
+
+export const redeemSchema = z.object({
+  customer_id: z.coerce.number().int().positive(),
+  reward_id: z.coerce.number().int().positive(),
+});
+
+export const consentRecordSchema = z.object({
+  customer_id: z.coerce.number().int().positive(),
+  purpose: z.enum(CONSENT_PURPOSES),
+  status: z.enum(CONSENT_STATUSES),
+});
+
+export const rewardSchema = z.object({
+  name: z.string().min(1, "Reward name is required"),
+  description: z.string().optional(),
+  reward_type: z.enum(REWARD_TYPES),
+  points_cost: z.coerce.number().int().positive(),
+});
+
+export const caseCreateSchema = z.object({
+  customer_id: z.coerce.number().int().positive().optional(),
+  subject: z.string().min(1, "Subject is required"),
+  description: z.string().optional(),
+  category: z.enum(CASE_CATEGORIES).optional(),
+  priority: z.enum(CASE_PRIORITIES).default("MEDIUM"),
+});
+
+export const caseStatusSchema = z.object({
+  status: z.enum(CASE_STATUSES),
+  resolution: z.string().optional(),
 });
 
 export const interactionSchema = z.object({
@@ -55,6 +98,9 @@ export const distributorSchema = z.object({
   region: z.string().optional(),
   channel: z.string().optional(),
   status: z.enum(["active", "inactive"]),
+  dealer_type: z.enum(DEALER_TYPES).default("Dealer"),
+  area: z.string().optional(),
+  customer_id: z.coerce.number().int().positive().optional(),
   contact_name: z.string().optional(),
   phone: z.string().optional(),
   email: z.string().email().or(z.literal("")).optional(),
@@ -121,6 +167,7 @@ export const loginSchema = z.object({
 
 export interface FormState {
   error?: string;
+  success?: string;
 }
 
 /** Returns the first human-readable message from a failed Zod parse. */

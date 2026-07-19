@@ -6,7 +6,7 @@ export default function Loading() {
       <SkeletonPageHeader />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="rounded border border-[#e5e5e5] bg-white p-4">
+          <div key={i} className="rounded border border-[#dde5e8] bg-white p-4">
             <div className="flex items-center gap-3">
               <Skeleton className="h-10 w-10 rounded-lg" />
               <div className="flex-1 space-y-2">

@@ -16,9 +16,9 @@ export const dynamic = "force-dynamic";
 
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex justify-between gap-4 border-b border-[#f3f3f3] py-2 last:border-0">
-      <dt className="text-xs text-[#706e6b]">{label}</dt>
-      <dd className="text-right text-sm text-[#181818]">{value || "—"}</dd>
+    <div className="flex justify-between gap-4 border-b border-[#eef3f5] py-2 last:border-0">
+      <dt className="text-xs text-[#607785]">{label}</dt>
+      <dd className="text-right text-sm text-[#14202b]">{value || "—"}</dd>
     </div>
   );
 }
@@ -71,7 +71,7 @@ export default async function AuditScanDetailPage({
                 value={`${ownLines.length} of ${lines.length} lines`}
               />
             </dl>
-            {scan.note && <p className="mt-3 text-xs text-[#706e6b]">{scan.note}</p>}
+            {scan.note && <p className="mt-3 text-xs text-[#607785]">{scan.note}</p>}
           </Card>
         </div>
 
@@ -83,7 +83,7 @@ export default async function AuditScanDetailPage({
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
-                  <thead className="text-left text-xs font-semibold uppercase tracking-wide text-[#444]">
+                  <thead className="text-left text-xs font-semibold uppercase tracking-wide text-[#3c4f5e]">
                     <tr>
                       <th className="py-2 pr-2">On receipt</th>
                       <th className="py-2 pr-2">Matched product</th>
@@ -92,13 +92,13 @@ export default async function AuditScanDetailPage({
                       <th className="py-2">Check</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#f3f3f3]">
+                  <tbody className="divide-y divide-[#eef3f5]">
                     {lines.map((line) => (
                       <tr
                         key={line.id}
                         className={line.match_status === "matched" ? "" : "opacity-60"}
                       >
-                        <td className="py-2 pr-2 text-[#181818]">{line.ocr_name}</td>
+                        <td className="py-2 pr-2 text-[#14202b]">{line.ocr_name}</td>
                         <td className="py-2 pr-2">
                           {line.product_id ? (
                             <Link
@@ -108,11 +108,11 @@ export default async function AuditScanDetailPage({
                               {line.product_name}
                             </Link>
                           ) : (
-                            <span className="text-[#706e6b]">—</span>
+                            <span className="text-[#607785]">—</span>
                           )}
                         </td>
-                        <td className="py-2 pr-2 text-right text-[#444]">{line.quantity ?? "—"}</td>
-                        <td className="py-2 pr-2 text-right text-[#444]">
+                        <td className="py-2 pr-2 text-right text-[#3c4f5e]">{line.quantity ?? "—"}</td>
+                        <td className="py-2 pr-2 text-right text-[#3c4f5e]">
                           {line.unit_price != null ? formatCurrency(line.unit_price) : "—"}
                         </td>
                         <td className="py-2">

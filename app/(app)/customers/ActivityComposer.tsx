@@ -20,8 +20,8 @@ export function ActivityComposer({ customerId }: { customerId: number }) {
   );
 
   return (
-    <div className="rounded border border-[#e5e5e5]">
-      <div className="flex border-b border-[#e5e5e5] bg-[#fafaf9]">
+    <div className="rounded border border-[#dde5e8]">
+      <div className="flex border-b border-[#dde5e8] bg-[#f8fafb]">
         {INTERACTION_TYPES.map((t) => (
           <button
             key={t}
@@ -30,7 +30,7 @@ export function ActivityComposer({ customerId }: { customerId: number }) {
             className={`border-b-2 px-4 py-2 text-xs font-medium transition-colors ${
               type === t
                 ? "border-brand-600 bg-white text-brand-700"
-                : "border-transparent text-[#706e6b] hover:text-[#181818]"
+                : "border-transparent text-[#607785] hover:text-[#14202b]"
             }`}
           >
             Log {INTERACTION_TYPE_LABELS[t]}

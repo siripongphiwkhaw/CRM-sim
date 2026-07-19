@@ -10,7 +10,7 @@ import { deleteProductAction } from "./actions";
 export const dynamic = "force-dynamic";
 
 const filterClass =
-  "rounded border border-[#c9c9c9] bg-white px-3 py-1.5 text-sm focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600";
+  "rounded border border-[#c2d0d6] bg-white px-3 py-1.5 text-sm focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600";
 
 export default async function ProductsPage({
   searchParams,
@@ -52,7 +52,7 @@ export default async function ProductsPage({
         </select>
         <button
           type="submit"
-          className="rounded border border-[#c9c9c9] bg-white px-4 py-1.5 text-sm font-medium text-[#444] transition duration-150 hover:bg-[#f3f3f3] active:scale-[0.98]"
+          className="rounded border border-[#c2d0d6] bg-white px-4 py-1.5 text-sm font-medium text-[#3c4f5e] transition duration-150 hover:bg-[#eef3f5] active:scale-[0.98]"
         >
           Filter
         </button>
@@ -65,7 +65,7 @@ export default async function ProductsPage({
           {products.map((p) => (
             <div
               key={p.id}
-              className="group flex flex-col overflow-hidden rounded border border-[#e5e5e5] bg-white transition-[box-shadow,transform] duration-150 hover:-translate-y-0.5 hover:shadow-md"
+              className="group flex flex-col overflow-hidden rounded border border-[#dde5e8] bg-white transition-[box-shadow,transform] duration-150 hover:-translate-y-0.5 hover:shadow-md"
             >
               <Link href={`/products/${p.id}/edit`} className="block p-3 pb-0">
                 <ProductImage
@@ -75,16 +75,16 @@ export default async function ProductsPage({
                 />
               </Link>
               <div className="flex flex-1 flex-col p-3">
-                <p className="text-xs font-medium uppercase tracking-wide text-[#706e6b]">
+                <p className="text-xs font-medium uppercase tracking-wide text-[#607785]">
                   {p.brand}
                 </p>
                 <Link
                   href={`/products/${p.id}/edit`}
-                  className="mt-0.5 line-clamp-2 text-sm font-medium text-[#181818] group-hover:text-brand-600"
+                  className="mt-0.5 line-clamp-2 text-sm font-medium text-[#14202b] group-hover:text-brand-600"
                 >
                   {p.name}
                 </Link>
-                <p className="mt-1 text-xs text-[#706e6b]">
+                <p className="mt-1 text-xs text-[#607785]">
                   {p.category || "Uncategorized"} · <span className="font-mono">{p.sku}</span>
                 </p>
                 <div className="mt-auto flex items-center justify-between pt-2">

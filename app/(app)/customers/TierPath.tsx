@@ -1,27 +1,27 @@
-"use client";
-
-import { useTransition } from "react";
 import { TIERS, type Tier } from "@/lib/constants";
-import { setTierAction } from "./actions";
 
 /**
- * Salesforce-style Path: chevron stages for the loyalty tier. Completed stages
- * are dark, the current stage is brand blue, and clicking any stage moves the
- * member to that tier.
+ * Read-only loyalty tier path. Tier is computed from lifetime earned points
+ * (the ledger is the source of truth), so this shows progression only — it is
+ * no longer a setter. Progress toward the next threshold is shown below.
  */
 export function TierPath({
-  customerId,
   tier,
+  lifetime,
+  nextTier,
+  nextTierAt,
 }: {
-  customerId: number;
   tier: Tier;
+  lifetime: number;
+  nextTier?: Tier | null;
+  nextTierAt?: number | null;
 }) {
-  const [pending, startTransition] = useTransition();
   const currentIdx = TIERS.indexOf(tier);
+  const remaining = nextTierAt != null ? Math.max(0, nextTierAt - lifetime) : 0;
 
   return (
-    <div className="rounded border border-[#e5e5e5] bg-white p-3">
-      <ol className={`flex ${pending ? "opacity-60" : ""}`}>
+    <div className="rounded-[14px] border border-[#dde5e8] bg-white p-3">
+      <ol className="flex">
         {TIERS.map((t, i) => {
           const state =
             i < currentIdx ? "done" : i === currentIdx ? "current" : "todo";
@@ -30,15 +30,12 @@ export function TierPath({
               ? "bg-brand-800 text-white"
               : state === "current"
                 ? "bg-brand-600 text-white"
-                : "bg-[#ecebea] text-[#514f4d] hover:bg-[#d9d9d9]";
+                : "bg-[#e5eaec] text-[#514f4d]";
           return (
             <li key={t} className="min-w-0 flex-1" style={{ marginLeft: i === 0 ? 0 : -8 }}>
-              <button
-                type="button"
-                disabled={pending || t === tier}
-                onClick={() => startTransition(() => setTierAction(customerId, t))}
-                title={t === tier ? `Current tier: ${t}` : `Move to ${t}`}
-                className={`block w-full truncate px-5 py-1.5 text-center text-xs font-medium transition-colors ${colors}`}
+              <span
+                title={t === tier ? `Current tier: ${t}` : t}
+                className={`block w-full truncate px-5 py-1.5 text-center text-xs font-medium ${colors}`}
                 style={{
                   clipPath:
                     i === 0
@@ -50,13 +47,15 @@ export function TierPath({
               >
                 {state === "done" ? "✓ " : ""}
                 {t}
-              </button>
+              </span>
             </li>
           );
         })}
       </ol>
-      <p className="mt-1.5 text-center text-[11px] text-[#706e6b]">
-        Click a stage to move this member&apos;s tier
+      <p className="mt-1.5 text-center text-[11px] text-[#607785]">
+        {nextTier
+          ? `${lifetime.toLocaleString("en-US")} lifetime points · ${remaining.toLocaleString("en-US")} more to reach ${nextTier}`
+          : `${lifetime.toLocaleString("en-US")} lifetime points · top tier reached`}
       </p>
     </div>
   );

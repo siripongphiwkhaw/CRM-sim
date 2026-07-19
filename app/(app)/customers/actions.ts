@@ -6,18 +6,21 @@ import { requireSession } from "@/lib/session";
 import {
   customerSchema,
   interactionSchema,
+  transactionCreateSchema,
+  redeemSchema,
+  consentRecordSchema,
   firstError,
   type FormState,
 } from "@/lib/validation";
-import { z } from "zod";
-import { TIERS } from "@/lib/constants";
 import {
   createCustomer,
   updateCustomer,
   deleteCustomer,
-  setCustomerTier,
 } from "@/db/queries/customers";
 import { createInteraction } from "@/db/queries/interactions";
+import { createTransaction } from "@/db/queries/transactions";
+import { redeemReward } from "@/db/queries/loyalty";
+import { recordConsent } from "@/db/queries/consent";
 
 function parseCustomer(formData: FormData) {
   return customerSchema.safeParse({
@@ -26,13 +29,10 @@ function parseCustomer(formData: FormData) {
     email: formData.get("email") ?? "",
     phone: formData.get("phone") ?? "",
     brand: formData.get("brand"),
-    tier: formData.get("tier"),
-    points: formData.get("points") || 0,
+    cust_type: formData.get("cust_type"),
     register_channel: formData.get("register_channel") ?? "",
     data_level: formData.get("data_level"),
-    consent_pdpa: formData.get("consent_pdpa") === "on",
-    consent_marketing: formData.get("consent_marketing") === "on",
-    consent_migration: formData.get("consent_migration") === "on",
+    consent_mode: formData.get("consent_mode") || "all",
   });
 }
 
@@ -44,7 +44,8 @@ export async function createCustomerAction(
   const parsed = parseCustomer(formData);
   if (!parsed.success) return { error: firstError(parsed.error) };
 
-  const id = await createCustomer(parsed.data);
+  const { consent_mode, ...input } = parsed.data;
+  const id = await createCustomer(input, consent_mode);
   revalidatePath("/customers");
   redirect(`/customers/${id}`);
 }
@@ -60,7 +61,9 @@ export async function updateCustomerAction(
   const parsed = parseCustomer(formData);
   if (!parsed.success) return { error: firstError(parsed.error) };
 
-  await updateCustomer(id, parsed.data);
+  // consent_mode only applies at registration; edits don't rewrite consent.
+  const { consent_mode: _consent_mode, ...input } = parsed.data;
+  await updateCustomer(id, input);
   revalidatePath("/customers");
   revalidatePath(`/customers/${id}`);
   redirect(`/customers/${id}`);
@@ -74,17 +77,6 @@ export async function deleteCustomerAction(formData: FormData) {
     revalidatePath("/customers");
   }
   redirect("/customers");
-}
-
-/** Salesforce-style Path: move a member to a tier directly from the record page. */
-export async function setTierAction(id: number, tier: string) {
-  await requireSession();
-  const parsed = z.enum(TIERS).safeParse(tier);
-  if (!parsed.success || !id) return;
-
-  await setCustomerTier(id, parsed.data);
-  revalidatePath(`/customers/${id}`);
-  revalidatePath("/customers");
 }
 
 export async function addInteractionAction(
@@ -113,5 +105,81 @@ export async function addInteractionAction(
     description: parsed.data.description || null,
   });
   revalidatePath(`/customers/${customerId}`);
+  return {};
+}
+
+/** Records a purchase transaction → instant loyalty earn. */
+export async function recordTransactionAction(
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const session = await requireSession();
+  const parsed = transactionCreateSchema.safeParse({
+    customer_id: formData.get("customer_id"),
+    channel: formData.get("channel"),
+    amount_thb: formData.get("amount_thb"),
+  });
+  if (!parsed.success) return { error: firstError(parsed.error) };
+
+  const result = await createTransaction({
+    customer_id: parsed.data.customer_id,
+    channel: parsed.data.channel,
+    amount_thb: parsed.data.amount_thb,
+    source_ref: "staff",
+    created_by: session.userId ?? null,
+  });
+  revalidatePath(`/customers/${parsed.data.customer_id}`);
+  const warn = result.channelFlag ? " (channel eligibility flagged for review)" : "";
+  return { success: `Recorded — earned ${result.earned.points} points${warn}.` };
+}
+
+/** Staff-assisted reward redemption from Customer 360. */
+export async function redeemRewardAction(
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const session = await requireSession();
+  const parsed = redeemSchema.safeParse({
+    customer_id: formData.get("customer_id"),
+    reward_id: formData.get("reward_id"),
+  });
+  if (!parsed.success) return { error: firstError(parsed.error) };
+
+  const result = await redeemReward(
+    parsed.data.customer_id,
+    parsed.data.reward_id,
+    session.userId ?? null
+  );
+  revalidatePath(`/customers/${parsed.data.customer_id}`);
+  if (!result.ok) {
+    if (result.error === "INSUFFICIENT_POINTS")
+      return { error: "Not enough points for this reward." };
+    if (result.error === "REWARD_INACTIVE")
+      return { error: "That reward is no longer active." };
+    return { error: "Reward not found." };
+  }
+  return { success: `Redeemed — ${result.balance} points remaining.` };
+}
+
+/** Grant or withdraw a consent purpose (appends to consent history). */
+export async function recordConsentAction(
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  await requireSession();
+  const parsed = consentRecordSchema.safeParse({
+    customer_id: formData.get("customer_id"),
+    purpose: formData.get("purpose"),
+    status: formData.get("status"),
+  });
+  if (!parsed.success) return { error: firstError(parsed.error) };
+
+  await recordConsent({
+    customer_id: parsed.data.customer_id,
+    purpose: parsed.data.purpose,
+    status: parsed.data.status,
+    source: "staff",
+  });
+  revalidatePath(`/customers/${parsed.data.customer_id}`);
   return {};
 }

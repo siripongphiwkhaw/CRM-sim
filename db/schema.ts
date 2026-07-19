@@ -19,13 +19,11 @@ CREATE TABLE IF NOT EXISTS customers (
   email TEXT,
   phone TEXT,
   brand TEXT NOT NULL,
-  tier TEXT NOT NULL DEFAULT 'Bronze' CHECK (tier IN ('Bronze','Silver','Gold','Platinum')),
+  cust_type TEXT NOT NULL DEFAULT 'B2C' CHECK (cust_type IN ('B2C','B2B')),
+  tier TEXT NOT NULL DEFAULT 'Bronze' CHECK (tier IN ('Bronze','Silver','Gold')),
   points INTEGER NOT NULL DEFAULT 0,
   register_channel TEXT,
   data_level TEXT NOT NULL DEFAULT 'Register',
-  consent_pdpa INTEGER NOT NULL DEFAULT 0,
-  consent_marketing INTEGER NOT NULL DEFAULT 0,
-  consent_migration INTEGER NOT NULL DEFAULT 0,
   clv REAL NOT NULL DEFAULT 0,
   last_purchase_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -56,6 +54,7 @@ CREATE TABLE IF NOT EXISTS products (
   brand TEXT NOT NULL,
   category TEXT,
   unit_price REAL NOT NULL DEFAULT 0,
+  reorder_point INTEGER NOT NULL DEFAULT 20,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS products_brand ON products(brand);
@@ -68,6 +67,9 @@ CREATE TABLE IF NOT EXISTS distributors (
   region TEXT,
   channel TEXT,
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','inactive')),
+  dealer_type TEXT NOT NULL DEFAULT 'Dealer' CHECK (dealer_type IN ('Dealer','Retailer')),
+  customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+  area TEXT,
   contact_name TEXT,
   phone TEXT,
   email TEXT,
@@ -227,4 +229,109 @@ CREATE TABLE IF NOT EXISTS data_sources (
   description TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Loyalty: purchase transactions. The interactions table remains the soft
+-- activity log; this is the money/points-bearing record of sale.
+CREATE TABLE IF NOT EXISTS transactions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tx_code TEXT NOT NULL UNIQUE,
+  customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  channel TEXT NOT NULL CHECK (channel IN ('POS','ECOM','D2C','SFA')),
+  amount_thb REAL NOT NULL CHECK (amount_thb >= 0),
+  channel_flag TEXT CHECK (channel_flag IN ('CHANNEL_ELIGIBILITY_WARNING')),
+  source_ref TEXT,
+  created_by INTEGER REFERENCES users(id),
+  tx_date TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS transactions_customer ON transactions(customer_id);
+
+-- Append-only loyalty ledger. Balance and lifetime are ALWAYS computed:
+--   balance  = SUM(CASE WHEN entry_type='EARN' THEN points ELSE -points END)
+--   lifetime = SUM(points) WHERE entry_type='EARN'  (only EARN counts to tier)
+-- No updates, no deletes; points is always positive, sign derives from type.
+CREATE TABLE IF NOT EXISTS loyalty_ledger (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  entry_type TEXT NOT NULL CHECK (entry_type IN ('EARN','BURN','ADJUST','EXPIRE')),
+  points INTEGER NOT NULL CHECK (points > 0),
+  rate_applied REAL,
+  multiplier REAL,
+  tier_at_time TEXT CHECK (tier_at_time IN ('Bronze','Silver','Gold')),
+  ref_type TEXT CHECK (ref_type IN ('transaction','reward','manual','seed')),
+  ref_id INTEGER,
+  note TEXT,
+  created_by INTEGER REFERENCES users(id),
+  occurred_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS loyalty_ledger_customer ON loyalty_ledger(customer_id, entry_type);
+
+CREATE TABLE IF NOT EXISTS tier_config (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tier TEXT NOT NULL UNIQUE CHECK (tier IN ('Bronze','Silver','Gold')),
+  min_lifetime_points INTEGER NOT NULL,
+  multiplier REAL NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS rewards (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  code TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  description TEXT,
+  reward_type TEXT NOT NULL CHECK (reward_type IN ('VOUCHER','PRODUCT','DISCOUNT','EXPERIENCE')),
+  points_cost INTEGER NOT NULL CHECK (points_cost > 0),
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Per-purpose PDPA consent, append-only history. Current status for a purpose
+-- is the latest row by captured_at (tie-break: highest id).
+CREATE TABLE IF NOT EXISTS consents (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  purpose TEXT NOT NULL CHECK (purpose IN ('MARKETING','ANALYTICS','PROFILING')),
+  status TEXT NOT NULL CHECK (status IN ('GRANTED','DENIED','WITHDRAWN')),
+  source TEXT,
+  note TEXT,
+  captured_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS consents_customer ON consents(customer_id, purpose, captured_at);
+
+-- Service cases.
+CREATE TABLE IF NOT EXISTS cases (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  case_number TEXT NOT NULL UNIQUE,
+  customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+  subject TEXT NOT NULL,
+  description TEXT,
+  category TEXT CHECK (category IN ('POINTS','REDEMPTION','PRODUCT','DELIVERY','ACCOUNT','OTHER')),
+  priority TEXT NOT NULL DEFAULT 'MEDIUM' CHECK (priority IN ('LOW','MEDIUM','HIGH','URGENT')),
+  status TEXT NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN','IN_PROGRESS','RESOLVED','CLOSED')),
+  assigned_to INTEGER REFERENCES users(id),
+  resolution TEXT,
+  created_by INTEGER REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  resolved_at TEXT
+);
+CREATE INDEX IF NOT EXISTS cases_customer ON cases(customer_id);
+CREATE INDEX IF NOT EXISTS cases_status ON cases(status);
+
+-- Rule-based AI insights. Analytic types are regenerated on demand; the
+-- transactional stock types are posted inline when a sell-out crosses a threshold.
+CREATE TABLE IF NOT EXISTS ai_insights (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  insight_type TEXT NOT NULL CHECK (insight_type IN (
+    'CHANNEL_CONFLICT','LOW_SELLOUT_RATE','LOW_SELLIN_STOCK','OUT_OF_STOCK',
+    'REORDER_POINT','CONSENT_GAP','LIABILITY_HIGH','CHURN_RISK','DEALER_UNLINKED')),
+  severity TEXT NOT NULL CHECK (severity IN ('CRITICAL','WARNING','OPPORTUNITY','INFO')),
+  entity_type TEXT CHECK (entity_type IN ('customer','distributor','product','global')),
+  entity_id INTEGER,
+  title TEXT NOT NULL,
+  description TEXT,
+  recommendation TEXT,
+  confidence REAL,
+  dismissed_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS ai_insights_type ON ai_insights(insight_type, entity_type, entity_id);
 `;

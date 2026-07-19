@@ -113,7 +113,7 @@ export function ReceiptFileInput({
         accept="image/*"
         capture="environment"
         onChange={handleChange}
-        className="block w-full text-sm text-[#444] file:mr-3 file:cursor-pointer file:rounded file:border file:border-[#c9c9c9] file:bg-white file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-brand-600 file:transition file:duration-150 hover:file:bg-[#f3f3f3]"
+        className="block w-full text-sm text-[#3c4f5e] file:mr-3 file:cursor-pointer file:rounded file:border file:border-[#c2d0d6] file:bg-white file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-brand-600 file:transition file:duration-150 hover:file:bg-[#eef3f5]"
       />
       {localOcr && <input type="hidden" name="ocr_text" value={ocrText} />}
       {preview && (
@@ -121,16 +121,16 @@ export function ReceiptFileInput({
         <img
           src={preview}
           alt="Receipt preview"
-          className="max-h-56 rounded border border-[#e5e5e5] object-contain"
+          className="max-h-56 rounded border border-[#dde5e8] object-contain"
         />
       )}
       {progress !== null && (
         <div>
-          <div className="mb-1 flex items-center justify-between text-xs text-[#706e6b]">
+          <div className="mb-1 flex items-center justify-between text-xs text-[#607785]">
             <span>Reading receipt in your browser…</span>
             <span>{progress}%</span>
           </div>
-          <div className="h-2 overflow-hidden rounded-sm bg-[#f3f3f3]">
+          <div className="h-2 overflow-hidden rounded-sm bg-[#eef3f5]">
             <div
               className="h-full rounded-sm bg-brand-600 transition-[width] duration-300"
               style={{ width: `${progress}%` }}
@@ -138,7 +138,7 @@ export function ReceiptFileInput({
           </div>
         </div>
       )}
-      {info && progress === null && <p className="text-xs text-[#706e6b]">{info}</p>}
+      {info && progress === null && <p className="text-xs text-[#607785]">{info}</p>}
     </div>
   );
 }

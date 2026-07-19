@@ -21,7 +21,7 @@ export function ReceiptScanCard({
   return (
     <form action={formAction} className="space-y-3">
       <input type="hidden" name="order_id" value={orderId} />
-      <p className="text-xs text-[#706e6b]">
+      <p className="text-xs text-[#607785]">
         Photograph the receipt, tax invoice, or delivery bill for this order —
         every line is checked against the PO/SO.{" "}
         {ocrConfigured

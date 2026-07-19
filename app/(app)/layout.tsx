@@ -1,19 +1,20 @@
 import { getSession } from "@/lib/session";
 import { isPicOfAny } from "@/db/queries/departments";
-import { GlobalNav, type NavTab } from "@/app/components/GlobalNav";
+import { ModuleRail, type RailItem } from "@/app/components/ModuleRail";
+import { TopBar } from "@/app/components/TopBar";
 import { logoutAction } from "./actions";
 
-const BASE_TABS: NavTab[] = [
-  { href: "/dashboard", label: "Home" },
-  { href: "/customers", label: "Customers" },
-  { href: "/products", label: "Products" },
-  { href: "/channel", label: "Sales & Channel" },
-  { href: "/data-cloud", label: "Data Cloud" },
+const BASE_ITEMS: RailItem[] = [
+  { href: "/dashboard", label: "Home", icon: "home" },
+  { href: "/customers", label: "Members", icon: "members" },
+  { href: "/products", label: "Products", icon: "products" },
+  { href: "/channel", label: "Sales & Channel", icon: "channel" },
+  { href: "/data-cloud", label: "Data Cloud", icon: "datacloud" },
 ];
 
-const ADMIN_TABS: NavTab[] = [
-  { href: "/sql", label: "SQL Console" },
-  { href: "/admin", label: "Setup" },
+const ADMIN_ITEMS: RailItem[] = [
+  { href: "/sql", label: "SQL Console", icon: "sql" },
+  { href: "/admin", label: "Setup", icon: "setup" },
 ];
 
 export default async function AppLayout({
@@ -25,73 +26,25 @@ export default async function AppLayout({
   const isAdmin = session.role === "admin";
   const isPic = session.userId ? await isPicOfAny(session.userId) : false;
 
-  const tabs = [
-    ...BASE_TABS,
-    ...(isPic ? [{ href: "/department", label: "My Department" }] : []),
-    ...(isAdmin ? ADMIN_TABS : []),
+  const items: RailItem[] = [
+    ...BASE_ITEMS,
+    ...(isPic
+      ? [{ href: "/department", label: "My Department", icon: "department" as const }]
+      : []),
+    ...(isAdmin ? ADMIN_ITEMS : []),
   ];
-  const initials = (session.name ?? "?")
-    .split(/\s+/)
-    .map((p) => p.charAt(0))
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
 
   return (
-    <div className="flex min-h-screen flex-1 flex-col bg-background">
-      <div className="h-1 bg-brand-600" />
-      <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-[#e5e5e5] bg-white px-3 py-2 sm:gap-x-4 sm:px-4">
-        {/* app-launcher waffle */}
-        <span aria-hidden className="grid grid-cols-3 gap-[3px] p-1">
-          {Array.from({ length: 9 }).map((_, i) => (
-            <span key={i} className="h-1 w-1 rounded-[1px] bg-[#747474]" />
-          ))}
-        </span>
-        <span className="whitespace-nowrap text-base font-bold text-[#032d60]">Loyalty Cloud</span>
-
-        {/* Drops to its own full-width row below sm */}
-        <form
-          action="/search"
-          method="get"
-          className="order-last min-w-0 basis-full sm:order-none sm:mx-auto sm:max-w-xl sm:flex-1 sm:basis-0"
-        >
-          <input
-            type="search"
-            name="q"
-            placeholder="Search customers, products and more…"
-            className="w-full rounded-full border border-[#c9c9c9] bg-[#f3f3f3] px-4 py-2 text-sm transition-colors focus:border-brand-600 focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-600 sm:py-1.5"
-          />
-        </form>
-
-        <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
-          <div className="hidden text-right md:block">
-            <p className="text-xs font-semibold leading-tight text-[#181818]">
-              {session.name}
-            </p>
-            <p className="text-[11px] capitalize leading-tight text-[#706e6b]">
-              {session.role}
-            </p>
-          </div>
-          <span
-            title={`${session.name} (${session.role})`}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-700 text-xs font-semibold text-white"
-          >
-            {initials}
-          </span>
-          <form action={logoutAction}>
-            <button
-              type="submit"
-              className="whitespace-nowrap rounded border border-[#c9c9c9] bg-white px-3 py-1 text-xs text-[#444] transition duration-150 hover:bg-[#f3f3f3] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-            >
-              Sign out
-            </button>
-          </form>
-        </div>
-      </header>
-
-      <GlobalNav tabs={tabs} />
-
-      <main className="flex-1 overflow-y-auto p-4">{children}</main>
+    <div className="flex min-h-screen bg-background">
+      <ModuleRail items={items} />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <TopBar
+          name={session.name ?? "?"}
+          role={session.role ?? "user"}
+          logoutAction={logoutAction}
+        />
+        <main className="flex-1 overflow-y-auto p-4">{children}</main>
+      </div>
     </div>
   );
 }

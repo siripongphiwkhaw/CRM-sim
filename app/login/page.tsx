@@ -6,14 +6,14 @@ import { loginAction, type LoginFormState } from "./actions";
 const initialState: LoginFormState = {};
 
 const inputClass =
-  "w-full rounded border border-[#c9c9c9] px-3 py-2 text-sm focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600";
+  "w-full rounded border border-[#c2d0d6] px-3 py-2 text-sm focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600";
 
 export default function LoginPage() {
   const [state, formAction, pending] = useActionState(loginAction, initialState);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#f3f3f3] px-4">
-      <div className="w-full max-w-sm overflow-hidden rounded border border-[#e5e5e5] bg-white shadow-[0_4px_20px_rgba(0,0,0,0.08)]">
+    <div className="flex min-h-screen items-center justify-center bg-[#eef3f5] px-4">
+      <div className="w-full max-w-sm overflow-hidden rounded border border-[#dde5e8] bg-white shadow-[0_4px_20px_rgba(0,0,0,0.08)]">
         <div className="bg-brand-800 px-8 py-7 text-center">
           {/* waffle mark, echoing the app-launcher icon in the signed-in shell */}
           <span aria-hidden className="mx-auto mb-3 grid w-fit grid-cols-3 gap-[3px] rounded bg-white/10 p-2">
@@ -28,7 +28,7 @@ export default function LoginPage() {
         <div className="p-8">
           <form action={formAction} className="space-y-4">
             <div>
-              <label htmlFor="email" className="mb-1 block text-xs font-semibold text-[#444]">
+              <label htmlFor="email" className="mb-1 block text-xs font-semibold text-[#3c4f5e]">
                 Username
               </label>
               <input
@@ -41,7 +41,7 @@ export default function LoginPage() {
               />
             </div>
             <div>
-              <label htmlFor="password" className="mb-1 block text-xs font-semibold text-[#444]">
+              <label htmlFor="password" className="mb-1 block text-xs font-semibold text-[#3c4f5e]">
                 Password
               </label>
               <input
@@ -74,7 +74,7 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <p className="mt-4 text-xs text-[#706e6b]">
+          <p className="mt-4 text-xs text-[#607785]">
             Admin: admin@crm.local · Staff: staff@crm.local — password demo123
           </p>
         </div>

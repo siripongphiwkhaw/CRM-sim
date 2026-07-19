@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
-/* Lightning-inspired design tokens (Salesforce Lightning Design System style). */
+/* Design tokens: charcoal module rail, teal accent, amber NBA, rounded cards. */
 :root {
-  --background: #f3f3f3;
-  --foreground: #181818;
+  --background: #f4f7f8;
+  --foreground: #14202b;
 }
 
 @theme inline {
@@ -11,14 +11,29 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-app);
 
-  /* Brand = Lightning blue ramp */
-  --color-brand-50: #eef4ff;
-  --color-brand-100: #d8e6fe;
-  --color-brand-200: #aacbff;
-  --color-brand-500: #1b96ff;
-  --color-brand-600: #0176d3;
-  --color-brand-700: #014486;
-  --color-brand-800: #032d60;
+  /* Brand = teal ramp */
+  --color-brand-50: #e7f6f4;
+  --color-brand-100: #cdeeea;
+  --color-brand-200: #9fded6;
+  --color-brand-500: #14b8a5;
+  --color-brand-600: #12a594;
+  --color-brand-700: #0d7d70;
+  --color-brand-800: #095c53;
+
+  /* Shell */
+  --color-rail: #16232e;
+  --color-rail-hover: #1e2f3d;
+
+  /* Next Best Action (amber) */
+  --color-nba-50: #fff5ec;
+  --color-nba-500: #e8853a;
+
+  /* AI panels (purple) */
+  --color-ai-50: #f5f2ff;
+  --color-ai-600: #6d5bd0;
+
+  /* Danger */
+  --color-danger: #c8102e;
 
   /* Warm neutrals kept for tier badges / product tiles */
   --color-cream-50: #fffaf0;

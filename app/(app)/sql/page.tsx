@@ -31,10 +31,10 @@ export default async function SqlPage() {
             <div className="space-y-3">
               {schema.map((t) => (
                 <div key={t.table}>
-                  <p className="font-mono text-sm font-semibold text-[#181818]">{t.table}</p>
+                  <p className="font-mono text-sm font-semibold text-[#14202b]">{t.table}</p>
                   <ul className="mt-0.5 space-y-0.5">
                     {t.columns.map((c) => (
-                      <li key={c} className="font-mono text-xs text-[#706e6b]">{c}</li>
+                      <li key={c} className="font-mono text-xs text-[#607785]">{c}</li>
                     ))}
                   </ul>
                 </div>

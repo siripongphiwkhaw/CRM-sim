@@ -73,7 +73,7 @@ export function DistributorForm({
         <SubmitButton>{distributor ? "Save changes" : "Create distributor"}</SubmitButton>
         <Link
           href={distributor ? `/channel/distributors/${distributor.id}` : "/channel/distributors"}
-          className="text-sm text-[#706e6b] hover:text-[#181818]"
+          className="text-sm text-[#607785] hover:text-[#14202b]"
         >
           Cancel
         </Link>

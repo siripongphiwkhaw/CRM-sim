@@ -23,9 +23,9 @@ export const dynamic = "force-dynamic";
 
 function Kpi({ label, value, accent }: { label: string; value: string; accent?: string }) {
   return (
-    <div className="rounded border border-[#e5e5e5] bg-white px-4 py-3">
-      <p className="text-xs text-[#706e6b]">{label}</p>
-      <p className={`mt-0.5 text-xl font-bold ${accent ?? "text-[#181818]"}`}>{value}</p>
+    <div className="rounded border border-[#dde5e8] bg-white px-4 py-3">
+      <p className="text-xs text-[#607785]">{label}</p>
+      <p className={`mt-0.5 text-xl font-bold ${accent ?? "text-[#14202b]"}`}>{value}</p>
     </div>
   );
 }
@@ -39,10 +39,10 @@ function BarList({ title, rows }: { title: string; rows: { label: string; count:
         {rows.map((r) => (
           <div key={r.label} title={`${r.label}: ${r.count}`}>
             <div className="mb-1 flex items-center justify-between text-xs">
-              <span className="font-medium text-[#444]">{r.label}</span>
-              <span className="text-[#706e6b]">{r.count}</span>
+              <span className="font-medium text-[#3c4f5e]">{r.label}</span>
+              <span className="text-[#607785]">{r.count}</span>
             </div>
-            <div className="h-2 overflow-hidden rounded-sm bg-[#f3f3f3]">
+            <div className="h-2 overflow-hidden rounded-sm bg-[#eef3f5]">
               <div
                 className="h-full rounded-sm bg-brand-600"
                 style={{ width: `${(r.count / max) * 100}%` }}
@@ -80,7 +80,7 @@ export default async function HomePage() {
           <Link href="/customers" className="font-medium text-brand-600 hover:underline">
             {noPdpa} members
           </Link>{" "}
-          have not granted PDPA consent — review before the next campaign.
+          have not granted marketing consent — review before the next campaign.
         </>
       ),
     });
@@ -139,11 +139,11 @@ export default async function HomePage() {
         <Card>
           <SectionHeader title="Insights" />
           {insights.length === 0 ? (
-            <p className="text-sm text-[#706e6b]">Everything looks healthy today.</p>
+            <p className="text-sm text-[#607785]">Everything looks healthy today.</p>
           ) : (
             <ul className="space-y-3">
               {insights.map((ins, i) => (
-                <li key={i} className="flex items-start gap-2 border-b border-[#f3f3f3] pb-3 text-sm text-[#444] last:border-0 last:pb-0">
+                <li key={i} className="flex items-start gap-2 border-b border-[#eef3f5] pb-3 text-sm text-[#3c4f5e] last:border-0 last:pb-0">
                   <span aria-hidden>{ins.icon}</span>
                   <span>{ins.text}</span>
                 </li>
@@ -156,14 +156,14 @@ export default async function HomePage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card>
           <SectionHeader icon="customer" title="Recent Records" count={recentCustomers.length} />
-          <ul className="divide-y divide-[#f3f3f3]">
+          <ul className="divide-y divide-[#eef3f5]">
             {recentCustomers.map((c) => (
               <li key={c.id} className="flex items-center justify-between gap-2 py-2">
                 <div className="min-w-0">
                   <Link href={`/customers/${c.id}`} className="block truncate text-sm font-medium text-brand-600 hover:underline">
                     {c.first_name} {c.last_name}
                   </Link>
-                  <p className="text-xs text-[#706e6b]">{c.member_code} · {c.brand}</p>
+                  <p className="text-xs text-[#607785]">{c.member_code} · {c.brand}</p>
                 </div>
                 <TierBadge tier={c.tier} />
               </li>
@@ -173,16 +173,16 @@ export default async function HomePage() {
 
         <Card>
           <SectionHeader title="Recent Activity" count={recentActivity.length} />
-          <ul className="divide-y divide-[#f3f3f3]">
+          <ul className="divide-y divide-[#eef3f5]">
             {recentActivity.map((a) => (
               <li key={a.id} className="flex items-center gap-2 py-2 text-sm">
                 <InteractionBadge type={a.type} />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[#444]">{a.description}</p>
-                  <p className="text-xs text-[#706e6b]">{a.customer_name} · {formatDate(a.occurred_at)}</p>
+                  <p className="truncate text-[#3c4f5e]">{a.description}</p>
+                  <p className="text-xs text-[#607785]">{a.customer_name} · {formatDate(a.occurred_at)}</p>
                 </div>
                 {a.amount > 0 && (
-                  <span className="shrink-0 text-xs text-[#444]">{formatCurrency(a.amount)}</span>
+                  <span className="shrink-0 text-xs text-[#3c4f5e]">{formatCurrency(a.amount)}</span>
                 )}
               </li>
             ))}
@@ -198,10 +198,10 @@ export default async function HomePage() {
         <BarList title="Members by brand" rows={brands} />
         <Card>
           <SectionHeader icon="datacloud" title="Data Cloud" count={sources.length} />
-          <ul className="divide-y divide-[#f3f3f3]">
+          <ul className="divide-y divide-[#eef3f5]">
             {sources.map((s) => (
               <li key={s.id} className="flex items-center justify-between py-2 text-sm">
-                <span className="text-[#444]">{s.name}</span>
+                <span className="text-[#3c4f5e]">{s.name}</span>
                 <span className={`text-xs ${s.status === "connected" ? "text-[#2e844a]" : "text-[#dd7a01]"}`}>
                   {s.status}
                 </span>
@@ -212,7 +212,7 @@ export default async function HomePage() {
       </div>
 
       {/* decorative footer nod to the classic Lightning home */}
-      <p className="flex items-center gap-2 text-xs text-[#706e6b]">
+      <p className="flex items-center gap-2 text-xs text-[#607785]">
         <ObjectIcon kind="home" size="sm" /> Loyalty Cloud — demo environment
       </p>
     </div>

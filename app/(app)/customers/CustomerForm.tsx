@@ -9,33 +9,11 @@ import {
   FormError,
   SubmitButton,
 } from "@/app/components/form";
-import { BRANDS, TIERS, CHANNELS, DATA_LEVELS } from "@/lib/constants";
+import { BRANDS, CUST_TYPES, CHANNELS, DATA_LEVELS } from "@/lib/constants";
 import type { FormState } from "@/lib/validation";
 import type { Customer } from "@/db/queries/customers";
 
 type Action = (prev: FormState, formData: FormData) => Promise<FormState>;
-
-function Checkbox({
-  name,
-  label,
-  defaultChecked,
-}: {
-  name: string;
-  label: string;
-  defaultChecked?: boolean;
-}) {
-  return (
-    <label className="flex items-center gap-2 text-sm text-[#444]">
-      <input
-        type="checkbox"
-        name={name}
-        defaultChecked={defaultChecked}
-        className="h-4 w-4 rounded border-[#c9c9c9] text-brand-600 focus:ring-brand-600"
-      />
-      {label}
-    </label>
-  );
-}
 
 export function CustomerForm({
   action,
@@ -45,6 +23,7 @@ export function CustomerForm({
   customer?: Customer;
 }) {
   const [state, formAction] = useActionState<FormState, FormData>(action, {});
+  const isNew = !customer;
 
   return (
     <form action={formAction} className="max-w-2xl space-y-5">
@@ -64,22 +43,19 @@ export function CustomerForm({
         <Field label="Phone" htmlFor="phone">
           <TextInput id="phone" name="phone" placeholder="081-234-5678" defaultValue={customer?.phone ?? ""} />
         </Field>
+        <Field label="Member type" htmlFor="cust_type" required>
+          <Select id="cust_type" name="cust_type" defaultValue={customer?.cust_type ?? "B2C"}>
+            {CUST_TYPES.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </Select>
+        </Field>
         <Field label="Brand" htmlFor="brand" required>
           <Select id="brand" name="brand" defaultValue={customer?.brand ?? BRANDS[0]}>
             {BRANDS.map((b) => (
               <option key={b} value={b}>{b}</option>
             ))}
           </Select>
-        </Field>
-        <Field label="Tier" htmlFor="tier" required>
-          <Select id="tier" name="tier" defaultValue={customer?.tier ?? "Bronze"}>
-            {TIERS.map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </Select>
-        </Field>
-        <Field label="Points" htmlFor="points">
-          <TextInput id="points" name="points" type="number" min="0" step="1" defaultValue={customer?.points ?? 0} />
         </Field>
         <Field label="Register channel" htmlFor="register_channel">
           <Select id="register_channel" name="register_channel" defaultValue={customer?.register_channel ?? ""}>
@@ -98,20 +74,34 @@ export function CustomerForm({
         </Field>
       </div>
 
-      <fieldset className="rounded border border-[#e5e5e5] p-4">
-        <legend className="px-1 text-xs font-semibold text-[#444]">Consent (PDPA)</legend>
-        <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:gap-6">
-          <Checkbox name="consent_pdpa" label="PDPA consent" defaultChecked={customer ? !!customer.consent_pdpa : true} />
-          <Checkbox name="consent_marketing" label="Marketing" defaultChecked={customer ? !!customer.consent_marketing : false} />
-          <Checkbox name="consent_migration" label="Data migration" defaultChecked={customer ? !!customer.consent_migration : false} />
-        </div>
-      </fieldset>
+      {isNew ? (
+        <fieldset className="rounded-[14px] border border-[#dde5e8] p-4">
+          <legend className="px-1 text-xs font-semibold text-[#3c4f5e]">Consent (PDPA) at registration</legend>
+          <p className="mb-2 text-xs text-[#607785]">
+            Analytics consent is always recorded; the choice below sets marketing consent.
+          </p>
+          <div className="mt-1 space-y-2">
+            <label className="flex items-start gap-2 text-sm text-[#3c4f5e]">
+              <input type="radio" name="consent_mode" value="all" defaultChecked className="mt-0.5 h-4 w-4 text-brand-600" />
+              <span><strong>Accept all</strong> — grant marketing and analytics consent.</span>
+            </label>
+            <label className="flex items-start gap-2 text-sm text-[#3c4f5e]">
+              <input type="radio" name="consent_mode" value="no_marketing" className="mt-0.5 h-4 w-4 text-brand-600" />
+              <span><strong>Register without marketing</strong> — analytics only; marketing denied.</span>
+            </label>
+          </div>
+        </fieldset>
+      ) : (
+        <p className="text-xs text-[#607785]">
+          Consent is managed on the member&apos;s record page (per-purpose history).
+        </p>
+      )}
 
       <div className="flex items-center gap-3">
         <SubmitButton>{customer ? "Save changes" : "Create member"}</SubmitButton>
         <Link
           href={customer ? `/customers/${customer.id}` : "/customers"}
-          className="text-sm text-[#706e6b] hover:text-[#181818]"
+          className="text-sm text-[#607785] hover:text-[#14202b]"
         >
           Cancel
         </Link>

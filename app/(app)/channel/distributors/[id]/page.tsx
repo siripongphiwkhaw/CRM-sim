@@ -24,9 +24,9 @@ export const dynamic = "force-dynamic";
 
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex justify-between gap-4 border-b border-[#f3f3f3] py-2 last:border-0">
-      <dt className="text-xs text-[#706e6b]">{label}</dt>
-      <dd className="text-right text-sm text-[#181818]">{value || "—"}</dd>
+    <div className="flex justify-between gap-4 border-b border-[#eef3f5] py-2 last:border-0">
+      <dt className="text-xs text-[#607785]">{label}</dt>
+      <dd className="text-right text-sm text-[#14202b]">{value || "—"}</dd>
     </div>
   );
 }
@@ -90,7 +90,7 @@ export default async function DistributorDetailPage({
               <DetailRow
                 label="Status"
                 value={
-                  <span className={distributor.status === "active" ? "text-[#194e31]" : "text-[#706e6b]"}>
+                  <span className={distributor.status === "active" ? "text-[#194e31]" : "text-[#607785]"}>
                     {distributor.status}
                   </span>
                 }
@@ -110,11 +110,11 @@ export default async function DistributorDetailPage({
             {onHand.length === 0 ? (
               <EmptyState message="No stock on hand." />
             ) : (
-              <ul className="divide-y divide-[#f3f3f3]">
+              <ul className="divide-y divide-[#eef3f5]">
                 {onHand.map((row) => (
                   <li key={row.product_id} className="flex items-center justify-between py-2 text-sm">
-                    <span className="text-[#444]">{row.name}</span>
-                    <span className="font-medium text-[#181818]">{row.on_hand.toLocaleString("en-US")}</span>
+                    <span className="text-[#3c4f5e]">{row.name}</span>
+                    <span className="font-medium text-[#14202b]">{row.on_hand.toLocaleString("en-US")}</span>
                   </li>
                 ))}
               </ul>
@@ -137,14 +137,14 @@ export default async function DistributorDetailPage({
             {orders.length === 0 ? (
               <EmptyState message="No orders yet." />
             ) : (
-              <ul className="divide-y divide-[#f3f3f3]">
+              <ul className="divide-y divide-[#eef3f5]">
                 {orders.map((o) => (
                   <li key={o.id} className="flex items-center justify-between gap-3 py-2 text-sm">
                     <Link href={`/channel/orders/${o.id}`} className="truncate font-medium text-brand-600 hover:underline">
                       {o.order_number}
                     </Link>
                     <div className="flex shrink-0 items-center gap-3">
-                      <span className="text-[#444]">{formatCurrency(o.total_amount)}</span>
+                      <span className="text-[#3c4f5e]">{formatCurrency(o.total_amount)}</span>
                       <OrderStatusBadge status={o.status} />
                     </div>
                   </li>
@@ -158,11 +158,11 @@ export default async function DistributorDetailPage({
             {deliveries.length === 0 ? (
               <EmptyState message="No deliveries scheduled." />
             ) : (
-              <ul className="divide-y divide-[#f3f3f3]">
+              <ul className="divide-y divide-[#eef3f5]">
                 {deliveries.map((d) => (
                   <li key={d.id} className="flex items-center justify-between py-2 text-sm">
-                    <span className="text-[#444]">{d.product_name} · {d.planned_qty.toLocaleString("en-US")}</span>
-                    <span className="text-xs text-[#706e6b]">{formatDate(d.plan_date)} · {d.status}</span>
+                    <span className="text-[#3c4f5e]">{d.product_name} · {d.planned_qty.toLocaleString("en-US")}</span>
+                    <span className="text-xs text-[#607785]">{formatDate(d.plan_date)} · {d.status}</span>
                   </li>
                 ))}
               </ul>
@@ -174,11 +174,11 @@ export default async function DistributorDetailPage({
             {reports.length === 0 ? (
               <EmptyState message="No sell-out reports yet." />
             ) : (
-              <ul className="divide-y divide-[#f3f3f3]">
+              <ul className="divide-y divide-[#eef3f5]">
                 {reports.map((r) => (
                   <li key={r.id} className="flex items-center justify-between py-2 text-sm">
-                    <span className="text-[#444]">{r.product_name} · {r.period}</span>
-                    <span className="text-xs text-[#706e6b]">
+                    <span className="text-[#3c4f5e]">{r.product_name} · {r.period}</span>
+                    <span className="text-xs text-[#607785]">
                       sold {r.sell_out_qty.toLocaleString("en-US")} · forecast {r.forecast_qty.toLocaleString("en-US")}
                     </span>
                   </li>

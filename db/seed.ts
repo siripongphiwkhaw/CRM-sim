@@ -6,9 +6,14 @@ import {
   CHANNELS,
   DATA_LEVELS,
   PRODUCT_CATEGORIES,
-  TIERS,
-  type Tier,
+  type CustType,
+  type TxChannel,
 } from "@/lib/constants";
+import {
+  calcEarn,
+  tierForLifetime,
+  DEFAULT_TIER_RULES,
+} from "@/lib/loyaltyEngine";
 
 const CUSTOMER_COUNT = 60;
 const PRODUCT_COUNT = 24;
@@ -21,21 +26,7 @@ function lastId(db: Database): number {
   return Number(res[0].values[0][0]);
 }
 
-function tierForClv(clv: number): Tier {
-  if (clv >= 30000) return "Platinum";
-  if (clv >= 10000) return "Gold";
-  if (clv >= 2000) return "Silver";
-  return "Bronze";
-}
-
-interface SeedInteraction {
-  type: "register" | "enrichment" | "purchase" | "engagement";
-  channel: string;
-  amount: number;
-  points: number;
-  description: string;
-  occurred_at: string;
-}
+const B2C_TX_CHANNELS: TxChannel[] = ["POS", "ECOM", "D2C"];
 
 /**
  * Populates a fresh in-memory database with deterministic demo data for the
@@ -61,6 +52,35 @@ export function seedInto(db: Database): void {
       userIds[key] = lastId(db);
     }
 
+    // Loyalty tier ladder (mirrors lib/loyaltyEngine DEFAULT_TIER_RULES).
+    for (const rule of DEFAULT_TIER_RULES) {
+      db.run(
+        "INSERT INTO tier_config (tier, min_lifetime_points, multiplier) VALUES (?, ?, ?)",
+        [rule.tier, rule.min_lifetime_points, rule.multiplier]
+      );
+    }
+
+    // Rewards catalog.
+    const rewards: [string, string, string, number][] = [
+      ["฿50 cash voucher", "VOUCHER", "Redeemable at any participating store.", 100],
+      ["฿100 cash voucher", "VOUCHER", "Redeemable at any participating store.", 200],
+      ["Free seasoning sampler", "PRODUCT", "A sampler pack of the season's range.", 250],
+      ["10% off next purchase", "DISCOUNT", "One-time discount code.", 150],
+      ["Premium gift set", "PRODUCT", "Curated gift set of best-sellers.", 500],
+      ["Cooking class seat", "EXPERIENCE", "One seat at a partner cooking class.", 1500],
+      ["Branded tote bag", "PRODUCT", "Limited-edition reusable tote.", 300],
+      ["฿250 cash voucher", "VOUCHER", "Redeemable at any participating store.", 480],
+    ];
+    for (let i = 0; i < rewards.length; i++) {
+      const [name, type, desc, cost] = rewards[i];
+      db.run(
+        `INSERT INTO rewards (code, name, description, reward_type, points_cost)
+         VALUES (?, ?, ?, ?, ?)`,
+        [`RWD-${String(i + 1).padStart(3, "0")}`, name, desc, type, cost]
+      );
+    }
+    const rewardCount = rewards.length;
+
     // S&I product master.
     const productIds: number[] = [];
     const productPrices = new Map<number, number>();
@@ -68,14 +88,15 @@ export function seedInto(db: Database): void {
       const brand = faker.helpers.arrayElement(BRANDS);
       const unitPrice = faker.number.int({ min: 15, max: 590 });
       db.run(
-        `INSERT INTO products (sku, name, brand, category, unit_price)
-         VALUES (?, ?, ?, ?, ?)`,
+        `INSERT INTO products (sku, name, brand, category, unit_price, reorder_point)
+         VALUES (?, ?, ?, ?, ?, ?)`,
         [
           `SKU-${String(1000 + i)}`,
           `${brand} ${faker.commerce.productName()}`,
           brand,
           faker.helpers.arrayElement(PRODUCT_CATEGORIES),
           unitPrice,
+          faker.helpers.arrayElement([10, 20, 20, 20, 50]),
         ]
       );
       const id = lastId(db);
@@ -83,149 +104,249 @@ export function seedInto(db: Database): void {
       productPrices.set(id, unitPrice);
     }
 
-    // Customers (CDP master) + their interaction history.
+    // Customers (CDP master). Purchases are transactions that walk the loyalty
+    // ledger chronologically (lib/loyaltyEngine), so tier/points caches, lifetime
+    // progression, and the redemption rate are all internally consistent.
+    const b2bCustomerIds: number[] = [];
+    let txCounter = 0;
+    let ledgerBurnTotal = 0;
+    let ledgerEarnTotal = 0;
+
+    const nextTxCode = () => `TXN-${String(++txCounter).padStart(6, "0")}`;
+
+    /** Inserts a customer and returns its id (does not create consent/tx). */
+    function insertCustomer(opts: {
+      firstName: string;
+      lastName: string;
+      brand: string;
+      custType: CustType;
+      registerChannel: string;
+      dataLevel: string;
+      registeredAt: string;
+    }): number {
+      const rowCount = db.exec("SELECT COUNT(*)+1 AS n FROM customers");
+      const n = Number(rowCount[0].values[0][0]);
+      db.run(
+        `INSERT INTO customers
+           (member_code, first_name, last_name, email, phone, brand, cust_type,
+            register_channel, data_level, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          `CUS-${String(n).padStart(6, "0")}`,
+          opts.firstName,
+          opts.lastName,
+          faker.internet.email({ firstName: opts.firstName, lastName: opts.lastName }).toLowerCase(),
+          faker.phone.number(),
+          opts.brand,
+          opts.custType,
+          opts.registerChannel,
+          opts.dataLevel,
+          opts.registeredAt,
+          opts.registeredAt,
+        ]
+      );
+      return lastId(db);
+    }
+
+    /** Records a purchase transaction + EARN ledger row, returning points earned. */
+    function seedTransaction(
+      customerId: number,
+      custType: CustType,
+      lifetimeSoFar: number,
+      amount: number,
+      channel: TxChannel,
+      when: string
+    ): number {
+      const tier = tierForLifetime(lifetimeSoFar);
+      const earn = calcEarn(amount, custType, tier);
+      const channelIsB2C = B2C_TX_CHANNELS.includes(channel);
+      const matches = custType === "B2C" ? channelIsB2C : !channelIsB2C;
+      const flag = matches ? null : "CHANNEL_ELIGIBILITY_WARNING";
+      db.run(
+        `INSERT INTO transactions (tx_code, customer_id, channel, amount_thb, channel_flag, source_ref, created_by, tx_date)
+         VALUES (?, ?, ?, ?, ?, 'seed', ?, ?)`,
+        [nextTxCode(), customerId, channel, amount, flag, userIds.staff, when]
+      );
+      const txId = lastId(db);
+      if (earn.points > 0) {
+        db.run(
+          `INSERT INTO loyalty_ledger
+             (customer_id, entry_type, points, rate_applied, multiplier, tier_at_time, ref_type, ref_id, note, created_by, occurred_at)
+           VALUES (?, 'EARN', ?, ?, ?, ?, 'transaction', ?, ?, ?, ?)`,
+          [customerId, earn.points, earn.rate, earn.multiplier, tier, txId, `Earn on ${channel} purchase`, userIds.staff, when]
+        );
+        ledgerEarnTotal += earn.points;
+      }
+      return earn.points;
+    }
+
+    function seedConsents(customerId: number, marketingGranted: boolean, when: string, withdrawnLater: boolean) {
+      db.run(
+        `INSERT INTO consents (customer_id, purpose, status, source, captured_at) VALUES (?, 'ANALYTICS', 'GRANTED', 'registration', ?)`,
+        [customerId, when]
+      );
+      db.run(
+        `INSERT INTO consents (customer_id, purpose, status, source, captured_at) VALUES (?, 'MARKETING', ?, 'registration', ?)`,
+        [customerId, marketingGranted ? "GRANTED" : "DENIED", when]
+      );
+      if (marketingGranted && withdrawnLater) {
+        db.run(
+          `INSERT INTO consents (customer_id, purpose, status, source, captured_at) VALUES (?, 'MARKETING', 'WITHDRAWN', 'staff', ?)`,
+          [customerId, faker.date.recent({ days: 20 }).toISOString()]
+        );
+      }
+    }
+
+    // points cache = balance (lifetime EARN − BURN); tier = tierForLifetime(lifetime).
+    function finalizeCustomer(
+      customerId: number,
+      lifetime: number,
+      balance: number,
+      clv: number,
+      lastPurchaseAt: string | null
+    ) {
+      db.run(
+        `UPDATE customers SET points = ?, tier = ?, clv = ?, last_purchase_at = ?, updated_at = datetime('now') WHERE id = ?`,
+        [balance, tierForLifetime(lifetime), clv, lastPurchaseAt, customerId]
+      );
+    }
+
     for (let i = 0; i < CUSTOMER_COUNT; i++) {
       const firstName = faker.person.firstName();
       const lastName = faker.person.lastName();
       const brand = faker.helpers.arrayElement(BRANDS);
+      // ~15% of members are B2B (business buyers on the SFA channel).
+      const custType: CustType = i % 7 === 3 ? "B2B" : "B2C";
       const registerChannel = faker.helpers.arrayElement(CHANNELS);
-      const registeredAt = faker.date.past({ years: 2 });
+      const registeredAt = faker.date.past({ years: 2 }).toISOString();
       const dataLevel = faker.helpers.weightedArrayElement([
         { value: DATA_LEVELS[0], weight: 2 },
         { value: DATA_LEVELS[1], weight: 3 },
         { value: DATA_LEVELS[2], weight: 5 },
       ]);
 
-      const events: SeedInteraction[] = [
-        {
-          type: "register",
-          channel: registerChannel,
-          amount: 0,
-          points: 50,
-          description: `Registered via ${registerChannel}`,
-          occurred_at: registeredAt.toISOString(),
-        },
-      ];
+      const customerId = insertCustomer({
+        firstName, lastName, brand, custType, registerChannel, dataLevel, registeredAt,
+      });
+      if (custType === "B2B") b2bCustomerIds.push(customerId);
 
-      if (dataLevel !== "Register") {
-        events.push({
-          type: "enrichment",
-          channel: registerChannel,
-          amount: 0,
-          points: 20,
-          description: "Profile enrichment survey completed",
-          occurred_at: faker.date
-            .between({ from: registeredAt, to: new Date() })
-            .toISOString(),
-        });
-      }
-
-      if (dataLevel === "Purchase & Engagement") {
-        const purchaseCount = faker.number.int({ min: 1, max: 9 });
-        for (let p = 0; p < purchaseCount; p++) {
-          const amount = faker.number.int({ min: 90, max: 2400 });
-          events.push({
-            type: "purchase",
-            channel: faker.helpers.arrayElement(CHANNELS),
-            amount,
-            points: Math.round(amount / 10),
-            description: `Purchase of ${brand} products`,
-            occurred_at: faker.date
-              .between({ from: registeredAt, to: new Date() })
-              .toISOString(),
-          });
-        }
-        const engagementCount = faker.number.int({ min: 0, max: 4 });
-        for (let e = 0; e < engagementCount; e++) {
-          events.push({
-            type: "engagement",
-            channel: faker.helpers.arrayElement(CHANNELS),
-            amount: 0,
-            points: faker.number.int({ min: 10, max: 40 }),
-            description: faker.helpers.arrayElement([
-              "Completed mission",
-              "Answered satisfaction survey",
-              "Opened LINE OA campaign",
-              "Referred a friend",
-            ]),
-            occurred_at: faker.date
-              .between({ from: registeredAt, to: new Date() })
-              .toISOString(),
-          });
-        }
-      }
-
-      const purchases = events.filter((e) => e.type === "purchase");
-      const clv = purchases.reduce((sum, e) => sum + e.amount, 0);
-      const points = events.reduce((sum, e) => sum + e.points, 0);
-      const lastPurchaseAt =
-        purchases.length > 0
-          ? purchases
-              .map((e) => e.occurred_at)
-              .sort()
-              .slice(-1)[0]
-          : null;
-
+      // Registration + enrichment stay in the soft interactions log.
       db.run(
-        `INSERT INTO customers
-           (member_code, first_name, last_name, email, phone, brand, tier, points,
-            register_channel, data_level, consent_pdpa, consent_marketing,
-            consent_migration, clv, last_purchase_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          `MBR-${String(10001 + i)}`,
-          firstName,
-          lastName,
-          faker.internet.email({ firstName, lastName }).toLowerCase(),
-          faker.phone.number(),
-          brand,
-          faker.helpers.maybe(() => tierForClv(clv), { probability: 1 }) ??
-            "Bronze",
-          points,
-          registerChannel,
-          dataLevel,
-          faker.datatype.boolean({ probability: 0.9 }) ? 1 : 0,
-          faker.datatype.boolean({ probability: 0.6 }) ? 1 : 0,
-          faker.datatype.boolean({ probability: 0.5 }) ? 1 : 0,
-          clv,
-          lastPurchaseAt,
-          registeredAt.toISOString(),
-          registeredAt.toISOString(),
-        ]
+        `INSERT INTO interactions (customer_id, type, channel, points, description, occurred_at)
+         VALUES (?, 'register', ?, 50, ?, ?)`,
+        [customerId, registerChannel, `Registered via ${registerChannel}`, registeredAt]
       );
-      const customerId = lastId(db);
-
-      for (const ev of events) {
+      if (dataLevel !== "Register") {
         db.run(
-          `INSERT INTO interactions (customer_id, type, channel, amount, points, description, occurred_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [
-            customerId,
-            ev.type,
-            ev.channel,
-            ev.amount,
-            ev.points,
-            ev.description,
-            ev.occurred_at,
-          ]
+          `INSERT INTO interactions (customer_id, type, channel, points, description, occurred_at)
+           VALUES (?, 'enrichment', ?, 20, 'Profile enrichment survey completed', ?)`,
+          [customerId, registerChannel, faker.date.between({ from: registeredAt, to: new Date() }).toISOString()]
         );
       }
+
+      // Purchases → transactions + ledger.
+      let lifetime = 0;
+      let burned = 0;
+      let clv = 0;
+      let lastPurchaseAt: string | null = null;
+      let dualChannel = false;
+      if (dataLevel === "Purchase & Engagement") {
+        const purchaseCount = faker.number.int({ min: 1, max: 9 });
+        const dates = Array.from({ length: purchaseCount }, () =>
+          faker.date.between({ from: registeredAt, to: new Date() }).toISOString()
+        ).sort();
+        // A few B2B members also transact through a B2C channel (channel conflict).
+        dualChannel = custType === "B2B" && i % 11 === 3;
+        for (let p = 0; p < dates.length; p++) {
+          const amount = faker.number.int({ min: 90, max: 2400 });
+          let channel: TxChannel;
+          if (custType === "B2B") {
+            channel = dualChannel && p === 0 ? "POS" : "SFA";
+          } else {
+            channel = faker.helpers.arrayElement(B2C_TX_CHANNELS);
+          }
+          const earned = seedTransaction(customerId, custType, lifetime, amount, channel, dates[p]);
+          lifetime += earned;
+          clv += amount;
+          lastPurchaseAt = dates[p];
+        }
+        // ~30% redeem a reward (BURN) — tuned to keep global redemption < 30%.
+        if (lifetime > 250 && i % 10 < 3) {
+          const cost = faker.helpers.arrayElement([100, 150, 200]);
+          if (cost <= lifetime) {
+            db.run(
+              `INSERT INTO loyalty_ledger (customer_id, entry_type, points, tier_at_time, ref_type, ref_id, note, created_by, occurred_at)
+               VALUES (?, 'BURN', ?, ?, 'reward', 1, 'Redeemed reward', ?, ?)`,
+              [customerId, cost, tierForLifetime(lifetime), userIds.staff, faker.date.recent({ days: 40 }).toISOString()]
+            );
+            ledgerBurnTotal += cost;
+            burned += cost;
+          }
+        }
+      }
+
+      finalizeCustomer(customerId, lifetime, lifetime - burned, clv, lastPurchaseAt);
+
+      // Consents: ~23% of members deny marketing (drives CONSENT_GAP > 20%).
+      const marketingGranted = i % 100 >= 23 ? i % 9 !== 4 : false;
+      seedConsents(customerId, marketingGranted, registeredAt, i % 13 === 5);
     }
 
-    // Distributors: FMCG trade master data (replaces the old free-text dealer name).
+    // Four fixed boundary members with exact lifetime totals for tier tests.
+    const boundaries: [string, number][] = [
+      ["Bronze Boundary", 499],
+      ["Silver Boundary", 500],
+      ["Silver Ceiling", 1999],
+      ["Gold Boundary", 2000],
+    ];
+    for (const [name, lifetime] of boundaries) {
+      const registeredAt = faker.date.past({ years: 1 }).toISOString();
+      const id = insertCustomer({
+        firstName: name.split(" ")[0],
+        lastName: name.split(" ")[1],
+        brand: BRANDS[0],
+        custType: "B2C",
+        registerChannel: CHANNELS[0],
+        dataLevel: "Purchase & Engagement",
+        registeredAt,
+      });
+      db.run(
+        `INSERT INTO loyalty_ledger (customer_id, entry_type, points, tier_at_time, ref_type, note, created_by, occurred_at)
+         VALUES (?, 'EARN', ?, ?, 'seed', 'Boundary seed', ?, ?)`,
+        [id, lifetime, tierForLifetime(lifetime), userIds.admin, registeredAt]
+      );
+      ledgerEarnTotal += lifetime;
+      finalizeCustomer(id, lifetime, lifetime, lifetime * 20, registeredAt);
+      seedConsents(id, true, registeredAt, false);
+    }
+    void ledgerBurnTotal;
+
+    // Distributors / dealers: FMCG trade master data. ~5 Dealers are linked to a
+    // B2B CRM member (so a delivered sell-in earns them loyalty points); two
+    // active Dealers are deliberately left unlinked (DEALER_UNLINKED insight).
     const distributorIds: number[] = [];
     for (let i = 0; i < DISTRIBUTOR_COUNT; i++) {
       const name = faker.company.name();
+      const dealerType = i % 3 === 2 ? "Retailer" : "Dealer";
+      // Link the first 5 dealers to B2B members; leave the rest unlinked.
+      const linkedCustomer =
+        dealerType === "Dealer" && i < 5 && b2bCustomerIds[i] ? b2bCustomerIds[i] : null;
+      // Force the last two dealers active + unlinked for the DEALER_UNLINKED rule.
+      const active =
+        i >= DISTRIBUTOR_COUNT - 2 ? true : faker.datatype.boolean({ probability: 0.9 });
       db.run(
         `INSERT INTO distributors
-           (distributor_code, name, region, channel, status, contact_name, phone, email, address, credit_limit)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (distributor_code, name, region, channel, status, dealer_type, customer_id, area, contact_name, phone, email, address, credit_limit)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           `DIST-${String(1000 + i)}`,
           name,
           faker.location.state(),
           faker.helpers.arrayElement(TRADE_CHANNELS_SEED),
-          faker.datatype.boolean({ probability: 0.9 }) ? "active" : "inactive",
+          active ? "active" : "inactive",
+          dealerType,
+          linkedCustomer,
+          faker.location.city(),
           faker.person.fullName(),
           faker.phone.number(),
           faker.internet.email({ firstName: name.split(" ")[0] }).toLowerCase(),
@@ -509,6 +630,65 @@ export function seedInto(db: Database): void {
       );
     }
 
+    // Service cases across statuses/priorities, most linked to a member.
+    const customerCount = Number(db.exec("SELECT COUNT(*) AS n FROM customers")[0].values[0][0]);
+    const caseSeeds: [string, string, string, string, string | null][] = [
+      ["Points not credited after purchase", "POINTS", "HIGH", "OPEN", null],
+      ["Reward voucher code not working", "REDEMPTION", "MEDIUM", "IN_PROGRESS", "staff"],
+      ["Wrong tier shown in app", "ACCOUNT", "LOW", "RESOLVED", "staff"],
+      ["Damaged product on delivery", "DELIVERY", "URGENT", "OPEN", null],
+      ["Request to withdraw marketing consent", "ACCOUNT", "MEDIUM", "RESOLVED", "admin"],
+      ["Duplicate account merge request", "ACCOUNT", "MEDIUM", "IN_PROGRESS", "admin"],
+      ["Question about earning rate", "POINTS", "LOW", "CLOSED", "staff"],
+      ["Missing purchase in history", "POINTS", "MEDIUM", "OPEN", null],
+      ["Cannot redeem — insufficient points", "REDEMPTION", "LOW", "CLOSED", "staff"],
+      ["Product quality complaint", "PRODUCT", "HIGH", "IN_PROGRESS", "staff"],
+      ["Address update for deliveries", "ACCOUNT", "LOW", "RESOLVED", "staff"],
+      ["Loyalty card not linking to LINE", "ACCOUNT", "MEDIUM", "OPEN", null],
+    ];
+    for (let i = 0; i < caseSeeds.length; i++) {
+      const [subject, category, priority, status, assignee] = caseSeeds[i];
+      const customerId = faker.number.int({ min: 1, max: customerCount });
+      const createdAt = faker.date.recent({ days: 40 }).toISOString();
+      const resolved = status === "RESOLVED" || status === "CLOSED";
+      db.run(
+        `INSERT INTO cases
+           (case_number, customer_id, subject, category, priority, status, assigned_to, resolution, created_by, created_at, updated_at, resolved_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          `CASE-${String(i + 1).padStart(5, "0")}`,
+          customerId,
+          subject,
+          category,
+          priority,
+          status,
+          assignee === "admin" ? userIds.admin : assignee === "staff" ? userIds.staff : null,
+          resolved ? "Resolved by support team." : null,
+          userIds.staff,
+          createdAt,
+          createdAt,
+          resolved ? faker.date.recent({ days: 10 }).toISOString() : null,
+        ]
+      );
+    }
+
+    // Seed a few AI insights so the Insights page is populated on first load;
+    // the "Regenerate" action replaces the analytic ones with rule-derived rows.
+    const insightSeeds: [string, string, string, string | null, number | null, string, string, string][] = [
+      ["CONSENT_GAP", "WARNING", "global", null, null, "Marketing consent gap detected", "A meaningful share of members cannot be reached by marketing.", "Launch a consent-request journey on LINE with an incentive."],
+      ["LIABILITY_HIGH", "OPPORTUNITY", "global", null, null, "Points liability building up", "Low redemption rate means points are accumulating as liability.", "Promote low-cost rewards to encourage members to burn points."],
+      ["DEALER_UNLINKED", "INFO", "distributor", null, null, "Dealers not linked to CRM", "Some active dealers have no linked member, breaking the identity chain.", "Link each dealer to a B2B member to enable sell-in loyalty earn."],
+      ["CHURN_RISK", "WARNING", "customer", null, null, "Members at churn risk", "Several members have not purchased in over 60 days.", "Send a win-back campaign with a personalized offer."],
+    ];
+    for (const [type, severity, etype, , , title, desc, rec] of insightSeeds) {
+      db.run(
+        `INSERT INTO ai_insights (insight_type, severity, entity_type, entity_id, title, description, recommendation, confidence, created_at)
+         VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?)`,
+        [type, severity, etype, title, desc, rec, 0.9, faker.date.recent({ days: 5 }).toISOString()]
+      );
+    }
+
+    void ledgerEarnTotal;
     db.run("COMMIT");
   } catch (err) {
     db.run("ROLLBACK");

@@ -26,7 +26,7 @@ export type ObjectKind =
 
 const OBJECT_ICONS: Record<ObjectKind, { bg: string; glyph: React.ReactNode }> = {
   home: {
-    bg: "#0176d3",
+    bg: "#12a594",
     glyph: <path d="M12 4 3 11h2.5v7h5v-4h3v4h5v-7H21z" />,
   },
   customer: {
@@ -44,23 +44,23 @@ const OBJECT_ICONS: Record<ObjectKind, { bg: string; glyph: React.ReactNode }> =
     glyph: <path d="M4 5h16v3l-1.5 2v9h-13V10L4 8V5zm4.5 8H12v4H8.5v-4z" />,
   },
   datacloud: {
-    bg: "#0176d3",
+    bg: "#12a594",
     glyph: (
       <path d="M7 18a4 4 0 0 1-.6-7.95A5.5 5.5 0 0 1 17 8.3 4.5 4.5 0 0 1 16.5 18H7z" />
     ),
   },
   sql: {
-    bg: "#032d60",
+    bg: "#0d7d70",
     glyph: <path d="M4 5h16v14H4V5zm3 4 3 3-3 3 1.2 1.2L12.4 12 8.2 7.8 7 9zm6 6h5v1.6h-5V15z" />,
   },
   setup: {
-    bg: "#706e6b",
+    bg: "#607785",
     glyph: (
       <path d="M12 8.5A3.5 3.5 0 1 1 12 15.5 3.5 3.5 0 0 1 12 8.5zm8 4.5-.1 1.6-2.2.5a6 6 0 0 1-.6 1.4l1.2 1.9-1.2 1.2-1.9-1.2a6 6 0 0 1-1.4.6l-.5 2.2h-1.7l-.5-2.2a6 6 0 0 1-1.4-.6l-1.9 1.2-1.2-1.2 1.2-1.9a6 6 0 0 1-.6-1.4l-2.2-.5V12l2.2-.5a6 6 0 0 1 .6-1.4L6.5 8.2l1.2-1.2 1.9 1.2a6 6 0 0 1 1.4-.6l.5-2.2h1.7l.5 2.2a6 6 0 0 1 1.4.6l1.9-1.2 1.2 1.2-1.2 1.9a6 6 0 0 1 .6 1.4l2.2.5z" />
     ),
   },
   search: {
-    bg: "#706e6b",
+    bg: "#607785",
     glyph: (
       <path d="M10 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12zm0 2.2A3.8 3.8 0 1 0 10 13.8 3.8 3.8 0 0 0 10 6.2zM15.3 14l4.7 4.7-1.3 1.3-4.7-4.7 1.3-1.3z" />
     ),
@@ -126,16 +126,16 @@ export function PageHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="mb-4 rounded border border-[#e5e5e5] bg-white px-4 py-3">
+    <div className="mb-4 rounded-[14px] border border-[#dde5e8] bg-white px-4 py-3">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           {icon && <ObjectIcon kind={icon} size="lg" />}
           <div>
             {overline && (
-              <p className="text-xs text-[#706e6b]">{overline}</p>
+              <p className="text-xs text-[#607785]">{overline}</p>
             )}
-            <h1 className="text-xl font-bold text-[#181818]">{title}</h1>
-            {subtitle && <p className="text-xs text-[#706e6b]">{subtitle}</p>}
+            <h1 className="text-xl font-bold text-[#14202b]">{title}</h1>
+            {subtitle && <p className="text-xs text-[#607785]">{subtitle}</p>}
           </div>
         </div>
         {action && <div className="flex items-center gap-2">{action}</div>}
@@ -158,11 +158,11 @@ export function LinkButton({
   const styles =
     variant === "primary"
       ? "border border-brand-600 bg-brand-600 text-white shadow-sm hover:bg-brand-700 hover:border-brand-700 hover:shadow"
-      : "border border-[#c9c9c9] bg-white text-brand-600 hover:bg-[#f3f3f3]";
+      : "border border-[#c2d0d6] bg-white text-brand-600 hover:bg-[#eef3f5]";
   return (
     <Link
       href={href}
-      className={`inline-flex items-center rounded px-4 py-1.5 text-sm font-medium transition duration-150 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ${styles}`}
+      className={`inline-flex items-center rounded-[9px] px-4 py-1.5 text-sm font-medium transition duration-150 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ${styles}`}
     >
       {children}
     </Link>
@@ -174,7 +174,7 @@ export function LinkButton({
 function Badge({ className, children }: { className: string; children: React.ReactNode }) {
   return (
     <span
-      className={`inline-flex rounded px-2 py-0.5 text-xs font-medium ${className}`}
+      className={`inline-flex rounded-[16px] px-2 py-0.5 text-xs font-medium ${className}`}
     >
       {children}
     </span>
@@ -183,9 +183,8 @@ function Badge({ className, children }: { className: string; children: React.Rea
 
 const TIER_STYLES: Record<Tier, string> = {
   Bronze: "bg-cream-200 text-amber-900",
-  Silver: "bg-[#ecebea] text-[#514f4d]",
+  Silver: "bg-[#e5eaec] text-[#514f4d]",
   Gold: "bg-gold-400/30 text-gold-600",
-  Platinum: "bg-brand-800 text-white",
 };
 
 export function TierBadge({ tier }: { tier: Tier }) {
@@ -223,7 +222,7 @@ const ORDER_STATUS_STYLES: Record<OrderStatus, string> = {
   approved: "bg-[#cdefc4] text-[#194e31]",
   rejected: "bg-[#feded8] text-[#8e030f]",
   fulfilled: "bg-brand-800 text-white",
-  cancelled: "bg-[#ecebea] text-[#706e6b]",
+  cancelled: "bg-[#ecebea] text-[#607785]",
 };
 
 const SCAN_MATCH_STYLES: Record<string, { className: string; label: string }> = {
@@ -263,7 +262,7 @@ export function ConsentPill({ granted, label }: { granted: boolean; label: strin
   return (
     <Badge
       className={
-        granted ? "bg-[#cdefc4] text-[#194e31]" : "bg-[#ecebea] text-[#706e6b]"
+        granted ? "bg-[#cdefc4] text-[#194e31]" : "bg-[#ecebea] text-[#607785]"
       }
     >
       {granted ? "✓" : "✕"} {label}
@@ -282,7 +281,7 @@ export function Card({
 }) {
   return (
     <div
-      className={`rounded border border-[#e5e5e5] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.05)] ${className}`}
+      className={`rounded-[14px] border border-[#dde5e8] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.05)] ${className}`}
     >
       {children}
     </div>
@@ -305,10 +304,10 @@ export function SectionHeader({
     <div className="mb-3 flex items-center justify-between gap-3">
       <div className="flex items-center gap-2">
         {icon && <ObjectIcon kind={icon} size="sm" />}
-        <h2 className="text-sm font-bold text-[#181818]">
+        <h2 className="text-sm font-bold text-[#14202b]">
           {title}
           {count !== undefined && (
-            <span className="ml-1 font-normal text-[#706e6b]">({count})</span>
+            <span className="ml-1 font-normal text-[#607785]">({count})</span>
           )}
         </h2>
       </div>
@@ -348,7 +347,7 @@ export function SortableTh({
 
   return (
     <th
-      className={`px-4 py-2 text-xs font-semibold uppercase tracking-wide text-[#444] ${
+      className={`px-4 py-2 text-xs font-semibold uppercase tracking-wide text-[#3c4f5e] ${
         align === "right" ? "text-right" : "text-left"
       }`}
     >
@@ -365,7 +364,7 @@ export function SortableTh({
 
 export function EmptyState({ message }: { message: string }) {
   return (
-    <div className="rounded border border-dashed border-[#c9c9c9] bg-white p-8 text-center text-sm text-[#706e6b]">
+    <div className="rounded-[14px] border border-dashed border-[#c2d0d6] bg-white p-8 text-center text-sm text-[#607785]">
       {message}
     </div>
   );

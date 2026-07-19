@@ -25,13 +25,13 @@ function HubTile({
   return (
     <Link
       href={href}
-      className="flex items-start gap-3 rounded border border-[#e5e5e5] bg-white p-4 transition-[box-shadow,transform] duration-150 hover:-translate-y-0.5 hover:shadow-md"
+      className="flex items-start gap-3 rounded border border-[#dde5e8] bg-white p-4 transition-[box-shadow,transform] duration-150 hover:-translate-y-0.5 hover:shadow-md"
     >
       <ObjectIcon kind={icon} size="lg" />
       <div className="min-w-0">
-        <h3 className="font-semibold text-[#181818]">{title}</h3>
+        <h3 className="font-semibold text-[#14202b]">{title}</h3>
         <p className="text-lg font-bold text-brand-600">{stat}</p>
-        <p className="text-xs text-[#706e6b]">{description}</p>
+        <p className="text-xs text-[#607785]">{description}</p>
       </div>
     </Link>
   );
@@ -94,7 +94,7 @@ export default async function ChannelHubPage() {
       </div>
 
       <Card className="mt-4">
-        <p className="text-sm text-[#444]">
+        <p className="text-sm text-[#3c4f5e]">
           Distributor master data, an inventory ledger, and self-ordering with
           submit → approve/reject → fulfil replace the old flat channel-numbers
           view. Product Management lives under{" "}

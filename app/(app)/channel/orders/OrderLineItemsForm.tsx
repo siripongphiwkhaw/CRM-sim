@@ -64,10 +64,10 @@ export function OrderLineItemsForm({
       </div>
 
       <div>
-        <p className="mb-2 text-xs font-semibold text-[#444]">Line items</p>
-        <div className="overflow-x-auto rounded border border-[#e5e5e5] bg-white">
-          <table className="min-w-full divide-y divide-[#e5e5e5] text-sm">
-            <thead className="bg-[#fafaf9] text-left text-xs font-semibold uppercase tracking-wide text-[#444]">
+        <p className="mb-2 text-xs font-semibold text-[#3c4f5e]">Line items</p>
+        <div className="overflow-x-auto rounded border border-[#dde5e8] bg-white">
+          <table className="min-w-full divide-y divide-[#dde5e8] text-sm">
+            <thead className="bg-[#f8fafb] text-left text-xs font-semibold uppercase tracking-wide text-[#3c4f5e]">
               <tr>
                 <th className="px-3 py-2">Product</th>
                 <th className="px-3 py-2 text-right">Unit price</th>
@@ -76,7 +76,7 @@ export function OrderLineItemsForm({
                 <th className="px-3 py-2"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#f3f3f3]">
+            <tbody className="divide-y divide-[#eef3f5]">
               {rows.map((row, i) => {
                 const product = products.find((p) => p.id === row.productId);
                 return (
@@ -85,14 +85,14 @@ export function OrderLineItemsForm({
                       <select
                         value={row.productId}
                         onChange={(e) => updateRow(i, { productId: Number(e.target.value) })}
-                        className="w-full rounded border border-[#c9c9c9] px-2 py-1 text-sm focus:border-brand-600 focus:outline-none"
+                        className="w-full rounded border border-[#c2d0d6] px-2 py-1 text-sm focus:border-brand-600 focus:outline-none"
                       >
                         {products.map((p) => (
                           <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>
                         ))}
                       </select>
                     </td>
-                    <td className="px-3 py-2 text-right text-[#706e6b]">
+                    <td className="px-3 py-2 text-right text-[#607785]">
                       {product ? product.unit_price.toLocaleString("en-US") : "—"}
                     </td>
                     <td className="px-3 py-2 text-right">
@@ -101,10 +101,10 @@ export function OrderLineItemsForm({
                         min="1"
                         value={row.quantity}
                         onChange={(e) => updateRow(i, { quantity: Math.max(1, Number(e.target.value) || 1) })}
-                        className="w-20 rounded border border-[#c9c9c9] px-2 py-1 text-right text-sm focus:border-brand-600 focus:outline-none"
+                        className="w-20 rounded border border-[#c2d0d6] px-2 py-1 text-right text-sm focus:border-brand-600 focus:outline-none"
                       />
                     </td>
-                    <td className="px-3 py-2 text-right font-medium text-[#181818]">
+                    <td className="px-3 py-2 text-right font-medium text-[#14202b]">
                       {product ? (product.unit_price * row.quantity).toLocaleString("en-US") : "—"}
                     </td>
                     <td className="px-3 py-2 text-right">
@@ -131,7 +131,7 @@ export function OrderLineItemsForm({
           >
             + Add line
           </button>
-          <p className="text-sm font-semibold text-[#181818]">
+          <p className="text-sm font-semibold text-[#14202b]">
             Total: {total.toLocaleString("en-US")}
           </p>
         </div>
@@ -139,7 +139,7 @@ export function OrderLineItemsForm({
 
       <div className="flex items-center gap-3">
         <SubmitButton>Create order (draft)</SubmitButton>
-        <Link href="/channel/orders" className="text-sm text-[#706e6b] hover:text-[#181818]">
+        <Link href="/channel/orders" className="text-sm text-[#607785] hover:text-[#14202b]">
           Cancel
         </Link>
       </div>

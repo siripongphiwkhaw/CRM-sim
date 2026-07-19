@@ -3,7 +3,7 @@
 import { useFormStatus } from "react-dom";
 
 const inputClass =
-  "w-full rounded border border-[#c9c9c9] bg-white px-3 py-1.5 text-sm text-[#181818] focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600 disabled:bg-[#f3f3f3]";
+  "w-full rounded border border-[#c2d0d6] bg-white px-3 py-1.5 text-sm text-[#14202b] focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600 disabled:bg-[#eef3f5]";
 
 export function Field({
   label,
@@ -22,13 +22,13 @@ export function Field({
     <div>
       <label
         htmlFor={htmlFor}
-        className="mb-1 block text-xs font-semibold text-[#444]"
+        className="mb-1 block text-xs font-semibold text-[#3c4f5e]"
       >
         {label}
         {required && <span className="ml-0.5 text-brand-600">*</span>}
       </label>
       {children}
-      {hint && <p className="mt-1 text-xs text-[#706e6b]">{hint}</p>}
+      {hint && <p className="mt-1 text-xs text-[#607785]">{hint}</p>}
     </div>
   );
 }
@@ -92,7 +92,7 @@ export function SubmitButton({
       type="submit"
       disabled={pending || disabled}
       aria-busy={pending}
-      className="inline-flex items-center rounded border border-brand-600 bg-brand-600 px-4 py-1.5 text-sm font-medium text-white transition duration-150 hover:border-brand-700 hover:bg-brand-700 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-50 disabled:active:scale-100"
+      className="inline-flex items-center rounded-[9px] border border-brand-600 bg-brand-600 px-4 py-1.5 text-sm font-medium text-white transition duration-150 hover:border-brand-700 hover:bg-brand-700 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-50 disabled:active:scale-100"
     >
       {pending && (
         <svg className="mr-2 h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -126,7 +126,7 @@ export function DeleteButton({
       <input type="hidden" name="id" value={id} />
       <button
         type="submit"
-        className="inline-flex items-center rounded border border-[#c9c9c9] bg-white px-3 py-1.5 text-sm font-medium text-[#8e030f] transition duration-150 hover:bg-[#feded8] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+        className="inline-flex items-center rounded-[9px] border border-[#c2d0d6] bg-white px-3 py-1.5 text-sm font-medium text-[#8e030f] transition duration-150 hover:bg-[#feded8] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
       >
         {label}
       </button>

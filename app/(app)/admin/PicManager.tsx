@@ -21,12 +21,12 @@ export function PicManager({
   return (
     <div>
       {pics.length === 0 ? (
-        <p className="text-xs text-[#706e6b]">No PICs assigned.</p>
+        <p className="text-xs text-[#607785]">No PICs assigned.</p>
       ) : (
         <ul className="mb-2 space-y-1">
           {pics.map((p) => (
             <li key={p.id} className="flex items-center justify-between text-xs">
-              <span className="text-[#444]">{p.name} <span className="text-[#706e6b]">({p.email})</span></span>
+              <span className="text-[#3c4f5e]">{p.name} <span className="text-[#607785]">({p.email})</span></span>
               <button
                 type="button"
                 disabled={pending}
@@ -45,7 +45,7 @@ export function PicManager({
           <select
             value={selected}
             onChange={(e) => setSelected(Number(e.target.value))}
-            className="flex-1 rounded border border-[#c9c9c9] px-2 py-1 text-xs focus:border-brand-600 focus:outline-none"
+            className="flex-1 rounded border border-[#c2d0d6] px-2 py-1 text-xs focus:border-brand-600 focus:outline-none"
           >
             {assignable.map((u) => (
               <option key={u.id} value={u.id}>{u.name}</option>

@@ -1,5 +1,6 @@
 import { get, all, run, batch } from "../client";
-import type { Brand, Tier, DataLevel } from "@/lib/constants";
+import { recordConsent } from "./consent";
+import type { Brand, Tier, DataLevel, CustType } from "@/lib/constants";
 
 export interface Customer {
   id: number;
@@ -9,13 +10,11 @@ export interface Customer {
   email: string | null;
   phone: string | null;
   brand: Brand;
+  cust_type: CustType;
   tier: Tier;
   points: number;
   register_channel: string | null;
   data_level: DataLevel;
-  consent_pdpa: number;
-  consent_marketing: number;
-  consent_migration: number;
   clv: number;
   last_purchase_at: string | null;
   created_at: string;
@@ -28,19 +27,16 @@ export interface CustomerInput {
   email?: string | null;
   phone?: string | null;
   brand: Brand;
-  tier: Tier;
-  points: number;
+  cust_type: CustType;
   register_channel?: string | null;
   data_level: DataLevel;
-  consent_pdpa: boolean;
-  consent_marketing: boolean;
-  consent_migration: boolean;
 }
 
 // Sortable columns are allow-listed — the sort key comes from the URL.
 const SORT_COLUMNS: Record<string, string> = {
   name: "last_name",
   brand: "brand",
+  type: "cust_type",
   tier: "tier",
   points: "points",
   clv: "clv",
@@ -51,6 +47,7 @@ export function listCustomers(opts?: {
   search?: string;
   brand?: string;
   tier?: string;
+  custType?: string;
   sort?: string;
   dir?: string;
 }): Promise<Customer[]> {
@@ -71,6 +68,10 @@ export function listCustomers(opts?: {
   if (opts?.tier) {
     clauses.push("tier = ?");
     params.push(opts.tier);
+  }
+  if (opts?.custType) {
+    clauses.push("cust_type = ?");
+    params.push(opts.custType);
   }
 
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
@@ -93,30 +94,51 @@ export function getTopCustomer(): Promise<Customer | undefined> {
   return get<Customer>("SELECT * FROM customers ORDER BY clv DESC LIMIT 1");
 }
 
-export async function setCustomerTier(id: number, tier: Tier): Promise<void> {
-  await run(
-    "UPDATE customers SET tier = ?, updated_at = datetime('now') WHERE id = ?",
-    [tier, id]
-  );
-}
-
 export function getCustomer(id: number): Promise<Customer | undefined> {
   return get<Customer>("SELECT * FROM customers WHERE id = ?", [id]);
 }
 
-export async function createCustomer(input: CustomerInput): Promise<number> {
+export function getCustomerByCode(code: string): Promise<Customer | undefined> {
+  return get<Customer>("SELECT * FROM customers WHERE member_code = ?", [code]);
+}
+
+/** Finds an existing member by phone or email (duplicate-registration guard). */
+export function findDuplicate(
+  phone?: string | null,
+  email?: string | null
+): Promise<Customer | undefined> {
+  if (!phone && !email) return Promise.resolve(undefined);
+  return get<Customer>(
+    `SELECT * FROM customers
+     WHERE (@phone IS NOT NULL AND phone = @phone)
+        OR (@email IS NOT NULL AND email = @email)
+     LIMIT 1`,
+    { phone: phone ?? null, email: email ?? null }
+  );
+}
+
+export type ConsentMode = "all" | "no_marketing";
+
+/**
+ * Registers a member and records the initial per-purpose consent rows. "all"
+ * grants MARKETING + ANALYTICS; "no_marketing" denies MARKETING, grants ANALYTICS.
+ */
+export async function createCustomer(
+  input: CustomerInput,
+  consentMode: ConsentMode = "all"
+): Promise<number> {
   const next = await get<{ next: number }>(
     "SELECT COALESCE(MAX(id), 0) + 1 AS next FROM customers"
   );
-  const memberCode = `MBR-${10000 + (next?.next ?? 1)}`;
+  const memberCode = `CUS-${String(next?.next ?? 1).padStart(6, "0")}`;
 
-  return run(
+  const id = await run(
     `INSERT INTO customers
-       (member_code, first_name, last_name, email, phone, brand, tier, points,
-        register_channel, data_level, consent_pdpa, consent_marketing, consent_migration)
+       (member_code, first_name, last_name, email, phone, brand, cust_type,
+        register_channel, data_level)
      VALUES
-       (@member_code, @first_name, @last_name, @email, @phone, @brand, @tier, @points,
-        @register_channel, @data_level, @consent_pdpa, @consent_marketing, @consent_migration)`,
+       (@member_code, @first_name, @last_name, @email, @phone, @brand, @cust_type,
+        @register_channel, @data_level)`,
     {
       member_code: memberCode,
       first_name: input.first_name,
@@ -124,15 +146,25 @@ export async function createCustomer(input: CustomerInput): Promise<number> {
       email: input.email ?? null,
       phone: input.phone ?? null,
       brand: input.brand,
-      tier: input.tier,
-      points: input.points,
+      cust_type: input.cust_type,
       register_channel: input.register_channel ?? null,
       data_level: input.data_level,
-      consent_pdpa: input.consent_pdpa ? 1 : 0,
-      consent_marketing: input.consent_marketing ? 1 : 0,
-      consent_migration: input.consent_migration ? 1 : 0,
     }
   );
+
+  await recordConsent({
+    customer_id: id,
+    purpose: "MARKETING",
+    status: consentMode === "all" ? "GRANTED" : "DENIED",
+    source: "registration",
+  });
+  await recordConsent({
+    customer_id: id,
+    purpose: "ANALYTICS",
+    status: "GRANTED",
+    source: "registration",
+  });
+  return id;
 }
 
 export async function updateCustomer(
@@ -142,10 +174,9 @@ export async function updateCustomer(
   await run(
     `UPDATE customers SET
        first_name = @first_name, last_name = @last_name, email = @email,
-       phone = @phone, brand = @brand, tier = @tier, points = @points,
+       phone = @phone, brand = @brand, cust_type = @cust_type,
        register_channel = @register_channel, data_level = @data_level,
-       consent_pdpa = @consent_pdpa, consent_marketing = @consent_marketing,
-       consent_migration = @consent_migration, updated_at = datetime('now')
+       updated_at = datetime('now')
      WHERE id = @id`,
     {
       id,
@@ -154,21 +185,22 @@ export async function updateCustomer(
       email: input.email ?? null,
       phone: input.phone ?? null,
       brand: input.brand,
-      tier: input.tier,
-      points: input.points,
+      cust_type: input.cust_type,
       register_channel: input.register_channel ?? null,
       data_level: input.data_level,
-      consent_pdpa: input.consent_pdpa ? 1 : 0,
-      consent_marketing: input.consent_marketing ? 1 : 0,
-      consent_migration: input.consent_migration ? 1 : 0,
     }
   );
 }
 
-/** Deletes the customer and its interaction history atomically. */
+/** Deletes the customer and all dependent rows atomically. */
 export async function deleteCustomer(id: number): Promise<void> {
   await batch([
     { sql: "DELETE FROM interactions WHERE customer_id = ?", args: [id] },
+    { sql: "DELETE FROM transactions WHERE customer_id = ?", args: [id] },
+    { sql: "DELETE FROM loyalty_ledger WHERE customer_id = ?", args: [id] },
+    { sql: "DELETE FROM consents WHERE customer_id = ?", args: [id] },
+    { sql: "UPDATE cases SET customer_id = NULL WHERE customer_id = ?", args: [id] },
+    { sql: "UPDATE distributors SET customer_id = NULL WHERE customer_id = ?", args: [id] },
     { sql: "DELETE FROM customers WHERE id = ?", args: [id] },
   ]);
 }

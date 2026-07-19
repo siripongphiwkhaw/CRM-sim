@@ -13,7 +13,7 @@ import { BRANDS, TIERS } from "@/lib/constants";
 export const dynamic = "force-dynamic";
 
 const filterClass =
-  "rounded border border-[#c9c9c9] bg-white px-3 py-1.5 text-sm focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600";
+  "rounded border border-[#c2d0d6] bg-white px-3 py-1.5 text-sm focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600";
 
 export default async function CustomersPage({
   searchParams,
@@ -62,7 +62,7 @@ export default async function CustomersPage({
         </select>
         <button
           type="submit"
-          className="rounded border border-[#c9c9c9] bg-white px-4 py-1.5 text-sm font-medium text-[#444] transition duration-150 hover:bg-[#f3f3f3] active:scale-[0.98]"
+          className="rounded border border-[#c2d0d6] bg-white px-4 py-1.5 text-sm font-medium text-[#3c4f5e] transition duration-150 hover:bg-[#eef3f5] active:scale-[0.98]"
         >
           Filter
         </button>
@@ -71,38 +71,38 @@ export default async function CustomersPage({
       {customers.length === 0 ? (
         <EmptyState message="No members match your filters." />
       ) : (
-        <div className="overflow-x-auto rounded border border-[#e5e5e5] bg-white">
-          <table className="min-w-full divide-y divide-[#e5e5e5] text-sm">
-            <thead className="bg-[#fafaf9]">
+        <div className="overflow-x-auto rounded border border-[#dde5e8] bg-white">
+          <table className="min-w-full divide-y divide-[#dde5e8] text-sm">
+            <thead className="bg-[#f8fafb]">
               <tr>
                 <SortableTh label="Member" column="name" params={params} baseHref="/customers" />
                 <SortableTh label="Brand" column="brand" params={params} baseHref="/customers" />
                 <SortableTh label="Tier" column="tier" params={params} baseHref="/customers" />
                 <SortableTh label="Points" column="points" params={params} baseHref="/customers" align="right" />
                 <SortableTh label="CLV" column="clv" params={params} baseHref="/customers" align="right" />
-                <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[#444]">
+                <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[#3c4f5e]">
                   Data level
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#f3f3f3]">
+            <tbody className="divide-y divide-[#eef3f5]">
               {customers.map((c) => (
-                <tr key={c.id} className="transition-colors hover:bg-[#f3f3f3]">
+                <tr key={c.id} className="transition-colors hover:bg-[#eef3f5]">
                   <td className="px-4 py-2.5">
                     <Link href={`/customers/${c.id}`} className="font-medium text-brand-600 hover:underline">
                       {c.first_name} {c.last_name}
                     </Link>
-                    <div className="text-xs text-[#706e6b]">{c.member_code}</div>
+                    <div className="text-xs text-[#607785]">{c.member_code}</div>
                   </td>
-                  <td className="px-4 py-2.5 text-[#444]">{c.brand}</td>
+                  <td className="px-4 py-2.5 text-[#3c4f5e]">{c.brand}</td>
                   <td className="px-4 py-2.5"><TierBadge tier={c.tier} /></td>
-                  <td className="px-4 py-2.5 text-right text-[#444]">
+                  <td className="px-4 py-2.5 text-right text-[#3c4f5e]">
                     {c.points.toLocaleString("en-US")}
                   </td>
-                  <td className="px-4 py-2.5 text-right text-[#444]">
+                  <td className="px-4 py-2.5 text-right text-[#3c4f5e]">
                     {formatCurrency(c.clv)}
                   </td>
-                  <td className="px-4 py-2.5 text-[#444]">{c.data_level}</td>
+                  <td className="px-4 py-2.5 text-[#3c4f5e]">{c.data_level}</td>
                 </tr>
               ))}
             </tbody>

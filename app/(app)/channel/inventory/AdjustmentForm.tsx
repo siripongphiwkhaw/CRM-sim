@@ -20,7 +20,7 @@ export function AdjustmentForm({
   );
 
   return (
-    <form action={formAction} className="space-y-3 rounded border border-[#e5e5e5] bg-[#fafaf9] p-3">
+    <form action={formAction} className="space-y-3 rounded border border-[#dde5e8] bg-[#f8fafb] p-3">
       <FormError message={state.error} />
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Field label="Distributor" htmlFor="adj-distributor">

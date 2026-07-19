@@ -8,7 +8,7 @@ export default function Loading() {
         <div className="lg:col-span-2">
           <SkeletonTable rows={4} cols={3} />
         </div>
-        <div className="rounded border border-[#e5e5e5] bg-white p-4">
+        <div className="rounded border border-[#dde5e8] bg-white p-4">
           <SkeletonText lines={6} />
         </div>
       </div>
