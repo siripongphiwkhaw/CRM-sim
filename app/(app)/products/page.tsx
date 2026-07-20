@@ -71,6 +71,7 @@ export default async function ProductsPage({
                 <ProductImage
                   brand={p.brand}
                   category={p.category}
+                  imageUrl={p.image_url}
                   className="mx-auto w-full max-w-[140px]"
                 />
               </Link>

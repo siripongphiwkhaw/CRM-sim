@@ -7,6 +7,7 @@ export interface User {
   email: string;
   password_hash: string;
   role: Role;
+  home_department_id: number | null;
   created_at: string;
 }
 
@@ -15,6 +16,8 @@ export interface UserSummary {
   name: string;
   email: string;
   role: Role;
+  home_department_id: number | null;
+  home_department_name: string | null;
   created_at: string;
 }
 
@@ -28,7 +31,11 @@ export function getUserById(id: number): Promise<User | undefined> {
 
 export function listUsers(): Promise<UserSummary[]> {
   return all<UserSummary>(
-    "SELECT id, name, email, role, created_at FROM users ORDER BY role, name"
+    `SELECT u.id, u.name, u.email, u.role, u.home_department_id,
+            d.name AS home_department_name, u.created_at
+     FROM users u
+     LEFT JOIN departments d ON d.id = u.home_department_id
+     ORDER BY u.role, u.name`
   );
 }
 

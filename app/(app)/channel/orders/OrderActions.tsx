@@ -20,10 +20,13 @@ export function OrderActions({
   orderId,
   status,
   isAdmin,
+  canApprove,
 }: {
   orderId: number;
   status: OrderStatus;
   isAdmin: boolean;
+  /** Approver departments may approve/reject; overrides and force-fulfil stay admin-only. */
+  canApprove: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [rejectNote, setRejectNote] = useState("");
@@ -45,7 +48,7 @@ export function OrderActions({
           </button>
         )}
 
-        {status === "submitted" && isAdmin && (
+        {status === "submitted" && canApprove && (
           <>
             <button
               disabled={pending}

@@ -1,19 +1,23 @@
 import { getSession } from "@/lib/session";
 import { isPicOfAny } from "@/db/queries/departments";
 import { ModuleRail, type RailItem } from "@/app/components/ModuleRail";
+import type { ModuleKey } from "@/lib/constants";
 import { TopBar } from "@/app/components/TopBar";
 import { logoutAction } from "./actions";
 
-const BASE_ITEMS: RailItem[] = [
-  { href: "/dashboard", label: "Home", icon: "home" },
-  { href: "/customers", label: "Members", icon: "members" },
-  { href: "/loyalty", label: "Loyalty", icon: "loyalty" },
-  { href: "/cases", label: "Cases", icon: "cases" },
-  { href: "/insights", label: "AI Insights", icon: "insights" },
-  { href: "/products", label: "Products", icon: "products" },
-  { href: "/channel", label: "Sales & Channel", icon: "channel" },
-  { href: "/data-cloud", label: "Data Cloud", icon: "datacloud" },
-  { href: "/guide", label: "Guide", icon: "guide" },
+// Always visible, whatever the department grants.
+const HOME_ITEM: RailItem = { href: "/dashboard", label: "Home", icon: "home" };
+const GUIDE_ITEM: RailItem = { href: "/guide", label: "Guide", icon: "guide" };
+
+// Shown only when the user's department grants the module (admins get all).
+const GATED_ITEMS: { module: ModuleKey; item: RailItem }[] = [
+  { module: "customers", item: { href: "/customers", label: "Members", icon: "members" } },
+  { module: "loyalty", item: { href: "/loyalty", label: "Loyalty", icon: "loyalty" } },
+  { module: "cases", item: { href: "/cases", label: "Cases", icon: "cases" } },
+  { module: "insights", item: { href: "/insights", label: "AI Insights", icon: "insights" } },
+  { module: "products", item: { href: "/products", label: "Products", icon: "products" } },
+  { module: "channel", item: { href: "/channel", label: "Sales & Channel", icon: "channel" } },
+  { module: "data-cloud", item: { href: "/data-cloud", label: "Data Cloud", icon: "datacloud" } },
 ];
 
 const ADMIN_ITEMS: RailItem[] = [
@@ -30,8 +34,11 @@ export default async function AppLayout({
   const isAdmin = session.role === "admin";
   const isPic = session.userId ? await isPicOfAny(session.userId) : false;
 
+  const granted = new Set(session.modules ?? []);
   const items: RailItem[] = [
-    ...BASE_ITEMS,
+    HOME_ITEM,
+    ...GATED_ITEMS.filter((g) => isAdmin || granted.has(g.module)).map((g) => g.item),
+    GUIDE_ITEM,
     ...(isPic
       ? [{ href: "/department", label: "My Department", icon: "department" as const }]
       : []),

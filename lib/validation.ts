@@ -35,6 +35,11 @@ export const productSchema = z.object({
   category: z.enum(PRODUCT_CATEGORIES).or(z.literal("")).optional(),
   unit_price: z.coerce.number().min(0).default(0),
   reorder_point: z.coerce.number().int().min(0).default(20),
+  image_url: z
+    .string()
+    .url("Image URL must be a valid URL")
+    .or(z.literal(""))
+    .optional(),
 });
 
 export const transactionCreateSchema = z.object({

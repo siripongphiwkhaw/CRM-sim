@@ -1,12 +1,21 @@
 import { getIronSession, type IronSession, type SessionOptions } from "iron-session";
 import { cookies } from "next/headers";
-import type { Role } from "./constants";
+import type { Role, ModuleKey } from "./constants";
 
 export interface SessionData {
   userId?: number;
   email?: string;
   name?: string;
   role?: Role;
+  /**
+   * Modules this user may reach, resolved from their home department at login.
+   * Stored on the session because proxy.ts runs on the Edge runtime and cannot
+   * touch the sql.js database. Like `role`, a change an admin makes applies on
+   * the user's next login rather than immediately.
+   */
+  modules?: ModuleKey[];
+  /** Set when the user's home department is flagged as an approver unit. */
+  canApprove?: boolean;
 }
 
 // Falls back to a built-in key so the app runs with zero configuration (this is
@@ -47,4 +56,16 @@ export async function requireAdmin(): Promise<IronSession<SessionData>> {
 export async function isAdmin(): Promise<boolean> {
   const session = await getSession();
   return session.role === "admin";
+}
+
+/**
+ * Throws unless the session may approve/reject submitted orders — admins
+ * always may; other users need a home department flagged as an approver unit.
+ */
+export async function requireApprover(): Promise<IronSession<SessionData>> {
+  const session = await requireSession();
+  if (session.role !== "admin" && !session.canApprove) {
+    throw new Error("Forbidden: approver only");
+  }
+  return session;
 }

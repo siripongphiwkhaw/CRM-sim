@@ -62,7 +62,12 @@ export default async function OrderDetailPage({
       />
 
       <Card className="mb-4">
-        <OrderActions orderId={order.id} status={order.status} isAdmin={session.role === "admin"} />
+        <OrderActions
+          orderId={order.id}
+          status={order.status}
+          isAdmin={session.role === "admin"}
+          canApprove={session.role === "admin" || !!session.canApprove}
+        />
       </Card>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

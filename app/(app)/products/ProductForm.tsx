@@ -59,6 +59,20 @@ export function ProductForm({
         </Field>
       </div>
 
+      <Field
+        label="Image URL"
+        htmlFor="image_url"
+        hint="Link to a product photo. Leave blank to use the drawn placeholder."
+      >
+        <TextInput
+          id="image_url"
+          name="image_url"
+          type="url"
+          placeholder="https://…"
+          defaultValue={product?.image_url ?? ""}
+        />
+      </Field>
+
       <div className="flex items-center gap-3">
         <SubmitButton>{product ? "Save changes" : "Create product"}</SubmitButton>
         <Link href="/products" className="text-sm text-[#607785] hover:text-[#14202b]">

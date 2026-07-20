@@ -19,6 +19,7 @@ function parseProduct(formData: FormData) {
     category: formData.get("category") ?? "",
     unit_price: formData.get("unit_price") || 0,
     reorder_point: formData.get("reorder_point") || 20,
+    image_url: formData.get("image_url") ?? "",
   });
 }
 

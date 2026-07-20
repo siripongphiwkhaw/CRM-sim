@@ -1,9 +1,11 @@
 import { get, all, run } from "../client";
+import type { ModuleKey } from "@/lib/constants";
 
 export interface Department {
   id: number;
   name: string;
   description: string | null;
+  is_approver: number;
   created_at: string;
   updated_at: string;
 }
@@ -122,4 +124,85 @@ export async function removeDepartmentPic(
     "DELETE FROM department_pics WHERE department_id = ? AND user_id = ?",
     [departmentId, userId]
   );
+}
+
+/* ---------- Module grants ---------- */
+
+export async function getModulesForDepartment(
+  departmentId: number
+): Promise<ModuleKey[]> {
+  const rows = await all<{ module: ModuleKey }>(
+    "SELECT module FROM department_modules WHERE department_id = ? ORDER BY module",
+    [departmentId]
+  );
+  return rows.map((r) => r.module);
+}
+
+/**
+ * Modules a user reaches via their home department. Empty when the user has no
+ * home department or that department grants nothing — the caller renders Home +
+ * Guide only. Admins never go through here; they hold every module.
+ */
+export async function getModulesForUser(userId: number): Promise<ModuleKey[]> {
+  const rows = await all<{ module: ModuleKey }>(
+    `SELECT dm.module
+     FROM users u
+     JOIN department_modules dm ON dm.department_id = u.home_department_id
+     WHERE u.id = ?
+     ORDER BY dm.module`,
+    [userId]
+  );
+  return rows.map((r) => r.module);
+}
+
+export async function addDepartmentModule(
+  departmentId: number,
+  module: ModuleKey
+): Promise<void> {
+  await run(
+    "INSERT OR IGNORE INTO department_modules (department_id, module) VALUES (?, ?)",
+    [departmentId, module]
+  );
+}
+
+export async function removeDepartmentModule(
+  departmentId: number,
+  module: ModuleKey
+): Promise<void> {
+  await run(
+    "DELETE FROM department_modules WHERE department_id = ? AND module = ?",
+    [departmentId, module]
+  );
+}
+
+export async function setDepartmentApprover(
+  departmentId: number,
+  isApprover: boolean
+): Promise<void> {
+  await run(
+    "UPDATE departments SET is_approver = ?, updated_at = datetime('now') WHERE id = ?",
+    [isApprover ? 1 : 0, departmentId]
+  );
+}
+
+/** True when the user's home department is flagged as an approver unit. */
+export async function isApproverUser(userId: number): Promise<boolean> {
+  const row = await get<{ n: number }>(
+    `SELECT COUNT(*) AS n
+     FROM users u
+     JOIN departments d ON d.id = u.home_department_id
+     WHERE u.id = ? AND d.is_approver = 1`,
+    [userId]
+  );
+  return (row?.n ?? 0) > 0;
+}
+
+export async function setHomeDepartment(
+  userId: number,
+  departmentId: number | null
+): Promise<void> {
+  await run("UPDATE users SET home_department_id = ? WHERE id = ?", [
+    departmentId,
+    userId,
+  ]);
 }

@@ -134,6 +134,42 @@ export type ProductCategory = (typeof PRODUCT_CATEGORIES)[number];
 export const ROLES = ["admin", "user"] as const;
 export type Role = (typeof ROLES)[number];
 
+// Gateable modules. A department grants a subset of these to its members; the
+// admin role always holds all of them. Home, Guide, SQL Console and Setup are
+// deliberately absent: the first two are always available, the last two are
+// admin-only and never granted through a department.
+export const MODULES = [
+  "customers",
+  "loyalty",
+  "cases",
+  "insights",
+  "products",
+  "channel",
+  "data-cloud",
+] as const;
+export type ModuleKey = (typeof MODULES)[number];
+
+export const MODULE_LABELS: Record<ModuleKey, string> = {
+  customers: "Members",
+  loyalty: "Loyalty",
+  cases: "Cases",
+  insights: "AI Insights",
+  products: "Products",
+  channel: "Sales & Channel",
+  "data-cloud": "Data Cloud",
+};
+
+/** Route prefix each module owns — used by the rail and by proxy.ts gating. */
+export const MODULE_ROUTES: Record<ModuleKey, string> = {
+  customers: "/customers",
+  loyalty: "/loyalty",
+  cases: "/cases",
+  insights: "/insights",
+  products: "/products",
+  channel: "/channel",
+  "data-cloud": "/data-cloud",
+};
+
 // Sales/Trade & Channel Enablement: trade channels distributors sell through.
 export const TRADE_CHANNELS = [
   "Modern Trade",

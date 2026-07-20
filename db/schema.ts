@@ -7,6 +7,12 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('admin','user')),
+  -- Single "home" org unit, used to scope which modules this user can reach.
+  -- Distinct from department_pics (M:N, "who manages a department's own
+  -- settings"). NULL = unassigned, which resolves to Home + Guide only.
+  -- Admins ignore this entirely. Forward-references departments (declared
+  -- further down) — harmless, sql.js runs with foreign_keys off.
+  home_department_id INTEGER REFERENCES departments(id) ON DELETE SET NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -55,6 +61,8 @@ CREATE TABLE IF NOT EXISTS products (
   category TEXT,
   unit_price REAL NOT NULL DEFAULT 0,
   reorder_point INTEGER NOT NULL DEFAULT 20,
+  -- Remote product photo. NULL falls back to the drawn placeholder art.
+  image_url TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS products_brand ON products(brand);
@@ -203,6 +211,9 @@ CREATE TABLE IF NOT EXISTS departments (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL UNIQUE,
   description TEXT,
+  -- Members of an approver department may approve/reject submitted orders,
+  -- a right that otherwise belongs to admins alone.
+  is_approver INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -214,6 +225,17 @@ CREATE TABLE IF NOT EXISTS department_pics (
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   assigned_at TEXT NOT NULL DEFAULT (datetime('now')),
   PRIMARY KEY (department_id, user_id)
+);
+
+-- Which modules (nav tabs) a department grants its members. Applies to the
+-- 'user' role only — admins always reach everything. SQL Console and Setup are
+-- never grantable here; they stay admin-only.
+CREATE TABLE IF NOT EXISTS department_modules (
+  department_id INTEGER NOT NULL REFERENCES departments(id) ON DELETE CASCADE,
+  module TEXT NOT NULL CHECK (module IN (
+    'customers','loyalty','cases','insights','products','channel','data-cloud'
+  )),
+  PRIMARY KEY (department_id, module)
 );
 
 -- Data Cloud: linked source systems for data integration & migration.

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireSession, requireAdmin } from "@/lib/session";
+import { requireSession, requireAdmin, requireApprover } from "@/lib/session";
 import {
   orderCreateSchema,
   orderRejectSchema,
@@ -61,16 +61,14 @@ export async function submitOrderAction(orderId: number) {
 }
 
 export async function approveOrderAction(orderId: number, note?: string) {
-  await requireAdmin();
-  const session = await requireSession();
+  const session = await requireApprover();
   await applyOrderTransition(orderId, "approved", session.userId!, note || null);
   revalidatePath("/channel/orders");
   revalidatePath(`/channel/orders/${orderId}`);
 }
 
 export async function rejectOrderAction(orderId: number, note: string) {
-  await requireAdmin();
-  const session = await requireSession();
+  const session = await requireApprover();
   const parsed = orderRejectSchema.safeParse({ note });
   if (!parsed.success) return;
   await applyOrderTransition(orderId, "rejected", session.userId!, parsed.data.note);

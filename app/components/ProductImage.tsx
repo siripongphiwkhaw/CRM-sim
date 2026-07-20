@@ -1,6 +1,12 @@
-// Original, programmatically-drawn product packshots (no external assets).
-// Each fictional brand gets a color; each category gets a package silhouette —
-// presented on a warm cream tile like a food e-commerce product photo.
+"use client";
+
+// Product packshots. A product with an image_url shows that photo; anything
+// without one — or whose photo fails to load — falls back to the drawn
+// silhouette below, so the grid never shows a broken tile. Each fictional brand
+// gets a color; each category gets a package shape.
+
+import Image from "next/image";
+import { useState } from "react";
 
 const BRAND_COLORS: Record<string, { main: string; dark: string }> = {
   Umeya: { main: "#ee1c26", dark: "#9c1218" },
@@ -92,15 +98,35 @@ const SHAPES: Record<
 export function ProductImage({
   brand,
   category,
+  imageUrl,
   className = "",
 }: {
   brand: string;
   category: string | null;
+  imageUrl?: string | null;
   className?: string;
 }) {
+  const [failed, setFailed] = useState(false);
   const colors = BRAND_COLORS[brand] ?? FALLBACK;
   const Shape = SHAPES[category ?? ""] ?? Pouch;
   const initial = brand.charAt(0);
+
+  if (imageUrl && !failed) {
+    return (
+      <div
+        className={`relative aspect-square overflow-hidden rounded-[12px] bg-[#fff4e4] ${className}`}
+      >
+        <Image
+          src={imageUrl}
+          alt={`${brand} ${category ?? "product"}`}
+          fill
+          sizes="(min-width: 1024px) 140px, 40vw"
+          className="object-cover"
+          onError={() => setFailed(true)}
+        />
+      </div>
+    );
+  }
 
   return (
     <svg

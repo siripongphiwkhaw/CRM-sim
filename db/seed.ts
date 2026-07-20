@@ -28,6 +28,28 @@ function lastId(db: Database): number {
 
 const B2C_TX_CHANNELS: TxChannel[] = ["POS", "ECOM", "D2C"];
 
+// Product photography by category (freely-licensed stock, referenced by URL —
+// see next.config.ts for the allowed host). Seasoning alternates between two
+// shots so the grid isn't visually repetitive.
+const PEXELS = "https://images.pexels.com/photos";
+const SUFFIX = "?auto=compress&cs=tinysrgb&w=800";
+const CATEGORY_IMAGE_URLS: Record<string, string[]> = {
+  Beverage: [`${PEXELS}/26791666/pexels-photo-26791666.jpeg${SUFFIX}`],
+  Seasoning: [
+    `${PEXELS}/13060681/pexels-photo-13060681.jpeg${SUFFIX}`,
+    `${PEXELS}/10114270/pexels-photo-10114270.jpeg${SUFFIX}`,
+  ],
+  "Health & Nutrition": [`${PEXELS}/33984946/pexels-photo-33984946.jpeg${SUFFIX}`],
+  "Frozen Food": [`${PEXELS}/9784111/pexels-photo-9784111.jpeg${SUFFIX}`],
+  Sauce: [`${PEXELS}/27116329/pexels-photo-27116329.jpeg${SUFFIX}`],
+};
+
+function imageForCategory(category: string, index: number): string | null {
+  const options = CATEGORY_IMAGE_URLS[category];
+  if (!options || options.length === 0) return null;
+  return options[index % options.length];
+}
+
 /**
  * Populates a fresh in-memory database with deterministic demo data for the
  * loyalty / CDP platform. Runs once per server instance (db/client.ts) with a
@@ -39,11 +61,20 @@ export function seedInto(db: Database): void {
 
   db.run("BEGIN");
   try {
-    // Users with roles: one admin, one regular staff user.
-    const userIds: Record<"admin" | "staff", number> = { admin: 0, staff: 0 };
+    // Users. One admin plus a department-less staff account (which demonstrates
+    // the "no home department -> Home + Guide only" case), then one member per
+    // department. Home departments are assigned further down, once the
+    // departments themselves exist. All share the demo password.
+    const userIds: Record<
+      "admin" | "staff" | "businessUnit" | "salesIngredient" | "digitalMarketing",
+      number
+    > = { admin: 0, staff: 0, businessUnit: 0, salesIngredient: 0, digitalMarketing: 0 };
     for (const [key, name, email, role] of [
       ["admin", "Admin User", "admin@crm.local", "admin"],
       ["staff", "Staff Member", "staff@crm.local", "user"],
+      ["businessUnit", "Kanokwan Suksawat", "kanokwan.s@crm.local", "user"],
+      ["salesIngredient", "Chatchai Ruangwilai", "chatchai.r@crm.local", "user"],
+      ["digitalMarketing", "Pimchanok Wongsawat", "pimchanok.w@crm.local", "user"],
     ] as const) {
       db.run(
         "INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)",
@@ -87,16 +118,18 @@ export function seedInto(db: Database): void {
     for (let i = 0; i < PRODUCT_COUNT; i++) {
       const brand = faker.helpers.arrayElement(BRANDS);
       const unitPrice = faker.number.int({ min: 15, max: 590 });
+      const category = faker.helpers.arrayElement(PRODUCT_CATEGORIES);
       db.run(
-        `INSERT INTO products (sku, name, brand, category, unit_price, reorder_point)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO products (sku, name, brand, category, unit_price, reorder_point, image_url)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
           `SKU-${String(1000 + i)}`,
           `${brand} ${faker.commerce.productName()}`,
           brand,
-          faker.helpers.arrayElement(PRODUCT_CATEGORIES),
+          category,
           unitPrice,
           faker.helpers.arrayElement([10, 20, 20, 20, 50]),
+          imageForCategory(category, i),
         ]
       );
       const id = lastId(db);
@@ -322,6 +355,137 @@ export function seedInto(db: Database): void {
     }
     void ledgerBurnTotal;
 
+    // Five named "hero" members with hand-authored, Thailand-realistic purchase
+    // behaviour, so the same recognisable accounts show up across Members,
+    // Loyalty, Cases, Channel and Insights. Two modern-trade chains, two
+    // mom-and-pop shops, one corporate buyer. Three of them are shaped to trip a
+    // specific insight rule (noted per member below).
+    const heroes: Record<
+      "somchai" | "ratana" | "malee" | "prasert" | "nattaporn",
+      number
+    > = { somchai: 0, ratana: 0, malee: 0, prasert: 0, nattaporn: 0 };
+
+    const daysAgo = (days: number): string =>
+      new Date(Date.now() - days * 86_400_000).toISOString();
+
+    const heroPlan: {
+      key: keyof typeof heroes;
+      firstName: string;
+      lastName: string;
+      custType: CustType;
+      registerChannel: string;
+      /** Purchases as [amountTHB, channel, daysAgo], oldest first. */
+      purchases: [number, TxChannel, number][];
+      marketingGranted: boolean;
+      withdrewMarketing: boolean;
+    }[] = [
+      {
+        // Modern trade: large, periodic sell-in scale orders. Reaches Gold.
+        key: "somchai",
+        firstName: "Somchai",
+        lastName: "Ruangsri",
+        custType: "B2B",
+        registerChannel: "SAP",
+        purchases: [
+          [42_000, "SFA", 520], [38_500, "SFA", 450], [51_000, "SFA", 380],
+          [46_500, "SFA", 300], [58_000, "SFA", 225], [39_000, "SFA", 160],
+          [61_000, "SFA", 95], [47_500, "SFA", 40], [52_000, "SFA", 12],
+        ],
+        marketingGranted: true,
+        withdrewMarketing: false,
+      },
+      {
+        // Modern trade, regional and smaller — lands mid-ladder.
+        key: "ratana",
+        firstName: "Ratana",
+        lastName: "Boonmee",
+        custType: "B2B",
+        registerChannel: "SAP",
+        purchases: [
+          [18_000, "SFA", 430], [22_500, "SFA", 350], [15_500, "SFA", 270],
+          [26_000, "SFA", 190], [19_500, "SFA", 110], [24_000, "SFA", 35],
+        ],
+        marketingGranted: true,
+        withdrewMarketing: false,
+      },
+      {
+        // Mom-and-pop: frequent small cash purchases, the classic sundry shop.
+        key: "malee",
+        firstName: "Malee",
+        lastName: "Srisawat",
+        custType: "B2C",
+        registerChannel: "Store",
+        purchases: [
+          [420, "POS", 400], [280, "POS", 385], [560, "POS", 370], [340, "POS", 355],
+          [720, "D2C", 340], [240, "POS", 325], [480, "POS", 310], [390, "POS", 295],
+          [810, "D2C", 275], [320, "POS", 260], [590, "POS", 240], [450, "POS", 225],
+          [290, "POS", 205], [740, "D2C", 185], [380, "POS", 170], [520, "POS", 150],
+          [260, "POS", 130], [790, "D2C", 110], [430, "POS", 90], [350, "POS", 70],
+          [600, "POS", 50], [310, "POS", 32], [470, "POS", 18], [400, "POS", 6],
+        ],
+        marketingGranted: true,
+        withdrewMarketing: false,
+      },
+      {
+        // Mom-and-pop gone quiet: last purchase >60 days ago trips CHURN_RISK.
+        key: "prasert",
+        firstName: "Prasert",
+        lastName: "Thongdee",
+        custType: "B2C",
+        registerChannel: "Store",
+        purchases: [
+          [280, "POS", 390], [410, "POS", 370], [195, "POS", 350], [530, "D2C", 330],
+          [240, "POS", 310], [360, "POS", 285], [175, "POS", 265], [450, "POS", 240],
+          [320, "D2C", 215], [260, "POS", 190], [390, "POS", 165], [210, "POS", 140],
+          [480, "POS", 115], [295, "POS", 95], [340, "POS", 75],
+        ],
+        marketingGranted: true,
+        withdrewMarketing: true,
+      },
+      {
+        // Corporate buyer: quarterly bulk orders, plus one stray retail-channel
+        // purchase that trips CHANNEL_CONFLICT. Declines marketing.
+        key: "nattaporn",
+        firstName: "Nattaporn",
+        lastName: "Wattana",
+        custType: "B2B",
+        registerChannel: "Web",
+        purchases: [
+          [2_400, "POS", 300],
+          [28_000, "SFA", 270], [34_500, "SFA", 185],
+          [21_000, "SFA", 100], [39_000, "SFA", 25],
+        ],
+        marketingGranted: false,
+        withdrewMarketing: false,
+      },
+    ];
+
+    for (const hero of heroPlan) {
+      const registeredAt = daysAgo(hero.purchases[0][2] + 30);
+      const customerId = insertCustomer({
+        firstName: hero.firstName,
+        lastName: hero.lastName,
+        brand: faker.helpers.arrayElement(BRANDS),
+        custType: hero.custType,
+        registerChannel: hero.registerChannel,
+        dataLevel: "Purchase & Engagement",
+        registeredAt,
+      });
+      heroes[hero.key] = customerId;
+
+      let lifetime = 0;
+      let clv = 0;
+      let lastPurchaseAt: string | null = null;
+      for (const [amount, channel, ago] of hero.purchases) {
+        const when = daysAgo(ago);
+        lifetime += seedTransaction(customerId, hero.custType, lifetime, amount, channel, when);
+        clv += amount;
+        lastPurchaseAt = when;
+      }
+      finalizeCustomer(customerId, lifetime, lifetime, clv, lastPurchaseAt);
+      seedConsents(customerId, hero.marketingGranted, registeredAt, hero.withdrewMarketing);
+    }
+
     // Distributors / dealers: FMCG trade master data. ~5 Dealers are linked to a
     // B2B CRM member (so a delivered sell-in earns them loyalty points); two
     // active Dealers are deliberately left unlinked (DEALER_UNLINKED insight).
@@ -356,6 +520,77 @@ export function seedInto(db: Database): void {
         ]
       );
       distributorIds.push(lastId(db));
+    }
+
+    // Trade accounts for the three B2B heroes, linked back to their member
+    // record so they appear on both the CRM and the channel side. Pushed onto
+    // distributorIds so the reconciliation pass at the end covers them too.
+    const heroDealerPlan: {
+      key: "somchai" | "ratana" | "nattaporn";
+      name: string;
+      dealerType: "Dealer" | "Retailer";
+      channel: string;
+      region: string;
+      area: string;
+      contact: string;
+    }[] = [
+      {
+        key: "somchai",
+        name: "Rungthip Supercenter",
+        dealerType: "Retailer",
+        channel: "Modern Trade",
+        region: "Bangkok",
+        area: "Phaya Thai",
+        contact: "Somchai Ruangsri",
+      },
+      {
+        key: "ratana",
+        name: "Baan Suan Fresh Mart",
+        dealerType: "Retailer",
+        channel: "Modern Trade",
+        region: "Chiang Mai",
+        area: "Mueang Chiang Mai",
+        contact: "Ratana Boonmee",
+      },
+      {
+        key: "nattaporn",
+        name: "Siam Innovation Co., Ltd.",
+        dealerType: "Dealer",
+        channel: "Food Service",
+        region: "Bangkok",
+        area: "Khlong Toei",
+        contact: "Nattaporn Wattana",
+      },
+    ];
+    const heroDealerIds: Record<"somchai" | "ratana" | "nattaporn", number> = {
+      somchai: 0,
+      ratana: 0,
+      nattaporn: 0,
+    };
+    for (let i = 0; i < heroDealerPlan.length; i++) {
+      const dealer = heroDealerPlan[i];
+      db.run(
+        `INSERT INTO distributors
+           (distributor_code, name, region, channel, status, dealer_type, customer_id, area, contact_name, phone, email, address, credit_limit)
+         VALUES (?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          `DIST-${String(2000 + i)}`,
+          dealer.name,
+          dealer.region,
+          dealer.channel,
+          dealer.dealerType,
+          heroes[dealer.key],
+          dealer.area,
+          dealer.contact,
+          faker.phone.number(),
+          `${dealer.key}@${dealer.name.toLowerCase().replace(/[^a-z]+/g, "")}.co.th`,
+          `${faker.location.streetAddress()}, ${dealer.area}, ${dealer.region}`,
+          faker.number.int({ min: 200_000, max: 900_000 }),
+        ]
+      );
+      const dealerId = lastId(db);
+      heroDealerIds[dealer.key] = dealerId;
+      distributorIds.push(dealerId);
     }
 
     // Inventory ledger: opening stock-in per distributor/product, so on-hand
@@ -511,6 +746,142 @@ export function seedInto(db: Database): void {
       }
     }
 
+    // Hero trade activity: one fulfilled sell-in order per hero dealer, plus a
+    // sell-out report against it, so the named accounts appear on Orders,
+    // Inventory and Reports rather than only in the CRM.
+    const heroOrderPlan: { key: "somchai" | "ratana" | "nattaporn"; qty: number }[] = [
+      { key: "somchai", qty: 240 },
+      { key: "ratana", qty: 120 },
+      { key: "nattaporn", qty: 80 },
+    ];
+    for (let i = 0; i < heroOrderPlan.length; i++) {
+      const { key, qty } = heroOrderPlan[i];
+      const distributorId = heroDealerIds[key];
+      const orderNumber = `ORD-${String(10100 + i)}`;
+      const createdAt = daysAgo(30 + i * 5);
+      const lineProducts = productIds.slice(i * 2, i * 2 + 2);
+
+      db.run(
+        `INSERT INTO orders
+           (order_number, distributor_id, status, requested_delivery_date, created_by, created_at, updated_at)
+         VALUES (?, ?, 'fulfilled', ?, ?, ?, ?)`,
+        [
+          orderNumber,
+          distributorId,
+          daysAgo(20 + i * 5).slice(0, 10),
+          userIds.salesIngredient,
+          createdAt,
+          createdAt,
+        ]
+      );
+      const orderId = lastId(db);
+
+      for (const productId of lineProducts) {
+        db.run(
+          `INSERT INTO order_items (order_id, product_id, quantity, unit_price) VALUES (?, ?, ?, ?)`,
+          [orderId, productId, qty, productPrices.get(productId) ?? 0]
+        );
+        db.run(
+          `INSERT INTO delivery_plans (distributor_id, product_id, order_id, plan_date, planned_qty, status, created_at)
+           VALUES (?, ?, ?, ?, ?, 'delivered', ?)`,
+          [distributorId, productId, orderId, daysAgo(22 + i * 5).slice(0, 10), qty, createdAt]
+        );
+        db.run(
+          `INSERT INTO inventory_transactions
+             (distributor_id, product_id, txn_type, quantity, reference_type, reference_id, created_by, occurred_at)
+           VALUES (?, ?, 'stock_in', ?, 'delivery_plan', ?, ?, ?)`,
+          [distributorId, productId, qty, lastId(db), userIds.salesIngredient, createdAt]
+        );
+      }
+
+      let fromStatus: string | null = null;
+      for (const toStatus of ["draft", "submitted", "approved", "fulfilled"]) {
+        const actor =
+          toStatus === "approved" ? userIds.businessUnit : userIds.salesIngredient;
+        db.run(
+          `INSERT INTO order_status_history (order_id, from_status, to_status, note, changed_by, changed_at)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [
+            orderId,
+            fromStatus,
+            toStatus,
+            toStatus === "approved" ? "Approved by Business Unit." : null,
+            actor,
+            createdAt,
+          ]
+        );
+        fromStatus = toStatus;
+      }
+
+      // Sell-out: modern trade moves most of what it takes in; the corporate
+      // buyer consumes more slowly.
+      const sellOut = key === "nattaporn" ? Math.round(qty * 0.3) : Math.round(qty * 0.7);
+      const period = createdAt.slice(0, 7);
+      for (const productId of lineProducts) {
+        db.run(
+          `INSERT INTO distributor_reports (distributor_id, product_id, period, sell_out_qty, forecast_qty, recorded_at)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [distributorId, productId, period, sellOut, Math.round(sellOut * 1.15), daysAgo(10 + i * 3)]
+        );
+        db.run(
+          `INSERT INTO inventory_transactions
+             (distributor_id, product_id, txn_type, quantity, reference_type, note, created_by, occurred_at)
+           VALUES (?, ?, 'stock_out', ?, 'sell_out_report', ?, ?, ?)`,
+          [
+            distributorId,
+            productId,
+            -sellOut,
+            `Sell-out report for ${period}`,
+            userIds.salesIngredient,
+            daysAgo(10 + i * 3),
+          ]
+        );
+      }
+    }
+
+    // Shape one Rungthip Supercenter product so the LOW_SELLIN_STOCK rule fires
+    // against a named account: on-hand at/below the reorder point with >=60%
+    // sell-through. Sized off the product's actual seeded reorder_point (which
+    // is random) rather than a hardcoded guess, and on a product that dealer
+    // doesn't already stock so existing movements can't skew the totals.
+    const rungthipId = heroDealerIds.somchai;
+    const freshRes = db.exec(
+      `SELECT id, reorder_point FROM products
+       WHERE id NOT IN (SELECT product_id FROM inventory_transactions WHERE distributor_id = ${rungthipId})
+       ORDER BY id LIMIT 1`
+    );
+    const freshRow = freshRes[0]?.values[0];
+    if (freshRow) {
+      const [lowProductId, reorderPoint] = freshRow as [number, number];
+      const stockIn = reorderPoint * 2;
+      const stockOut = Math.floor(reorderPoint * 1.5); // 75% sell-through
+      db.run(
+        `INSERT INTO inventory_transactions
+           (distributor_id, product_id, txn_type, quantity, reference_type, note, created_by, occurred_at)
+         VALUES (?, ?, 'stock_in', ?, 'manual', 'Seasonal sell-in', ?, ?)`,
+        [rungthipId, lowProductId, stockIn, userIds.salesIngredient, daysAgo(45)]
+      );
+      const period = daysAgo(15).slice(0, 7);
+      db.run(
+        `INSERT INTO distributor_reports (distributor_id, product_id, period, sell_out_qty, forecast_qty, recorded_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [rungthipId, lowProductId, period, stockOut, Math.round(stockOut * 1.2), daysAgo(15)]
+      );
+      db.run(
+        `INSERT INTO inventory_transactions
+           (distributor_id, product_id, txn_type, quantity, reference_type, note, created_by, occurred_at)
+         VALUES (?, ?, 'stock_out', ?, 'sell_out_report', ?, ?, ?)`,
+        [
+          rungthipId,
+          lowProductId,
+          -stockOut,
+          `Sell-out report for ${period}`,
+          userIds.salesIngredient,
+          daysAgo(15),
+        ]
+      );
+    }
+
     // Correct any distributor/product pair that went negative — opening
     // stock, sell-out reports and fulfilled deliveries are drawn from
     // independent random samples, so some combinations can oversell what was
@@ -534,24 +905,73 @@ export function seedInto(db: Database): void {
       );
     }
 
-    // Departments & PICs: the admin backoffice / employee frontend split.
-    const departments: [string, string][] = [
-      ["Trade & Sales", "Owns distributor relationships, orders and sell-out reporting."],
-      ["Data Governance", "Owns PDPA consent policy and customer data quality."],
-      ["Finance", "Owns distributor credit limits and order approval thresholds."],
-      ["IT & Data Cloud", "Owns source-system integrations and data migration."],
+    // Departments: the org units that scope what a non-admin user can reach.
+    // Each grants a set of modules; Business Unit additionally approves orders.
+    const departmentPlan: {
+      key: "businessUnit" | "salesIngredient" | "digitalMarketing";
+      name: string;
+      description: string;
+      isApprover: boolean;
+      modules: string[];
+    }[] = [
+      {
+        key: "businessUnit",
+        name: "Business Unit",
+        description:
+          "Sits under Digital Marketing. Approves submitted trade orders and watches channel performance.",
+        isApprover: true,
+        modules: ["channel", "insights"],
+      },
+      {
+        key: "salesIngredient",
+        name: "Sales and Ingredient",
+        description:
+          "Owns the B2B side end to end — dealers, trade orders, stock and the product master.",
+        isApprover: false,
+        modules: ["customers", "channel", "products", "cases"],
+      },
+      {
+        key: "digitalMarketing",
+        name: "Digital Marketing",
+        description:
+          "Owns the B2C side — member engagement, loyalty programme and service cases.",
+        isApprover: false,
+        modules: ["customers", "loyalty", "cases", "insights"],
+      },
     ];
     const departmentIds: number[] = [];
-    for (const [name, description] of departments) {
-      db.run("INSERT INTO departments (name, description) VALUES (?, ?)", [name, description]);
-      departmentIds.push(lastId(db));
+    for (const dept of departmentPlan) {
+      db.run(
+        "INSERT INTO departments (name, description, is_approver) VALUES (?, ?, ?)",
+        [dept.name, dept.description, dept.isApprover ? 1 : 0]
+      );
+      const departmentId = lastId(db);
+      departmentIds.push(departmentId);
+
+      for (const moduleKey of dept.modules) {
+        db.run(
+          "INSERT INTO department_modules (department_id, module) VALUES (?, ?)",
+          [departmentId, moduleKey]
+        );
+      }
+
+      // Each department's member belongs to it (drives module access) and is
+      // also its PIC (drives /department) — related but independent mechanisms.
+      db.run("UPDATE users SET home_department_id = ? WHERE id = ?", [
+        departmentId,
+        userIds[dept.key],
+      ]);
+      db.run("INSERT INTO department_pics (department_id, user_id) VALUES (?, ?)", [
+        departmentId,
+        userIds[dept.key],
+      ]);
     }
-    // Seed both demo users as PICs so /department has something to show
-    // out of the box, without making PIC-ness the same thing as admin.
-    db.run("INSERT INTO department_pics (department_id, user_id) VALUES (?, ?)", [departmentIds[0], userIds.staff]);
-    db.run("INSERT INTO department_pics (department_id, user_id) VALUES (?, ?)", [departmentIds[1], userIds.admin]);
-    db.run("INSERT INTO department_pics (department_id, user_id) VALUES (?, ?)", [departmentIds[2], userIds.admin]);
-    db.run("INSERT INTO department_pics (department_id, user_id) VALUES (?, ?)", [departmentIds[0], userIds.admin]);
+    // The admin is PIC of Business Unit too, so /department isn't empty for
+    // them. staff@crm.local is deliberately left with no home department.
+    db.run("INSERT INTO department_pics (department_id, user_id) VALUES (?, ?)", [
+      departmentIds[0],
+      userIds.admin,
+    ]);
 
     // Retail-audit receipt scans: a few store receipts already "scanned" so
     // the OCR audit pages have data before anyone points a camera at one.
@@ -669,6 +1089,82 @@ export function seedInto(db: Database): void {
           createdAt,
           createdAt,
           resolved ? faker.date.recent({ days: 10 }).toISOString() : null,
+        ]
+      );
+    }
+
+    // One case per hero member, pointed at them explicitly (the generic cases
+    // above attach to a random member), so each hero's 360 has service history.
+    const heroCases: {
+      key: keyof typeof heroes;
+      subject: string;
+      category: string;
+      priority: string;
+      status: string;
+      assignee: number;
+    }[] = [
+      {
+        key: "somchai",
+        subject: "Late delivery affecting shelf stock at 3 branches",
+        category: "DELIVERY",
+        priority: "HIGH",
+        status: "IN_PROGRESS",
+        assignee: userIds.salesIngredient,
+      },
+      {
+        key: "ratana",
+        subject: "Requesting new SKU listing for the NutriWell range",
+        category: "PRODUCT",
+        priority: "MEDIUM",
+        status: "OPEN",
+        assignee: userIds.salesIngredient,
+      },
+      {
+        key: "malee",
+        subject: "Points not reflecting after in-store purchase",
+        category: "POINTS",
+        priority: "LOW",
+        status: "RESOLVED",
+        assignee: userIds.digitalMarketing,
+      },
+      {
+        key: "prasert",
+        subject: "Shop owner requests reactivation after long inactivity",
+        category: "ACCOUNT",
+        priority: "MEDIUM",
+        status: "OPEN",
+        assignee: userIds.digitalMarketing,
+      },
+      {
+        key: "nattaporn",
+        subject: "Bulk voucher redemption for staff welfare event",
+        category: "REDEMPTION",
+        priority: "MEDIUM",
+        status: "IN_PROGRESS",
+        assignee: userIds.digitalMarketing,
+      },
+    ];
+    for (let i = 0; i < heroCases.length; i++) {
+      const hc = heroCases[i];
+      const createdAt = daysAgo(25 - i * 4);
+      const resolved = hc.status === "RESOLVED" || hc.status === "CLOSED";
+      db.run(
+        `INSERT INTO cases
+           (case_number, customer_id, subject, category, priority, status, assigned_to, resolution, created_by, created_at, updated_at, resolved_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          `CASE-${String(caseSeeds.length + i + 1).padStart(5, "0")}`,
+          heroes[hc.key],
+          hc.subject,
+          hc.category,
+          hc.priority,
+          hc.status,
+          hc.assignee,
+          resolved ? "Points adjusted and confirmed with the member." : null,
+          userIds.digitalMarketing,
+          createdAt,
+          createdAt,
+          resolved ? daysAgo(5) : null,
         ]
       );
     }

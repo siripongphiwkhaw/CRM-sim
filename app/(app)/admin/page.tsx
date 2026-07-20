@@ -3,12 +3,18 @@ import { isAdmin } from "@/lib/session";
 import { listUsers } from "@/db/queries/users";
 import { getConsentPurposeStats } from "@/db/queries/consent";
 import { CONSENT_PURPOSE_LABELS } from "@/lib/constants";
-import { listDepartments, listPicsForDepartment } from "@/db/queries/departments";
+import {
+  listDepartments,
+  listPicsForDepartment,
+  getModulesForDepartment,
+} from "@/db/queries/departments";
 import { PageHeader, Card, SectionHeader, ObjectIcon, EmptyState } from "@/app/components/ui";
 import { RoleSelect } from "./RoleSelect";
 import { NewUserForm } from "./NewUserForm";
 import { NewDepartmentForm } from "./NewDepartmentForm";
 import { PicManager } from "./PicManager";
+import { HomeDepartmentSelect } from "./HomeDepartmentSelect";
+import { ModuleGrantsEditor } from "./ModuleGrantsEditor";
 import { DeleteButton } from "@/app/components/form";
 import { deleteDepartmentAction } from "./actions";
 
@@ -39,8 +45,13 @@ export default async function AdminPage() {
     listDepartments(),
   ]);
   const departmentsWithPics = await Promise.all(
-    departments.map(async (d) => ({ department: d, pics: await listPicsForDepartment(d.id) }))
+    departments.map(async (d) => ({
+      department: d,
+      pics: await listPicsForDepartment(d.id),
+      modules: await getModulesForDepartment(d.id),
+    }))
   );
+  const departmentOptions = departments.map((d) => ({ id: d.id, name: d.name }));
 
   return (
     <div>
@@ -61,6 +72,7 @@ export default async function AdminPage() {
                 <th className="py-2">Name</th>
                 <th className="py-2">Email</th>
                 <th className="py-2">Role</th>
+                <th className="py-2">Department</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#eef3f5]">
@@ -70,6 +82,14 @@ export default async function AdminPage() {
                   <td className="py-2 text-[#607785]">{u.email}</td>
                   <td className="py-2">
                     <RoleSelect userId={u.id} role={u.role} />
+                  </td>
+                  <td className="py-2">
+                    <HomeDepartmentSelect
+                      userId={u.id}
+                      departmentId={u.home_department_id}
+                      departments={departmentOptions}
+                      disabled={u.role === "admin"}
+                    />
                   </td>
                 </tr>
               ))}
@@ -111,7 +131,7 @@ export default async function AdminPage() {
             <EmptyState message="No departments yet." />
           ) : (
             <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {departmentsWithPics.map(({ department, pics }) => (
+              {departmentsWithPics.map(({ department, pics, modules }) => (
                 <div key={department.id} className="rounded border border-[#dde5e8] p-3">
                   <div className="mb-2 flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2">
@@ -131,6 +151,11 @@ export default async function AdminPage() {
                     />
                   </div>
                   <PicManager departmentId={department.id} pics={pics} allUsers={users} />
+                  <ModuleGrantsEditor
+                    departmentId={department.id}
+                    granted={modules}
+                    isApprover={!!department.is_approver}
+                  />
                 </div>
               ))}
             </div>

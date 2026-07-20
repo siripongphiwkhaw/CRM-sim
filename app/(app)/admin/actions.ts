@@ -17,7 +17,12 @@ import {
   deleteDepartment,
   addDepartmentPic,
   removeDepartmentPic,
+  addDepartmentModule,
+  removeDepartmentModule,
+  setDepartmentApprover,
+  setHomeDepartment,
 } from "@/db/queries/departments";
+import { MODULES, type ModuleKey } from "@/lib/constants";
 
 export async function setRoleAction(userId: number, role: string) {
   await requireAdmin();
@@ -25,6 +30,47 @@ export async function setRoleAction(userId: number, role: string) {
   if (!parsed.success || !userId) return;
 
   await setUserRole(userId, parsed.data.role);
+  revalidatePath("/admin");
+}
+
+/**
+ * Assign (or clear, with null) a user's home department — the unit whose module
+ * grants decide what they can reach. Takes effect on their next sign-in.
+ */
+export async function setHomeDepartmentAction(
+  userId: number,
+  departmentId: number | null
+) {
+  await requireAdmin();
+  if (!userId) return;
+  await setHomeDepartment(userId, departmentId);
+  revalidatePath("/admin");
+}
+
+export async function toggleModuleAction(
+  departmentId: number,
+  module: string,
+  granted: boolean
+) {
+  await requireAdmin();
+  if (!departmentId) return;
+  if (!MODULES.includes(module as ModuleKey)) return;
+  const key = module as ModuleKey;
+  if (granted) {
+    await addDepartmentModule(departmentId, key);
+  } else {
+    await removeDepartmentModule(departmentId, key);
+  }
+  revalidatePath("/admin");
+}
+
+export async function toggleApproverAction(
+  departmentId: number,
+  isApprover: boolean
+) {
+  await requireAdmin();
+  if (!departmentId) return;
+  await setDepartmentApprover(departmentId, isApprover);
   revalidatePath("/admin");
 }
 
