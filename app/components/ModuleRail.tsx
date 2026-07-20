@@ -20,7 +20,8 @@ export type RailIconKind =
   | "datacloud"
   | "department"
   | "sql"
-  | "setup";
+  | "setup"
+  | "guide";
 
 const RAIL_ICONS: Record<RailIconKind, React.ReactNode> = {
   home: <path d="M12 4 3 11h2.5v7h5v-4h3v4h5v-7H21z" />,
@@ -49,6 +50,9 @@ const RAIL_ICONS: Record<RailIconKind, React.ReactNode> = {
   ),
   setup: (
     <path d="M12 8.5A3.5 3.5 0 1 1 12 15.5 3.5 3.5 0 0 1 12 8.5zm8 4.5-.1 1.6-2.2.5a6 6 0 0 1-.6 1.4l1.2 1.9-1.2 1.2-1.9-1.2a6 6 0 0 1-1.4.6l-.5 2.2h-1.7l-.5-2.2a6 6 0 0 1-1.4-.6l-1.9 1.2-1.2-1.2 1.2-1.9a6 6 0 0 1-.6-1.4l-2.2-.5V12l2.2-.5a6 6 0 0 1 .6-1.4L6.5 8.2l1.2-1.2 1.9 1.2a6 6 0 0 1 1.4-.6l.5-2.2h1.7l.5 2.2a6 6 0 0 1 1.4.6l1.9-1.2 1.2 1.2-1.2 1.9a6 6 0 0 1 .6 1.4l2.2.5z" />
+  ),
+  guide: (
+    <path d="M5 4h9a3 3 0 0 1 3 3v13a2.5 2.5 0 0 0-2.5-2.5H5V4zm-1 0v15h9.5A2.5 2.5 0 0 1 16 21.5V21H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm3.5 4h6v1.6h-6V8zm0 3.2h6v1.6h-6v-1.6z" />
   ),
 };
 

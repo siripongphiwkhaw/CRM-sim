@@ -13,6 +13,7 @@ const BASE_ITEMS: RailItem[] = [
   { href: "/products", label: "Products", icon: "products" },
   { href: "/channel", label: "Sales & Channel", icon: "channel" },
   { href: "/data-cloud", label: "Data Cloud", icon: "datacloud" },
+  { href: "/guide", label: "Guide", icon: "guide" },
 ];
 
 const ADMIN_ITEMS: RailItem[] = [

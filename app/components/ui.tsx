@@ -25,7 +25,8 @@ export type ObjectKind =
   | "audit"
   | "loyalty"
   | "cases"
-  | "insights";
+  | "insights"
+  | "guide";
 
 const OBJECT_ICONS: Record<ObjectKind, { bg: string; glyph: React.ReactNode }> = {
   home: {
@@ -104,6 +105,12 @@ const OBJECT_ICONS: Record<ObjectKind, { bg: string; glyph: React.ReactNode }> =
     bg: "#e8853a",
     glyph: (
       <path d="M12 2l1.8 4.7L18.5 8.5l-4.7 1.8L12 15l-1.8-4.7L5.5 8.5l4.7-1.8zM19 14l.9 2.4 2.4.9-2.4.9L19 20.5l-.9-2.3-2.4-.9 2.4-.9z" />
+    ),
+  },
+  guide: {
+    bg: "#0d7d70",
+    glyph: (
+      <path d="M5 4h9a3 3 0 0 1 3 3v13a2.5 2.5 0 0 0-2.5-2.5H5V4zm-1 0v15h9.5A2.5 2.5 0 0 1 16 21.5V21H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm3.5 4h6v1.6h-6V8zm0 3.2h6v1.6h-6v-1.6z" />
     ),
   },
 };
