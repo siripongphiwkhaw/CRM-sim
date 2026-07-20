@@ -17,6 +17,7 @@ import {
   updateCustomer,
   deleteCustomer,
 } from "@/db/queries/customers";
+import { linkLineUser, unlinkLineUser } from "@/db/queries/member";
 import { createInteraction } from "@/db/queries/interactions";
 import { createTransaction } from "@/db/queries/transactions";
 import { redeemReward } from "@/db/queries/loyalty";
@@ -118,6 +119,7 @@ export async function recordTransactionAction(
     customer_id: formData.get("customer_id"),
     channel: formData.get("channel"),
     amount_thb: formData.get("amount_thb"),
+    brand: formData.get("brand"),
   });
   if (!parsed.success) return { error: firstError(parsed.error) };
 
@@ -125,6 +127,7 @@ export async function recordTransactionAction(
     customer_id: parsed.data.customer_id,
     channel: parsed.data.channel,
     amount_thb: parsed.data.amount_thb,
+    brand: parsed.data.brand,
     source_ref: "staff",
     created_by: session.userId ?? null,
   });
@@ -182,4 +185,35 @@ export async function recordConsentAction(
   });
   revalidatePath(`/customers/${parsed.data.customer_id}`);
   return {};
+}
+
+/**
+ * Links or unlinks a member's Only-One LINE account (staff-assisted). Catches
+ * the unique-index violation so two members can't claim one LINE account, and
+ * surfaces a readable message instead of a raw driver error.
+ */
+export async function setCustomerLineAction(
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  await requireSession();
+  const customerId = Number(formData.get("customer_id"));
+  if (!customerId) return { error: "Missing member id." };
+  const lineUserId = String(formData.get("line_user_id") ?? "").trim();
+
+  try {
+    if (lineUserId) {
+      await linkLineUser(customerId, lineUserId);
+    } else {
+      await unlinkLineUser(customerId);
+    }
+  } catch (e) {
+    // 23505 = unique_violation on customers_line_user_id.
+    if (e instanceof Error && /23505|duplicate key|unique/i.test(e.message)) {
+      return { error: "That LINE account is already linked to another member." };
+    }
+    throw e;
+  }
+  revalidatePath(`/customers/${customerId}`);
+  return { success: lineUserId ? "LINE account linked." : "LINE account unlinked." };
 }

@@ -1,57 +1,94 @@
-# Simulated CRM
+# Jenonutz Cloud
 
-A demo CRM built with **Next.js 16 (App Router)** — contacts, companies, a deals
-kanban board, and tasks, with login, server actions, and Zod validation.
+A demo CRM and loyalty platform, plus **Only-One** — a customer-facing LINE LIFF
+mini-app for cross-brand loyalty. Built with Next.js 16 (App Router), React 19,
+TypeScript, Tailwind v4, and Neon Postgres.
 
-It runs on an **in-memory SQLite database** (SQLite compiled to WebAssembly via
-[sql.js](https://sql.js.org) — no native modules), seeded with realistic demo
-data on startup. That means it deploys to serverless hosts like Vercel with
-**zero configuration**: no database to provision, no environment variables to set.
+> Fictional demo. All brand and company names are placeholders.
 
-## One-click deploy
+## Modules
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/siripongphiwkhaw/CRM-sim)
+**Staff CRM** (`/dashboard` and friends, behind sign-in):
 
-No setup required. After it deploys, open the URL and sign in with the demo
-credentials below.
+- **Members** — customer master data, Customer 360, per-purpose PDPA consent
+- **Loyalty** — append-only points ledger, tiers, rewards catalog, redemption
+- **Cases** — service workflow (open → in progress → resolved → closed)
+- **AI Insights** — rule-based signals across loyalty, channel, and consent
+- **Products** — catalog with reorder points and photos
+- **Sales & Channel** — dealers, self-ordering, stock, sell-in/sell-out, receipt OCR
+- **Data Cloud** — linked source systems
+- **SQL Console** and **Setup** — admin only
 
-> **Note — this is a demo, not durable storage.** Because the database lives in
-> memory, it is re-seeded with the same sample data whenever the serverless
-> instance cold-starts. Your edits (new contacts, deal moves, completed tasks)
-> work during a visit but are **not saved permanently** and are not shared
-> between visitors.
+**Only-One LIFF app** (`/liff`, customer-facing, mobile-first):
 
-## Demo credentials
+- One points balance spanning every brand, with a per-brand earning breakdown
+- Tier and progress to the next tier
+- Points history and a rewards catalog with self-service redemption
+- PDPA consent toggles
 
-| Email               | Password  |
-| ------------------- | --------- |
-| `admin@crm.local`   | `demo123` |
-| `jordan@crm.local`  | `demo123` |
+Access to CRM modules is scoped per department; see Setup.
 
-(Both are pre-filled on the login screen.)
+## Architecture
 
-## Run locally
+- **One shared loyalty balance per member.** Balance and lifetime are always
+  computed from the append-only `loyalty_ledger`; `customers.points`/`tier` are a
+  cache whose single writer is `recomputeCustomerCache`.
+- **Earn rate** is keyed on the member type (B2C 1pt/฿20, B2B 1pt/฿100) with a
+  tier multiplier — never on the sales channel.
+- **`transactions.brand`** records where a purchase happened, which drives the
+  cross-brand breakdown in Only-One.
+- **Schema** lives as a single idempotent SQL string in `db/schema.ts`, applied
+  on cold start by `ensureDatabase()` in `db/client.ts`. Additive changes are
+  written both in the `CREATE TABLE` body and as `ALTER TABLE … ADD COLUMN IF
+  NOT EXISTS` at the bottom, so an already-provisioned database migrates too.
+
+## Setup
+
+Requires Node 20+ and a Neon Postgres database.
 
 ```bash
 npm install
+cp .env.example .env.local     # fill in DATABASE_URL at minimum
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The database is created and
-seeded in memory automatically on first request — nothing else to configure.
+The schema is created automatically on first request. Demo logins (password
+`demo123`): `admin@crm.local` (admin), plus the department users seeded in
+`db/seed.ts`.
 
-## Features
+### Optional demo data
 
-- **Dashboard** — pipeline value, won value, task counts, pipeline-by-stage, recent activity
-- **Contacts** — searchable list, detail view with related deals & tasks, full CRUD
-- **Companies** — list with contact/deal counts, detail view, full CRUD
-- **Deals** — kanban board by stage with inline stage moves, full CRUD
-- **Tasks** — filter by open/overdue/completed, inline complete toggle, full CRUD
-- **Auth** — cookie sessions via [iron-session](https://github.com/vvo/iron-session); all routes gated by proxy (middleware)
+The app starts empty. To populate members, purchases across brands, and a
+rewards catalog for clicking through Only-One:
 
-## Tech stack
+```bash
+npx tsx --env-file=.env.local scripts/seed-demo.ts
+npx tsx --env-file=.env.local scripts/seed-demo.ts --clear   # remove it again
+```
 
-- Next.js 16 (App Router, Server Components, Server Actions)
-- React 19 + Tailwind CSS v4
-- sql.js (in-memory SQLite via WebAssembly)
-- iron-session · bcryptjs · Zod · Faker
+## Environment
+
+See `.env.example`. `DATABASE_URL` is required; everything else is optional.
+Secrets live only in `.env.local` (gitignored) — never commit them.
+
+## Only-One LINE setup
+
+`/liff` runs against a demo member picker locally with `LIFF_DEV_FALLBACK=1` (no
+LINE account needed). To connect real LINE:
+
+1. In the [LINE Developers console](https://developers.line.biz/), create a
+   **LINE Login** channel.
+2. Add a **LIFF app**: endpoint URL `https://<your-domain>/liff`, size **Full**.
+3. Enable **both** the `profile` and `openid` scopes. Without `openid`,
+   `liff.getIDToken()` returns `null` and sign-in cannot work.
+4. Set `NEXT_PUBLIC_LIFF_ID` (the LIFF ID) and `LINE_CHANNEL_ID` (the channel
+   ID) in your environment. The dev fallback disables itself automatically once
+   these are set.
+5. Open `https://liff.line.me/<LIFF_ID>` inside the LINE app. A verified user
+   with no linked membership sees a linking-request screen; staff link the LINE
+   user id to a member from the Members edit form.
+
+## Scripts
+
+- `npm run dev` · `npm run build` · `npm run lint`
+- `npx tsx --env-file=.env.local scripts/seed-demo.ts` — optional demo data

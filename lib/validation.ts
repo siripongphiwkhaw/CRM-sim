@@ -46,11 +46,27 @@ export const transactionCreateSchema = z.object({
   customer_id: z.coerce.number().int().positive(),
   channel: z.enum(TX_CHANNELS),
   amount_thb: z.coerce.number().min(0),
+  brand: z.enum(BRANDS),
 });
 
 export const redeemSchema = z.object({
   customer_id: z.coerce.number().int().positive(),
   reward_id: z.coerce.number().int().positive(),
+});
+
+/**
+ * Member self-redemption from the LIFF app. Deliberately has NO customer_id:
+ * that is derived server-side from the member session, so the shape itself
+ * makes it impossible to redeem against someone else's account.
+ */
+export const liffRedeemSchema = z.object({
+  reward_id: z.coerce.number().int().positive(),
+});
+
+/** Same rule — the member is the session, never the form. */
+export const liffConsentSchema = z.object({
+  purpose: z.enum(CONSENT_PURPOSES),
+  status: z.enum(CONSENT_STATUSES),
 });
 
 export const consentRecordSchema = z.object({

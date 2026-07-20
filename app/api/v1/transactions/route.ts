@@ -24,6 +24,7 @@ export async function POST(req: Request) {
     customer_id: parsed.data.customer_id,
     channel: parsed.data.channel,
     amount_thb: parsed.data.amount_thb,
+    brand: parsed.data.brand ?? null,
     source_ref: "api",
     created_by: auth.userId,
   });

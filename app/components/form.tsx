@@ -3,7 +3,7 @@
 import { useFormStatus } from "react-dom";
 
 const inputClass =
-  "w-full rounded border border-[#c2d0d6] bg-white px-3 py-1.5 text-sm text-[#14202b] focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600 disabled:bg-[#eef3f5]";
+  "w-full rounded-control border border-[#c2d0d6] bg-white px-3 py-1.5 text-sm text-[#14202b] focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600 disabled:bg-[#eef3f5]";
 
 export function Field({
   label,
@@ -64,7 +64,7 @@ export function Select({
 export function FormError({ message }: { message?: string }) {
   if (!message) return null;
   return (
-    <div className="rounded border border-[#fead9a] bg-[#feded8] px-3 py-2 text-sm text-[#8e030f]">
+    <div className="rounded-control border border-[#fead9a] bg-[#feded8] px-3 py-2 text-sm text-[#8e030f]">
       {message}
     </div>
   );
@@ -73,7 +73,7 @@ export function FormError({ message }: { message?: string }) {
 export function FormSuccess({ message }: { message?: string }) {
   if (!message) return null;
   return (
-    <div className="rounded border border-[#9be6ae] bg-[#cdefc4] px-3 py-2 text-sm text-[#194e31]">
+    <div className="rounded-control border border-[#9be6ae] bg-[#cdefc4] px-3 py-2 text-sm text-[#194e31]">
       {message}
     </div>
   );
@@ -92,7 +92,7 @@ export function SubmitButton({
       type="submit"
       disabled={pending || disabled}
       aria-busy={pending}
-      className="inline-flex items-center rounded-[9px] border border-brand-600 bg-brand-600 px-4 py-1.5 text-sm font-medium text-white transition duration-150 hover:border-brand-700 hover:bg-brand-700 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-50 disabled:active:scale-100"
+      className="inline-flex items-center rounded-control border border-brand-600 bg-brand-600 px-4 py-1.5 text-sm font-medium text-white transition duration-150 hover:border-brand-700 hover:bg-brand-700 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-50 disabled:active:scale-100"
     >
       {pending && (
         <svg className="mr-2 h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -126,7 +126,7 @@ export function DeleteButton({
       <input type="hidden" name="id" value={id} />
       <button
         type="submit"
-        className="inline-flex items-center rounded-[9px] border border-[#c2d0d6] bg-white px-3 py-1.5 text-sm font-medium text-[#8e030f] transition duration-150 hover:bg-[#feded8] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+        className="inline-flex items-center rounded-control border border-[#c2d0d6] bg-white px-3 py-1.5 text-sm font-medium text-[#8e030f] transition duration-150 hover:bg-[#feded8] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
       >
         {label}
       </button>

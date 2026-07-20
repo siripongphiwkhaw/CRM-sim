@@ -32,6 +32,9 @@ export const apiTransactionSchema = z.object({
   customer_id: z.coerce.number().int().positive(),
   channel: z.enum(TX_CHANNELS),
   amount_thb: z.coerce.number().min(0),
+  // Optional here (unlike the staff form) so existing API clients keep working;
+  // unattributed rows just fall into the "Unattributed" breakdown bucket.
+  brand: z.enum(BRANDS).optional(),
 });
 
 export const apiEarnSchema = z.object({

@@ -33,6 +33,11 @@ CREATE TABLE IF NOT EXISTS customers (
   data_level TEXT NOT NULL DEFAULT 'Register',
   clv REAL NOT NULL DEFAULT 0,
   last_purchase_at TEXT,
+  -- Only-One LINE link. NULL until a member is linked to a LINE account;
+  -- the unique index still permits many NULLs, so unlinked members never
+  -- collide but one LINE account can never claim two members.
+  line_user_id TEXT,
+  line_linked_at TEXT,
   created_at TEXT NOT NULL DEFAULT (now()),
   updated_at TEXT NOT NULL DEFAULT (now())
 );
@@ -263,6 +268,10 @@ CREATE TABLE IF NOT EXISTS transactions (
   amount_thb REAL NOT NULL CHECK (amount_thb >= 0),
   channel_flag TEXT CHECK (channel_flag IN ('CHANNEL_ELIGIBILITY_WARNING')),
   source_ref TEXT,
+  -- Which brand the purchase happened at. Drives the Only-One per-brand
+  -- earning breakdown. Nullable: rows written before this column existed
+  -- have genuinely unknown attribution and surface as "Unattributed".
+  brand TEXT,
   created_by INTEGER REFERENCES users(id),
   tx_date TEXT NOT NULL DEFAULT (now())
 );
@@ -283,6 +292,10 @@ CREATE TABLE IF NOT EXISTS loyalty_ledger (
   ref_type TEXT CHECK (ref_type IN ('transaction','reward','manual','seed')),
   ref_id INTEGER,
   note TEXT,
+  -- Where the entry came from: staff | api | liff | seed. Members have no
+  -- users(id), so a member-initiated burn has created_by NULL — without this
+  -- column it would be indistinguishable from an API-key burn.
+  source TEXT,
   created_by INTEGER REFERENCES users(id),
   occurred_at TEXT NOT NULL DEFAULT (now())
 );
@@ -366,4 +379,18 @@ ALTER TABLE users
   DROP CONSTRAINT IF EXISTS users_home_department_fk,
   ADD CONSTRAINT users_home_department_fk
     FOREIGN KEY (home_department_id) REFERENCES departments(id) ON DELETE SET NULL;
+
+-- Additive migrations for already-provisioned databases. CREATE TABLE IF NOT
+-- EXISTS is a silent no-op once a table exists, so columns declared in the
+-- table bodies above never reach a live database without these statements.
+-- Every one must be idempotent: this whole file runs as a single transaction
+-- on cold start, and one failure poisons the cached readiness promise for the
+-- entire server instance.
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS line_user_id TEXT;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS line_linked_at TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS customers_line_user_id ON customers(line_user_id);
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS brand TEXT;
+CREATE INDEX IF NOT EXISTS transactions_brand ON transactions(brand);
+ALTER TABLE loyalty_ledger ADD COLUMN IF NOT EXISTS source TEXT;
+CREATE INDEX IF NOT EXISTS loyalty_ledger_source ON loyalty_ledger(source);
 `;

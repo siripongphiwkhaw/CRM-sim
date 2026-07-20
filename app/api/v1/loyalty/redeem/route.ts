@@ -20,7 +20,12 @@ export async function POST(req: Request) {
   if (!(await getCustomer(parsed.data.customer_id))) {
     return jsonError(404, "NOT_FOUND", "Member not found.");
   }
-  const result = await redeemReward(parsed.data.customer_id, parsed.data.reward_id, auth.userId);
+  const result = await redeemReward(
+    parsed.data.customer_id,
+    parsed.data.reward_id,
+    auth.userId,
+    auth.via === "api_key" ? "api" : "staff"
+  );
   if (!result.ok) {
     if (result.error === "INSUFFICIENT_POINTS") {
       return jsonError(403, "INSUFFICIENT_POINTS", "Not enough points for this reward.");

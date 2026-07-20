@@ -8,7 +8,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Loyalty Cloud — Customer Data Platform",
+  title: "Jenonutz Cloud — Customer Data Platform",
   description:
     "Demo loyalty CRM / CDP with customers, products, channel data and analytics",
 };

@@ -35,6 +35,23 @@
   /* Danger */
   --color-danger: #c8102e;
 
+  /* Neutrals, named by role rather than hue so they stay honest if the palette
+     shifts. Previously these lived as ~200 hardcoded hex literals in
+     arbitrary-value classes, which made any recolour a find-and-replace. */
+  --color-ink-900: var(--foreground);  /* headings, table values */
+  --color-ink-700: #3c4f5e;            /* body / secondary text */
+  --color-ink-500: #607785;            /* labels, meta, muted */
+  --color-line-300: #c2d0d6;           /* input & button borders */
+  --color-line-200: #dde5e8;           /* card & table borders */
+  --color-surface-100: #eef3f5;        /* subtle fills, dividers, hover */
+  --color-surface-50: #f8fafb;         /* table headers, zebra */
+
+  /* Radii. Three steps only — form inputs previously rendered at Tailwind's
+     default 4px while the buttons beside them were 9px. */
+  --radius-card: 14px;
+  --radius-control: 9px;
+  --radius-pill: 999px;
+
   /* Warm neutrals kept for tier badges / product tiles */
   --color-cream-50: #fffaf0;
   --color-cream-100: #fff4e4;

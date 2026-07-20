@@ -12,6 +12,8 @@ import {
   SectionHeader,
   TierBadge,
   EmptyState,
+  ObjectIcon,
+  type ObjectKind,
 } from "@/app/components/ui";
 import { DeleteButton } from "@/app/components/form";
 import { formatCurrency, formatDate } from "@/lib/format";
@@ -20,6 +22,7 @@ import { TierPath } from "../TierPath";
 import { RecordTransactionForm } from "./RecordTransactionForm";
 import { RedeemForm } from "./RedeemForm";
 import { ConsentCard } from "./ConsentCard";
+import { LineLinkForm } from "./LineLinkForm";
 import { deleteCustomerAction } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -33,13 +36,13 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
   );
 }
 
-const TIMELINE_ICON: Record<string, string> = {
-  transaction: "🛒",
-  earn: "➕",
-  burn: "🎁",
-  adjust: "⚙️",
-  interaction: "💬",
-  case: "🎧",
+const TIMELINE_ICON: Record<string, ObjectKind> = {
+  transaction: "order",
+  earn: "earn",
+  burn: "burn",
+  adjust: "setup",
+  interaction: "customer",
+  case: "cases",
 };
 
 export default async function CustomerDetailPage({
@@ -175,6 +178,13 @@ export default async function CustomerDetailPage({
             <SectionHeader title="Redeem reward" />
             <RedeemForm customerId={customer.id} rewards={rewards} />
           </Card>
+
+          {customer.cust_type === "B2C" && (
+            <Card>
+              <SectionHeader title="Only-One (LINE)" />
+              <LineLinkForm customerId={customer.id} lineUserId={customer.line_user_id} />
+            </Card>
+          )}
         </div>
 
         <div className="space-y-4 lg:col-span-2">
@@ -191,7 +201,7 @@ export default async function CustomerDetailPage({
               <ul className="divide-y divide-[#eef3f5]">
                 {timeline.map((item, i) => (
                   <li key={i} className="flex items-center gap-3 py-2 text-sm">
-                    <span aria-hidden className="text-base">{TIMELINE_ICON[item.kind] ?? "•"}</span>
+                    <ObjectIcon kind={TIMELINE_ICON[item.kind] ?? "customer"} size="sm" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[#14202b]">{item.title}</p>
                       <p className="text-xs text-[#607785]">

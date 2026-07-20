@@ -11,24 +11,19 @@ import { listRecentCustomers, getTopCustomer } from "@/db/queries/customers";
 import { listDataSources } from "@/db/queries/dataSources";
 import {
   Card,
+  PageHeader,
   SectionHeader,
   InteractionBadge,
   TierBadge,
   ObjectIcon,
+  StatTile,
+  type ObjectKind,
 } from "@/app/components/ui";
 import { PerformanceChart } from "@/app/components/PerformanceChart";
 import { formatCurrency, formatDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-function Kpi({ label, value, accent }: { label: string; value: string; accent?: string }) {
-  return (
-    <div className="rounded border border-[#dde5e8] bg-white px-4 py-3">
-      <p className="text-xs text-[#607785]">{label}</p>
-      <p className={`mt-0.5 text-xl font-bold ${accent ?? "text-[#14202b]"}`}>{value}</p>
-    </div>
-  );
-}
 
 function BarList({ title, rows }: { title: string; rows: { label: string; count: number }[] }) {
   const max = Math.max(1, ...rows.map((r) => r.count));
@@ -71,10 +66,10 @@ export default async function HomePage() {
 
   const unhealthySources = sources.filter((s) => s.status !== "connected");
 
-  const insights: { icon: string; text: React.ReactNode }[] = [];
+  const insights: { icon: ObjectKind; text: React.ReactNode }[] = [];
   if (noPdpa > 0) {
     insights.push({
-      icon: "⚠️",
+      icon: "customer",
       text: (
         <>
           <Link href="/customers" className="font-medium text-brand-600 hover:underline">
@@ -87,7 +82,7 @@ export default async function HomePage() {
   }
   if (unhealthySources.length > 0) {
     insights.push({
-      icon: "🔄",
+      icon: "datacloud",
       text: (
         <>
           <Link href="/data-cloud" className="font-medium text-brand-600 hover:underline">
@@ -100,7 +95,7 @@ export default async function HomePage() {
   }
   if (topCustomer) {
     insights.push({
-      icon: "⭐",
+      icon: "loyalty",
       text: (
         <>
           Top member{" "}
@@ -115,12 +110,19 @@ export default async function HomePage() {
 
   return (
     <div className="space-y-4">
+      <PageHeader
+        icon="home"
+        overline="Home"
+        title="Jenonutz Cloud"
+        subtitle="Loyalty performance, members and data health at a glance"
+      />
+
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <Kpi label="Total members" value={String(overview.total_customers)} />
-        <Kpi label="Active (90d)" value={String(overview.active_customers)} accent="text-brand-600" />
-        <Kpi label="Total CLV" value={formatCurrency(overview.total_clv)} accent="text-[#2e844a]" />
-        <Kpi label="Repeat purchase" value={`${overview.repeat_rate.toFixed(1)}%`} />
-        <Kpi label="Points issued" value={overview.total_points.toLocaleString("en-US")} />
+        <StatTile label="Total members" value={String(overview.total_customers)} />
+        <StatTile label="Active (90d)" value={String(overview.active_customers)} tone="brand" />
+        <StatTile label="Total CLV" value={formatCurrency(overview.total_clv)} tone="positive" />
+        <StatTile label="Repeat purchase" value={`${overview.repeat_rate.toFixed(1)}%`} />
+        <StatTile label="Points issued" value={overview.total_points.toLocaleString("en-US")} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -144,7 +146,7 @@ export default async function HomePage() {
             <ul className="space-y-3">
               {insights.map((ins, i) => (
                 <li key={i} className="flex items-start gap-2 border-b border-[#eef3f5] pb-3 text-sm text-[#3c4f5e] last:border-0 last:pb-0">
-                  <span aria-hidden>{ins.icon}</span>
+                  <ObjectIcon kind={ins.icon} size="sm" />
                   <span>{ins.text}</span>
                 </li>
               ))}
@@ -213,7 +215,7 @@ export default async function HomePage() {
 
       {/* decorative footer nod to the classic Lightning home */}
       <p className="flex items-center gap-2 text-xs text-[#607785]">
-        <ObjectIcon kind="home" size="sm" /> Loyalty Cloud — demo environment
+        <ObjectIcon kind="home" size="sm" /> Demo environment
       </p>
     </div>
   );

@@ -25,7 +25,8 @@ export async function POST(req: Request) {
     parsed.data.points,
     "EARN",
     parsed.data.note ?? "Manual earn (API)",
-    auth.userId
+    auth.userId,
+    auth.via === "api_key" ? "api" : "staff"
   );
   const summary = await getLoyaltySummary(parsed.data.customer_id);
   return jsonOk({ entry_id: entryId, balance: summary.balance, tier: summary.tier }, 201);

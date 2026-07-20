@@ -21,7 +21,7 @@ export default function LoginPage() {
               <span key={i} className="h-1.5 w-1.5 rounded-[1px] bg-white" />
             ))}
           </span>
-          <h1 className="text-xl font-bold text-white">Loyalty Cloud</h1>
+          <h1 className="text-xl font-bold text-white">Jenonutz Cloud</h1>
           <p className="mt-1 text-xs text-brand-100">Customer Data Platform</p>
         </div>
 

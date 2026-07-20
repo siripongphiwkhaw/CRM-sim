@@ -65,12 +65,12 @@ export function ModuleRail({ items }: { items: RailItem[] }) {
       <div className="flex items-center gap-2.5 px-3 py-4 lg:px-4">
         <span
           aria-hidden
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-brand-600 text-sm font-bold text-white"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-brand-600 text-base font-bold text-white"
         >
-          L
+          J
         </span>
         <div className="hidden min-w-0 lg:block">
-          <p className="truncate text-sm font-bold leading-tight text-white">Loyalty Cloud</p>
+          <p className="truncate text-sm font-bold leading-tight text-white">Jenonutz Cloud</p>
           <p className="truncate text-[10px] leading-tight text-white/50">CRM &amp; Loyalty</p>
         </div>
       </div>

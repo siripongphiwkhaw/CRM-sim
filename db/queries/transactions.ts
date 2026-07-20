@@ -19,6 +19,8 @@ export interface CreateTransactionInput {
   customer_id: number;
   channel: TxChannel;
   amount_thb: number;
+  /** Brand the purchase happened at — drives the cross-brand breakdown. */
+  brand?: string | null;
   source_ref?: string | null;
   created_by?: number | null;
   tx_date?: string | null;
@@ -62,8 +64,8 @@ export async function createTransaction(
   const statements: { sql: string; args: QueryArgs }[] = [
     {
       sql: `INSERT INTO transactions
-              (tx_code, customer_id, channel, amount_thb, channel_flag, source_ref, created_by, tx_date)
-            VALUES (@code, @cid, @channel, @amount, @flag, @ref, @actor, @date)`,
+              (tx_code, customer_id, channel, amount_thb, channel_flag, source_ref, brand, created_by, tx_date)
+            VALUES (@code, @cid, @channel, @amount, @flag, @ref, @brand, @actor, @date)`,
       args: {
         code: txCode,
         cid: input.customer_id,
@@ -71,6 +73,7 @@ export async function createTransaction(
         amount: input.amount_thb,
         flag,
         ref: input.source_ref ?? null,
+        brand: input.brand ?? null,
         actor: input.created_by ?? null,
         date: txDate,
       },
@@ -81,9 +84,9 @@ export async function createTransaction(
   if (earn.points > 0) {
     statements.push({
       sql: `INSERT INTO loyalty_ledger
-              (customer_id, entry_type, points, rate_applied, multiplier, tier_at_time, ref_type, ref_id, note, created_by)
+              (customer_id, entry_type, points, rate_applied, multiplier, tier_at_time, ref_type, ref_id, note, created_by, source)
             VALUES (@cid, 'EARN', @points, @rate, @mult, @tier, 'transaction',
-                    (SELECT id FROM transactions WHERE tx_code = @code), @note, @actor)`,
+                    (SELECT id FROM transactions WHERE tx_code = @code), @note, @actor, 'staff')`,
       args: {
         cid: input.customer_id,
         code: txCode,

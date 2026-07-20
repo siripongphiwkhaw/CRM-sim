@@ -6,7 +6,7 @@ import {
   listRecentLedger,
 } from "@/db/queries/loyalty";
 import { getSession } from "@/lib/session";
-import { PageHeader, Card, SectionHeader, EmptyState } from "@/app/components/ui";
+import { PageHeader, Card, SectionHeader, EmptyState, StatTile } from "@/app/components/ui";
 import { formatDate } from "@/lib/format";
 import { RewardForm } from "./RewardForm";
 import { RewardActiveToggle } from "./RewardActiveToggle";
@@ -33,22 +33,10 @@ export default async function LoyaltyPage() {
       />
 
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Card>
-          <p className="text-xs text-[#607785]">Outstanding points</p>
-          <p className="mt-0.5 text-xl font-bold text-[#14202b]">{liability.outstanding.toLocaleString("en-US")}</p>
-        </Card>
-        <Card>
-          <p className="text-xs text-[#607785]">Points earned</p>
-          <p className="mt-0.5 text-xl font-bold text-[#14202b]">{liability.earned.toLocaleString("en-US")}</p>
-        </Card>
-        <Card>
-          <p className="text-xs text-[#607785]">Points burned</p>
-          <p className="mt-0.5 text-xl font-bold text-[#14202b]">{liability.burned.toLocaleString("en-US")}</p>
-        </Card>
-        <Card>
-          <p className="text-xs text-[#607785]">Redemption rate</p>
-          <p className="mt-0.5 text-xl font-bold text-[#14202b]">{liability.redemption_rate}%</p>
-        </Card>
+        <StatTile label="Outstanding points" value={liability.outstanding.toLocaleString("en-US")} />
+        <StatTile label="Points earned" value={liability.earned.toLocaleString("en-US")} tone="positive" />
+        <StatTile label="Points burned" value={liability.burned.toLocaleString("en-US")} />
+        <StatTile label="Redemption rate" value={`${liability.redemption_rate}%`} tone="brand" />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

@@ -26,6 +26,8 @@ export type ObjectKind =
   | "loyalty"
   | "cases"
   | "insights"
+  | "earn"
+  | "burn"
   | "guide";
 
 const OBJECT_ICONS: Record<ObjectKind, { bg: string; glyph: React.ReactNode }> = {
@@ -107,6 +109,16 @@ const OBJECT_ICONS: Record<ObjectKind, { bg: string; glyph: React.ReactNode }> =
       <path d="M12 2l1.8 4.7L18.5 8.5l-4.7 1.8L12 15l-1.8-4.7L5.5 8.5l4.7-1.8zM19 14l.9 2.4 2.4.9-2.4.9L19 20.5l-.9-2.3-2.4-.9 2.4-.9z" />
     ),
   },
+  earn: {
+    bg: "#2e844a",
+    glyph: <path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6V5z" />,
+  },
+  burn: {
+    bg: "#e8853a",
+    glyph: (
+      <path d="M20 7h-2.2a3 3 0 0 0-4.8-3.5A3 3 0 0 0 6.2 7H4v4h1v9h14v-9h1V7zm-6.5-2a1 1 0 1 1 1 1h-1V5zm-4 0a1 1 0 0 1 1 1h-1a1 1 0 0 1 0-2zM11 18H7v-7h4v7zm6 0h-4v-7h4v7z" />
+    ),
+  },
   guide: {
     bg: "#0d7d70",
     glyph: (
@@ -152,7 +164,7 @@ export function PageHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="mb-4 rounded-[14px] border border-[#dde5e8] bg-white px-4 py-3">
+    <div className="mb-4 rounded-card border border-[#dde5e8] bg-white px-4 py-3">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           {icon && <ObjectIcon kind={icon} size="lg" />}
@@ -166,6 +178,43 @@ export function PageHeader({
         </div>
         {action && <div className="flex items-center gap-2">{action}</div>}
       </div>
+    </div>
+  );
+}
+
+/* ---------- Stat tiles ---------- */
+
+const STAT_TONES = {
+  default: "text-[#14202b]",
+  brand: "text-brand-600",
+  positive: "text-[#194e31]",
+  warning: "text-[#5f3e02]",
+  danger: "text-[#8e030f]",
+} as const;
+
+export type StatTone = keyof typeof STAT_TONES;
+
+/**
+ * The single KPI tile used across Home and Loyalty. A closed `tone` enum
+ * rather than a free-form className: the previous per-page copies each took a
+ * raw class string, which is how one-off hex values leaked into pages.
+ */
+export function StatTile({
+  label,
+  value,
+  tone = "default",
+  hint,
+}: {
+  label: string;
+  value: string;
+  tone?: StatTone;
+  hint?: string;
+}) {
+  return (
+    <div className="rounded-card border border-[#dde5e8] bg-white px-4 py-3">
+      <p className="text-xs text-[#607785]">{label}</p>
+      <p className={`mt-0.5 text-xl font-bold ${STAT_TONES[tone]}`}>{value}</p>
+      {hint && <p className="mt-0.5 text-xs text-[#607785]">{hint}</p>}
     </div>
   );
 }
@@ -188,7 +237,7 @@ export function LinkButton({
   return (
     <Link
       href={href}
-      className={`inline-flex items-center rounded-[9px] px-4 py-1.5 text-sm font-medium transition duration-150 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ${styles}`}
+      className={`inline-flex items-center rounded-control px-4 py-1.5 text-sm font-medium transition duration-150 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ${styles}`}
     >
       {children}
     </Link>
@@ -200,7 +249,7 @@ export function LinkButton({
 function Badge({ className, children }: { className: string; children: React.ReactNode }) {
   return (
     <span
-      className={`inline-flex rounded-[16px] px-2 py-0.5 text-xs font-medium ${className}`}
+      className={`inline-flex rounded-pill px-2 py-0.5 text-xs font-medium ${className}`}
     >
       {children}
     </span>
@@ -340,7 +389,7 @@ export function Card({
 }) {
   return (
     <div
-      className={`rounded-[14px] border border-[#dde5e8] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.05)] ${className}`}
+      className={`rounded-card border border-[#dde5e8] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.05)] ${className}`}
     >
       {children}
     </div>
@@ -423,7 +472,7 @@ export function SortableTh({
 
 export function EmptyState({ message }: { message: string }) {
   return (
-    <div className="rounded-[14px] border border-dashed border-[#c2d0d6] bg-white p-8 text-center text-sm text-[#607785]">
+    <div className="rounded-card border border-dashed border-[#c2d0d6] bg-white p-8 text-center text-sm text-[#607785]">
       {message}
     </div>
   );

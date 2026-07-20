@@ -42,7 +42,10 @@ export async function getTierRules(): Promise<TierRule[]> {
 
 export async function getBalance(customerId: number): Promise<number> {
   const row = await get<{ balance: number }>(
-    `SELECT COALESCE(SUM(CASE WHEN entry_type='EARN' THEN points ELSE -points END), 0) AS balance
+    // ::int is required — SUM() over integer returns bigint, which the Neon
+    // driver hands back as a string. Without the cast this returns "4011"
+    // rather than 4011 and every downstream comparison relies on coercion.
+    `SELECT COALESCE(SUM(CASE WHEN entry_type='EARN' THEN points ELSE -points END), 0)::int AS balance
      FROM loyalty_ledger WHERE customer_id = ?`,
     [customerId]
   );
@@ -51,7 +54,7 @@ export async function getBalance(customerId: number): Promise<number> {
 
 export async function getLifetimeEarned(customerId: number): Promise<number> {
   const row = await get<{ lifetime: number }>(
-    `SELECT COALESCE(SUM(points), 0) AS lifetime
+    `SELECT COALESCE(SUM(points), 0)::int AS lifetime
      FROM loyalty_ledger WHERE customer_id = ? AND entry_type = 'EARN'`,
     [customerId]
   );
@@ -63,6 +66,9 @@ export interface LoyaltySummary {
   lifetime: number;
   tier: Tier;
   multiplier: number;
+  /** Lifetime points at which the CURRENT tier starts — the floor of the
+   * progress arc. Without it, progress toward the next tier can't be drawn. */
+  tier_at: number;
   next_tier: Tier | null;
   next_tier_at: number | null;
 }
@@ -77,11 +83,13 @@ export async function getLoyaltySummary(customerId: number): Promise<LoyaltySumm
   const higher = rules
     .filter((r) => r.min_lifetime_points > lifetime)
     .sort((a, b) => a.min_lifetime_points - b.min_lifetime_points)[0];
+  const current = rules.find((r) => r.tier === tier);
   return {
     balance,
     lifetime,
     tier,
     multiplier: multiplierForTier(tier, rules),
+    tier_at: current?.min_lifetime_points ?? 0,
     next_tier: higher?.tier ?? null,
     next_tier_at: higher?.min_lifetime_points ?? null,
   };
@@ -119,6 +127,52 @@ export function listRecentLedger(limit = 20): Promise<RecentLedgerRow[]> {
   );
 }
 
+export interface BrandEarn {
+  brand: string;
+  points: number;
+  tx_count: number;
+  amount_thb: number;
+}
+
+/**
+ * EARN points grouped by the brand each purchase happened at — the Only-One
+ * cross-brand breakdown.
+ *
+ * `ref_type = 'transaction'` is load-bearing: ref_id is a bare INTEGER with no
+ * foreign key and is reused across entry kinds (a 'reward' row stores
+ * rewards.id there). Without that predicate this would join reward ids against
+ * transaction ids and silently attribute points to the wrong brand.
+ *
+ * The ::int casts matter too — SUM() over integer returns bigint, which the
+ * Neon driver hands back as a string, and the UI does arithmetic on these.
+ */
+export function getBrandEarnBreakdown(customerId: number): Promise<BrandEarn[]> {
+  return all<BrandEarn>(
+    `SELECT COALESCE(t.brand, 'Unattributed') AS brand,
+            COALESCE(SUM(l.points), 0)::int   AS points,
+            COUNT(*)::int                     AS tx_count,
+            COALESCE(SUM(t.amount_thb), 0)    AS amount_thb
+       FROM loyalty_ledger l
+       JOIN transactions t ON t.id = l.ref_id
+      WHERE l.customer_id = @cid
+        AND l.entry_type = 'EARN'
+        AND l.ref_type = 'transaction'
+      GROUP BY COALESCE(t.brand, 'Unattributed')
+      ORDER BY points DESC, brand ASC`,
+    { cid: customerId }
+  );
+}
+
+/** Everything the LIFF home screen needs, in one round of parallel reads. */
+export async function getMemberHome(customerId: number) {
+  const [summary, brands, recent] = await Promise.all([
+    getLoyaltySummary(customerId),
+    getBrandEarnBreakdown(customerId),
+    listLedger(customerId, { limit: 5 }),
+  ]);
+  return { summary, brands, recent };
+}
+
 /** Single writer of the denormalized customers.points / customers.tier caches. */
 export async function recomputeCustomerCache(customerId: number): Promise<void> {
   const summary = await getLoyaltySummary(customerId);
@@ -130,18 +184,21 @@ export async function recomputeCustomerCache(customerId: number): Promise<void> 
 }
 
 /** Manual EARN or ADJUST credit (points>0). ADJUST does not count toward tier. */
+export type LedgerSource = "staff" | "api" | "liff";
+
 export async function postAdjustment(
   customerId: number,
   points: number,
   direction: "EARN" | "ADJUST",
   note: string | null,
-  actorId: number | null
+  actorId: number | null,
+  source: LedgerSource = "staff"
 ): Promise<number> {
   const summary = await getLoyaltySummary(customerId);
   const entryId = await run(
     `INSERT INTO loyalty_ledger
-       (customer_id, entry_type, points, tier_at_time, ref_type, note, created_by)
-     VALUES (@cid, @type, @points, @tier, 'manual', @note, @actor) RETURNING id`,
+       (customer_id, entry_type, points, tier_at_time, ref_type, note, created_by, source)
+     VALUES (@cid, @type, @points, @tier, 'manual', @note, @actor, @source) RETURNING id`,
     {
       cid: customerId,
       type: direction,
@@ -149,6 +206,7 @@ export async function postAdjustment(
       tier: summary.tier,
       note,
       actor: actorId,
+      source,
     }
   );
   await recomputeCustomerCache(customerId);
@@ -159,10 +217,17 @@ export type RedeemResult =
   | { ok: true; entryId: number; balance: number }
   | { ok: false; error: "INSUFFICIENT_POINTS" | "REWARD_INACTIVE" | "REWARD_NOT_FOUND" };
 
+/**
+ * Burns points for a reward. `source` distinguishes a member self-redeeming in
+ * LIFF from an API-key burn — both have created_by NULL (a member is a
+ * customers row, not a users row), so without it they'd be indistinguishable
+ * in the ledger.
+ */
 export async function redeemReward(
   customerId: number,
   rewardId: number,
-  actorId: number | null
+  actorId: number | null,
+  source: LedgerSource = "staff"
 ): Promise<RedeemResult> {
   const reward = await getReward(rewardId);
   if (!reward) return { ok: false, error: "REWARD_NOT_FOUND" };
@@ -175,15 +240,18 @@ export async function redeemReward(
 
   const entryId = await run(
     `INSERT INTO loyalty_ledger
-       (customer_id, entry_type, points, tier_at_time, ref_type, ref_id, note, created_by)
-     VALUES (@cid, 'BURN', @points, @tier, 'reward', @rid, @note, @actor) RETURNING id`,
+       (customer_id, entry_type, points, tier_at_time, ref_type, ref_id, note, created_by, source)
+     VALUES (@cid, 'BURN', @points, @tier, 'reward', @rid, @note, @actor, @source) RETURNING id`,
     {
       cid: customerId,
       points: reward.points_cost,
       tier: summary.tier,
       rid: rewardId,
-      note: `Redeemed: ${reward.name}`,
+      // The CRM ledger feed renders `note` directly, so staff see the origin
+      // with no extra UI work.
+      note: source === "liff" ? `Redeemed: ${reward.name} · via LINE` : `Redeemed: ${reward.name}`,
       actor: actorId,
+      source,
     }
   );
   await recomputeCustomerCache(customerId);
@@ -252,13 +320,13 @@ export interface LiabilityStats {
 export async function getLiabilityStats(): Promise<LiabilityStats> {
   const row = await get<{ earned: number; burned: number; outstanding: number }>(
     `SELECT
-       COALESCE(SUM(CASE WHEN entry_type='EARN' THEN points ELSE 0 END), 0) AS earned,
-       COALESCE(SUM(CASE WHEN entry_type='BURN' THEN points ELSE 0 END), 0) AS burned,
-       COALESCE(SUM(CASE WHEN entry_type='EARN' THEN points ELSE -points END), 0) AS outstanding
+       COALESCE(SUM(CASE WHEN entry_type='EARN' THEN points ELSE 0 END), 0)::int AS earned,
+       COALESCE(SUM(CASE WHEN entry_type='BURN' THEN points ELSE 0 END), 0)::int AS burned,
+       COALESCE(SUM(CASE WHEN entry_type='EARN' THEN points ELSE -points END), 0)::int AS outstanding
      FROM loyalty_ledger`
   );
   const members = await get<{ n: number }>(
-    "SELECT COUNT(DISTINCT customer_id) AS n FROM loyalty_ledger"
+    "SELECT COUNT(DISTINCT customer_id)::int AS n FROM loyalty_ledger"
   );
   const earned = row?.earned ?? 0;
   const burned = row?.burned ?? 0;

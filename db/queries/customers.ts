@@ -17,6 +17,9 @@ export interface Customer {
   data_level: DataLevel;
   clv: number;
   last_purchase_at: string | null;
+  /** Linked Only-One LINE account, NULL until staff link it. */
+  line_user_id: string | null;
+  line_linked_at: string | null;
   created_at: string;
   updated_at: string;
 }

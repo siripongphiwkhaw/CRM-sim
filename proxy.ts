@@ -14,8 +14,11 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const isLoginPage = pathname === "/login";
+  // The Only-One LIFF mini-app is customer-facing: members authenticate with a
+  // LINE ID token into their own `member_session` cookie, never a staff one.
+  const isPublicPath = isLoginPage || pathname.startsWith("/liff");
 
-  if (!session.userId && !isLoginPage) {
+  if (!session.userId && !isPublicPath) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
