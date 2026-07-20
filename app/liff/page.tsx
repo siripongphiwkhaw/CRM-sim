@@ -18,6 +18,7 @@ import {
   DemoBanner,
 } from "./components/ui";
 import { EarnDemoForm } from "./components/EarnDemoForm";
+import { RegisterPanel } from "./RegisterPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -25,9 +26,15 @@ export default async function LiffHomePage() {
   const auth = await requireMember();
 
   if (!auth.ok) {
-    if (auth.reason === "UNLINKED") redirect("/liff/link");
-    // No session yet: LiffProvider signs in when LINE is configured; otherwise
-    // offer the demo picker if this environment allows it.
+    // First-time user: render the registration form INLINE. Never redirect to
+    // another path here — the LINE LIFF login round-trip completes at the
+    // endpoint URL, and a server redirect mid-login makes the SDK re-trigger
+    // login endlessly (ERR_TOO_MANY_REDIRECTS).
+    if (auth.reason === "UNLINKED") {
+      return <RegisterPanel displayName={auth.displayName} />;
+    }
+    // No session yet: locally, offer the demo picker; in production LiffProvider
+    // signs the member in and refreshes.
     if (!LIFF_CONFIGURED && (await demoAccessAllowed())) redirect("/liff/dev");
     return (
       <LiffShell>
@@ -42,7 +49,9 @@ export default async function LiffHomePage() {
     getCustomer(auth.customerId),
     getMemberHome(auth.customerId),
   ]);
-  if (!member) redirect("/liff/link");
+  // Cache says linked but the row is gone (rare) — show registration inline
+  // rather than redirecting, same reason as above.
+  if (!member) return <RegisterPanel displayName={undefined} />;
 
   const { summary, brands, recent } = home;
   const totalBrandPoints = brands.reduce((sum, b) => sum + b.points, 0);
