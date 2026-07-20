@@ -69,6 +69,13 @@ export const liffConsentSchema = z.object({
   status: z.enum(CONSENT_STATUSES),
 });
 
+/** Demo "simulate a purchase" from LIFF. Customer comes from the session. */
+export const liffEarnSchema = z.object({
+  brand: z.enum(BRANDS),
+  quantity: z.coerce.number().int().positive().max(999),
+  unit_price: z.coerce.number().positive().max(1_000_000),
+});
+
 export const consentRecordSchema = z.object({
   customer_id: z.coerce.number().int().positive(),
   purpose: z.enum(CONSENT_PURPOSES),

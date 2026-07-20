@@ -2,7 +2,7 @@ import { getIronSession, type IronSession, type SessionOptions } from "iron-sess
 import { cookies } from "next/headers";
 import { SESSION_PASSWORD, getSession } from "./session";
 import { LINE_CHANNEL_ID, LIFF_CONFIGURED, DEV_FALLBACK_ENABLED } from "./liffEnv";
-import { getCustomerByLineUserId } from "@/db/queries/member";
+import { getOrCreateLineMember } from "@/db/queries/member";
 
 /**
  * Member-side auth for the Only-One LIFF app. Deliberately separate from
@@ -127,13 +127,11 @@ export async function establishMemberSession(
   session.demo = false;
   session.impersonatedBy = undefined;
 
-  const customer = await getCustomerByLineUserId(payload.sub);
-  session.customerId = customer?.id;
+  // First login auto-registers a membership from the LINE profile and links it.
+  const customer = await getOrCreateLineMember(payload.sub, payload.name);
+  session.customerId = customer.id;
   await session.save();
 
-  if (!customer) {
-    return { ok: false, reason: "UNLINKED", lineUserId: payload.sub, displayName: payload.name };
-  }
   return { ok: true, customerId: customer.id, lineUserId: payload.sub, demo: false };
 }
 

@@ -17,6 +17,7 @@ import {
   BottomNav,
   DemoBanner,
 } from "./components/ui";
+import { EarnDemoForm } from "./components/EarnDemoForm";
 
 export const dynamic = "force-dynamic";
 
@@ -66,6 +67,16 @@ export default async function LiffHomePage() {
             nextTier={summary.next_tier as Tier | null}
             tier={summary.tier as Tier}
           />
+        </div>
+
+        <div className="mt-3">
+          <SectionCard title="Add points (demo)">
+            <p className="mb-2 text-xs text-[#607785]">
+              Simulate a purchase at any brand — it writes a real transaction to
+              the CRM and your balance updates here.
+            </p>
+            <EarnDemoForm />
+          </SectionCard>
         </div>
 
         <div className="mt-3">

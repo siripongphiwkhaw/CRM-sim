@@ -24,6 +24,8 @@ export interface CreateTransactionInput {
   source_ref?: string | null;
   created_by?: number | null;
   tx_date?: string | null;
+  /** Ledger origin for the EARN row: staff (default), api, or liff. */
+  source?: "staff" | "api" | "liff";
 }
 
 export interface CreateTransactionResult {
@@ -86,7 +88,7 @@ export async function createTransaction(
       sql: `INSERT INTO loyalty_ledger
               (customer_id, entry_type, points, rate_applied, multiplier, tier_at_time, ref_type, ref_id, note, created_by, source)
             VALUES (@cid, 'EARN', @points, @rate, @mult, @tier, 'transaction',
-                    (SELECT id FROM transactions WHERE tx_code = @code), @note, @actor, 'staff')`,
+                    (SELECT id FROM transactions WHERE tx_code = @code), @note, @actor, @source)`,
       args: {
         cid: input.customer_id,
         code: txCode,
@@ -96,6 +98,7 @@ export async function createTransaction(
         tier: customer.tier,
         note: `Earn on ${input.channel} purchase`,
         actor: input.created_by ?? null,
+        source: input.source ?? "staff",
       },
     });
   }

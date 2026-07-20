@@ -8,9 +8,16 @@ import {
   clearMemberSession,
   demoAccessAllowed,
 } from "@/lib/liffAuth";
-import { liffRedeemSchema, liffConsentSchema, firstError, type FormState } from "@/lib/validation";
+import {
+  liffRedeemSchema,
+  liffConsentSchema,
+  liffEarnSchema,
+  firstError,
+  type FormState,
+} from "@/lib/validation";
 import { redeemReward } from "@/db/queries/loyalty";
 import { recordConsent } from "@/db/queries/consent";
+import { createTransaction } from "@/db/queries/transactions";
 import { createCase } from "@/db/queries/cases";
 
 /** Exchanges a LIFF ID token for a member session. Verification happens server-side. */
@@ -74,6 +81,44 @@ export async function liffRedeemAction(
     return { error: "That reward could not be found." };
   }
   return { success: `Redeemed. You have ${result.balance.toLocaleString("en-US")} points left.` };
+}
+
+/**
+ * Demo: simulate a purchase to earn points. Not a real-world flow (members
+ * don't award themselves points) — it's here to show the full loop end to end.
+ * The customer is the session; brand/qty/price come from the form. Writes a
+ * real transaction, so the earn shows in the CRM too, then the balance updates.
+ */
+export async function liffEarnAction(
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const auth = await requireMember();
+  if (!auth.ok) return { error: "Your session expired. Please reopen the app." };
+
+  const parsed = liffEarnSchema.safeParse({
+    brand: formData.get("brand"),
+    quantity: formData.get("quantity"),
+    unit_price: formData.get("unit_price"),
+  });
+  if (!parsed.success) return { error: firstError(parsed.error) };
+
+  const amount = parsed.data.quantity * parsed.data.unit_price;
+  const result = await createTransaction({
+    customer_id: auth.customerId,
+    channel: "D2C",
+    amount_thb: amount,
+    brand: parsed.data.brand,
+    source_ref: "liff-demo",
+    created_by: null,
+    source: "liff",
+  });
+
+  revalidatePath("/liff");
+  revalidatePath("/liff/history");
+  return {
+    success: `+${result.earned.points} points — ฿${amount.toLocaleString("en-US")} at ${parsed.data.brand}.`,
+  };
 }
 
 /** Consent toggle — customer also derived from the session, never the form. */
