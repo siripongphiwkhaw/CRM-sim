@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import type { FormState } from "@/lib/validation";
 import { registerLineMemberAction } from "../actions";
 import { LiffButton } from "../components/LiffButton";
@@ -18,11 +19,24 @@ export function RegisterForm({
   lastName: string;
 }) {
   const [state, formAction] = useActionState<FormState, FormData>(registerLineMemberAction, {});
+  const router = useRouter();
+
+  // The action opens the member session and returns success rather than
+  // redirecting (Server-Action redirects are unreliable inside the LINE
+  // WebView). Refresh once the session exists so /liff re-renders into points.
+  useEffect(() => {
+    if (state.success) router.refresh();
+  }, [state.success, router]);
 
   return (
     <form action={formAction} className="space-y-3 text-left">
       {state.error && (
         <p className="rounded-[12px] bg-[#feded8] px-3 py-2 text-sm text-[#8e030f]">{state.error}</p>
+      )}
+      {state.success && (
+        <p className="rounded-[12px] bg-[#dff5ec] px-3 py-2 text-sm text-[#0d7d70]">
+          {state.success} Opening your points…
+        </p>
       )}
 
       <div className="flex gap-2">

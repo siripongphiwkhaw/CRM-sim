@@ -29,6 +29,14 @@ export function formatRelative(value: string | null | undefined): string {
   return `${Math.floor(secs / 86400)}d ago`;
 }
 
+/** Masks a LINE user id (Uxxxx…xxxx) so it's recognisable without exposing it
+ * in full. Short ids fall back to the raw value. */
+export function maskLineId(id: string | null | undefined): string {
+  if (!id) return "—";
+  if (id.length <= 12) return id;
+  return `${id.slice(0, 6)}…${id.slice(-4)}`;
+}
+
 export function isOverdue(dueDate: string | null, completed: number): boolean {
   if (!dueDate || completed) return false;
   const due = new Date(dueDate.length <= 10 ? `${dueDate}T23:59:59` : dueDate);

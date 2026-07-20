@@ -1,11 +1,18 @@
 import { LiffShell } from "./components/ui";
 import { RegisterForm } from "./link/RegisterForm";
+import { maskLineId } from "@/lib/format";
 
 /**
  * First-time registration, rendered inline at the LIFF endpoint (never via a
  * redirect — see the note in page.tsx about the LIFF login loop).
  */
-export function RegisterPanel({ displayName }: { displayName?: string }) {
+export function RegisterPanel({
+  displayName,
+  lineUserId,
+}: {
+  displayName?: string;
+  lineUserId?: string | null;
+}) {
   const parts = (displayName ?? "").trim().split(/\s+/).filter(Boolean);
   const firstName = parts[0] ?? "";
   const lastName = parts.slice(1).join(" ") ?? "";
@@ -26,6 +33,13 @@ export function RegisterPanel({ displayName }: { displayName?: string }) {
             Create your Only-One membership to start earning points across every
             brand. Just confirm your details.
           </p>
+
+          {lineUserId && (
+            <p className="mx-auto mt-3 w-fit rounded-full bg-brand-50 px-3 py-1 text-xs text-brand-700">
+              Connected to LINE{displayName ? ` as ${displayName}` : ""} ·{" "}
+              <span className="font-mono">{maskLineId(lineUserId)}</span>
+            </p>
+          )}
         </div>
 
         <div className="mt-4">

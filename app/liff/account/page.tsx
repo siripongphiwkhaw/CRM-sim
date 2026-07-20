@@ -4,6 +4,7 @@ import { getCustomer } from "@/db/queries/customers";
 import { getCurrentConsents } from "@/db/queries/consent";
 import { getLoyaltySummary } from "@/db/queries/loyalty";
 import { CONSENT_PURPOSES, CONSENT_PURPOSE_LABELS } from "@/lib/constants";
+import { maskLineId } from "@/lib/format";
 import { LiffShell, SectionCard, BottomNav, DemoBanner } from "../components/ui";
 import { ConsentToggle } from "./ConsentToggle";
 import { SignOutButton } from "./SignOutButton";
@@ -54,7 +55,14 @@ export default async function LiffAccountPage() {
             <div className="flex justify-between gap-3 py-2">
               <dt className="text-[#607785]">LINE</dt>
               <dd className="text-right text-[#14202b]">
-                {member.line_user_id ? "Linked" : "Not linked"}
+                {member.line_user_id ? (
+                  <>
+                    Linked ·{" "}
+                    <span className="font-mono text-xs">{maskLineId(member.line_user_id)}</span>
+                  </>
+                ) : (
+                  "Not linked"
+                )}
               </dd>
             </div>
           </dl>

@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import {
   requireMember,
   establishMemberSession,
@@ -174,18 +173,30 @@ export async function registerLineMemberAction(
   });
   if (!parsed.success) return { error: firstError(parsed.error) };
 
-  const member = await registerLineMember(auth.lineUserId, {
-    firstName: parsed.data.first_name,
-    lastName: parsed.data.last_name,
-    phone: parsed.data.phone,
-    email: parsed.data.email,
-  });
+  let memberId: number;
+  try {
+    const member = await registerLineMember(auth.lineUserId, {
+      firstName: parsed.data.first_name,
+      lastName: parsed.data.last_name,
+      phone: parsed.data.phone,
+      email: parsed.data.email,
+    });
+    memberId = member.id;
+  } catch {
+    // Never leave the button as a silent no-op — surface a retryable message.
+    return { error: "Could not create your membership. Please try again." };
+  }
 
   // Open the member's session so the next render resolves straight to points.
   const session = await getMemberSession();
-  session.customerId = member.id;
+  session.customerId = memberId;
   await session.save();
 
+  // Deliberately NOT redirect(): a Server-Action redirect is a client
+  // navigation the LINE in-app WebView often swallows, which stranded members
+  // on the form even though the account was created. Returning success lets the
+  // client router.refresh() re-render /liff, which now resolves to the points
+  // screen because the session cookie carries customerId.
   revalidatePath("/liff");
-  redirect("/liff");
+  return { success: "Membership created." };
 }

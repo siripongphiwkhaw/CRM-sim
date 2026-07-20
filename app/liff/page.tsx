@@ -31,7 +31,7 @@ export default async function LiffHomePage() {
     // endpoint URL, and a server redirect mid-login makes the SDK re-trigger
     // login endlessly (ERR_TOO_MANY_REDIRECTS).
     if (auth.reason === "UNLINKED") {
-      return <RegisterPanel displayName={auth.displayName} />;
+      return <RegisterPanel displayName={auth.displayName} lineUserId={auth.lineUserId} />;
     }
     // No session yet: locally, offer the demo picker; in production LiffProvider
     // signs the member in and refreshes.
