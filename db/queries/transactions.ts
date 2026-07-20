@@ -33,9 +33,11 @@ export interface CreateTransactionResult {
 
 /**
  * Records a purchase and credits loyalty points atomically. The transaction and
- * its matching EARN ledger row are inserted in one batch (the ledger row uses
- * SQLite's last_insert_rowid() to reference the transaction). Then the customer
- * cache (points/tier) is recomputed and clv/last_purchase_at updated.
+ * its matching EARN ledger row are inserted in one batch — the ledger row locates
+ * the transaction via a `(SELECT id FROM transactions WHERE tx_code = ...)`
+ * subquery on the code generated up front, rather than relying on any
+ * connection-local "last inserted id" state. Then the customer cache
+ * (points/tier) is recomputed and clv/last_purchase_at updated.
  */
 export async function createTransaction(
   input: CreateTransactionInput
@@ -80,9 +82,11 @@ export async function createTransaction(
     statements.push({
       sql: `INSERT INTO loyalty_ledger
               (customer_id, entry_type, points, rate_applied, multiplier, tier_at_time, ref_type, ref_id, note, created_by)
-            VALUES (@cid, 'EARN', @points, @rate, @mult, @tier, 'transaction', last_insert_rowid(), @note, @actor)`,
+            VALUES (@cid, 'EARN', @points, @rate, @mult, @tier, 'transaction',
+                    (SELECT id FROM transactions WHERE tx_code = @code), @note, @actor)`,
       args: {
         cid: input.customer_id,
+        code: txCode,
         points: earn.points,
         rate: earn.rate,
         mult: earn.multiplier,
@@ -94,7 +98,7 @@ export async function createTransaction(
   }
 
   statements.push({
-    sql: `UPDATE customers SET clv = clv + @amount, last_purchase_at = @date, updated_at = datetime('now')
+    sql: `UPDATE customers SET clv = clv + @amount, last_purchase_at = @date, updated_at = now()
           WHERE id = @cid`,
     args: { amount: input.amount_thb, date: txDate, cid: input.customer_id },
   });

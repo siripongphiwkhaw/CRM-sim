@@ -90,7 +90,7 @@ export async function createCase(input: CaseInput): Promise<number> {
   const caseNumber = `CASE-${String(next?.n ?? 1).padStart(5, "0")}`;
   return run(
     `INSERT INTO cases (case_number, customer_id, subject, description, category, priority, created_by)
-     VALUES (@num, @cid, @subject, @desc, @cat, @prio, @actor)`,
+     VALUES (@num, @cid, @subject, @desc, @cat, @prio, @actor) RETURNING id`,
     {
       num: caseNumber,
       cid: input.customer_id ?? null,
@@ -110,11 +110,11 @@ export function updateCaseStatus(
 ): Promise<number> {
   const resolvedClause =
     status === "RESOLVED" || status === "CLOSED"
-      ? "resolved_at = COALESCE(resolved_at, datetime('now')),"
+      ? "resolved_at = COALESCE(resolved_at, now()::text),"
       : "resolved_at = NULL,";
   return run(
     `UPDATE cases SET status = @status, ${resolvedClause}
-       resolution = COALESCE(@resolution, resolution), updated_at = datetime('now')
+       resolution = COALESCE(@resolution, resolution), updated_at = now()
      WHERE id = @id`,
     { id, status, resolution: resolution ?? null }
   );
@@ -122,7 +122,7 @@ export function updateCaseStatus(
 
 export function assignCase(id: number, userId: number | null): Promise<number> {
   return run(
-    "UPDATE cases SET assigned_to = ?, updated_at = datetime('now') WHERE id = ?",
+    "UPDATE cases SET assigned_to = ?, updated_at = now() WHERE id = ?",
     [userId, id]
   );
 }

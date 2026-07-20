@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import type { SqlValue } from "sql.js";
+import type { SqlValue } from "@/db/client";
 import { FormError, SubmitButton } from "@/app/components/form";
 import { runQueryAction, type SqlState } from "./actions";
 
@@ -12,7 +12,6 @@ ORDER BY members DESC`;
 
 function cell(value: SqlValue): string {
   if (value === null) return "NULL";
-  if (value instanceof Uint8Array) return "[blob]";
   return String(value);
 }
 

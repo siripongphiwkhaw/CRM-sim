@@ -58,7 +58,8 @@ export async function createReceiptScan(input: ReceiptScanInput): Promise<number
   const scanId = await run(
     `INSERT INTO receipt_scans
        (scan_type, order_id, store_name, channel, receipt_date, receipt_total, currency, raw_summary, match_status, note, created_by)
-     VALUES (@scan_type, @order_id, @store_name, @channel, @receipt_date, @receipt_total, @currency, @raw_summary, @match_status, @note, @created_by)`,
+     VALUES (@scan_type, @order_id, @store_name, @channel, @receipt_date, @receipt_total, @currency, @raw_summary, @match_status, @note, @created_by)
+     RETURNING id`,
     {
       scan_type: input.scan_type,
       order_id: input.order_id ?? null,

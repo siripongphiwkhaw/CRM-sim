@@ -110,8 +110,8 @@ export function findDuplicate(
   if (!phone && !email) return Promise.resolve(undefined);
   return get<Customer>(
     `SELECT * FROM customers
-     WHERE (@phone IS NOT NULL AND phone = @phone)
-        OR (@email IS NOT NULL AND email = @email)
+     WHERE (@phone::text IS NOT NULL AND phone = @phone)
+        OR (@email::text IS NOT NULL AND email = @email)
      LIMIT 1`,
     { phone: phone ?? null, email: email ?? null }
   );
@@ -138,7 +138,8 @@ export async function createCustomer(
         register_channel, data_level)
      VALUES
        (@member_code, @first_name, @last_name, @email, @phone, @brand, @cust_type,
-        @register_channel, @data_level)`,
+        @register_channel, @data_level)
+     RETURNING id`,
     {
       member_code: memberCode,
       first_name: input.first_name,
@@ -176,7 +177,7 @@ export async function updateCustomer(
        first_name = @first_name, last_name = @last_name, email = @email,
        phone = @phone, brand = @brand, cust_type = @cust_type,
        register_channel = @register_channel, data_level = @data_level,
-       updated_at = datetime('now')
+       updated_at = now()
      WHERE id = @id`,
     {
       id,

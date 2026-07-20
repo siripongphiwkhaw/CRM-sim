@@ -51,7 +51,7 @@ export function getProduct(id: number): Promise<Product | undefined> {
 export function createProduct(input: ProductInput): Promise<number> {
   return run(
     `INSERT INTO products (sku, name, brand, category, unit_price, reorder_point, image_url)
-     VALUES (@sku, @name, @brand, @category, @unit_price, @reorder_point, @image_url)`,
+     VALUES (@sku, @name, @brand, @category, @unit_price, @reorder_point, @image_url) RETURNING id`,
     {
       sku: input.sku,
       name: input.name,

@@ -25,7 +25,7 @@ export function listDepartments(): Promise<DepartmentWithPics[]> {
   return all<DepartmentWithPics>(
     `SELECT d.*,
        COUNT(dp.user_id) AS pic_count,
-       GROUP_CONCAT(u.name, ', ') AS pic_names
+       string_agg(u.name, ', ') AS pic_names
      FROM departments d
      LEFT JOIN department_pics dp ON dp.department_id = d.id
      LEFT JOIN users u ON u.id = dp.user_id
@@ -87,7 +87,7 @@ export interface DepartmentInput {
 
 export function createDepartment(input: DepartmentInput): Promise<number> {
   return run(
-    "INSERT INTO departments (name, description) VALUES (@name, @description)",
+    "INSERT INTO departments (name, description) VALUES (@name, @description) RETURNING id",
     { name: input.name, description: input.description ?? null }
   );
 }
@@ -97,7 +97,7 @@ export async function updateDepartment(
   input: DepartmentInput
 ): Promise<void> {
   await run(
-    "UPDATE departments SET name = @name, description = @description, updated_at = datetime('now') WHERE id = @id",
+    "UPDATE departments SET name = @name, description = @description, updated_at = now() WHERE id = @id",
     { id, name: input.name, description: input.description ?? null }
   );
 }
@@ -111,7 +111,7 @@ export async function addDepartmentPic(
   userId: number
 ): Promise<void> {
   await run(
-    "INSERT OR IGNORE INTO department_pics (department_id, user_id) VALUES (?, ?)",
+    "INSERT INTO department_pics (department_id, user_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
     [departmentId, userId]
   );
 }
@@ -160,7 +160,7 @@ export async function addDepartmentModule(
   module: ModuleKey
 ): Promise<void> {
   await run(
-    "INSERT OR IGNORE INTO department_modules (department_id, module) VALUES (?, ?)",
+    "INSERT INTO department_modules (department_id, module) VALUES (?, ?) ON CONFLICT DO NOTHING",
     [departmentId, module]
   );
 }
@@ -180,7 +180,7 @@ export async function setDepartmentApprover(
   isApprover: boolean
 ): Promise<void> {
   await run(
-    "UPDATE departments SET is_approver = ?, updated_at = datetime('now') WHERE id = ?",
+    "UPDATE departments SET is_approver = ?, updated_at = now() WHERE id = ?",
     [isApprover ? 1 : 0, departmentId]
   );
 }

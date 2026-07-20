@@ -123,7 +123,7 @@ export function listRecentLedger(limit = 20): Promise<RecentLedgerRow[]> {
 export async function recomputeCustomerCache(customerId: number): Promise<void> {
   const summary = await getLoyaltySummary(customerId);
   await run(
-    `UPDATE customers SET points = @points, tier = @tier, updated_at = datetime('now')
+    `UPDATE customers SET points = @points, tier = @tier, updated_at = now()
      WHERE id = @id`,
     { points: summary.balance, tier: summary.tier, id: customerId }
   );
@@ -141,7 +141,7 @@ export async function postAdjustment(
   const entryId = await run(
     `INSERT INTO loyalty_ledger
        (customer_id, entry_type, points, tier_at_time, ref_type, note, created_by)
-     VALUES (@cid, @type, @points, @tier, 'manual', @note, @actor)`,
+     VALUES (@cid, @type, @points, @tier, 'manual', @note, @actor) RETURNING id`,
     {
       cid: customerId,
       type: direction,
@@ -176,7 +176,7 @@ export async function redeemReward(
   const entryId = await run(
     `INSERT INTO loyalty_ledger
        (customer_id, entry_type, points, tier_at_time, ref_type, ref_id, note, created_by)
-     VALUES (@cid, 'BURN', @points, @tier, 'reward', @rid, @note, @actor)`,
+     VALUES (@cid, 'BURN', @points, @tier, 'reward', @rid, @note, @actor) RETURNING id`,
     {
       cid: customerId,
       points: reward.points_cost,
@@ -213,7 +213,7 @@ export async function createReward(input: RewardInput): Promise<number> {
   const code = `RWD-${String(next?.n ?? 1).padStart(3, "0")}`;
   return run(
     `INSERT INTO rewards (code, name, description, reward_type, points_cost)
-     VALUES (@code, @name, @desc, @type, @cost)`,
+     VALUES (@code, @name, @desc, @type, @cost) RETURNING id`,
     {
       code,
       name: input.name,

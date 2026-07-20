@@ -52,7 +52,7 @@ export function listOnHandByDistributor(
      FROM products p
      JOIN inventory_transactions it ON it.product_id = p.id AND it.distributor_id = ?
      GROUP BY p.id
-     HAVING on_hand != 0
+     HAVING COALESCE(SUM(it.quantity), 0) != 0
      ORDER BY p.name`,
     [distributorId]
   );
@@ -76,7 +76,8 @@ export function listStockWithReorder(distributorId: number): Promise<StockWithRe
      FROM products p
      JOIN inventory_transactions it ON it.product_id = p.id AND it.distributor_id = ?
      GROUP BY p.id
-     HAVING on_hand != 0 OR below_reorder = 1
+     HAVING COALESCE(SUM(it.quantity), 0) != 0
+        OR COALESCE(SUM(it.quantity), 0) <= p.reorder_point
      ORDER BY below_reorder DESC, p.name`,
     [distributorId]
   );
@@ -100,8 +101,8 @@ export function listOnHandSummary(): Promise<OnHandByDistributorRow[]> {
      FROM inventory_transactions it
      JOIN distributors d ON d.id = it.distributor_id
      JOIN products p ON p.id = it.product_id
-     GROUP BY it.distributor_id, it.product_id
-     HAVING on_hand != 0
+     GROUP BY it.distributor_id, d.name, it.product_id, p.name, p.sku
+     HAVING SUM(it.quantity) != 0
      ORDER BY d.name, p.name`
   );
 }
@@ -165,7 +166,8 @@ export function recordInventoryTransaction(
     `INSERT INTO inventory_transactions
        (distributor_id, product_id, txn_type, quantity, reference_type, reference_id, note, created_by)
      VALUES
-       (@distributor_id, @product_id, @txn_type, @quantity, @reference_type, @reference_id, @note, @created_by)`,
+       (@distributor_id, @product_id, @txn_type, @quantity, @reference_type, @reference_id, @note, @created_by)
+     RETURNING id`,
     {
       distributor_id: input.distributor_id,
       product_id: input.product_id,

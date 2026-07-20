@@ -50,7 +50,7 @@ export async function createUser(input: {
   role: Role;
 }): Promise<number> {
   return run(
-    "INSERT INTO users (name, email, password_hash, role) VALUES (@name, @email, @password_hash, @role)",
+    "INSERT INTO users (name, email, password_hash, role) VALUES (@name, @email, @password_hash, @role) RETURNING id",
     {
       name: input.name,
       email: input.email,

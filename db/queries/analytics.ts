@@ -31,7 +31,7 @@ export async function getOverview(): Promise<Overview> {
 
   const active = await get<{ n: number }>(
     `SELECT COUNT(DISTINCT customer_id) AS n FROM transactions
-     WHERE tx_date >= datetime('now', '-90 days')`
+     WHERE tx_date::timestamptz >= now() - interval '90 days'`
   );
 
   const repeat = await get<{ buyers: number; repeat_buyers: number }>(
@@ -89,11 +89,11 @@ export interface MonthlyPurchases {
 /** Purchase revenue per month over the trailing six months (oldest first). */
 export function getMonthlyPurchases(): Promise<MonthlyPurchases[]> {
   return all<MonthlyPurchases>(
-    `SELECT strftime('%Y-%m', tx_date) AS month,
+    `SELECT to_char(tx_date::timestamptz, 'YYYY-MM') AS month,
        COALESCE(SUM(amount_thb), 0) AS total,
        COUNT(*) AS orders
      FROM transactions
-     WHERE tx_date >= datetime('now', '-6 months')
+     WHERE tx_date::timestamptz >= now() - interval '6 months'
      GROUP BY month
      ORDER BY month ASC`
   );

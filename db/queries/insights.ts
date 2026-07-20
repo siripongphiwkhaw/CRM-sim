@@ -41,7 +41,7 @@ export function listInsights(opts?: {
 }
 
 export function dismissInsight(id: number): Promise<number> {
-  return run("UPDATE ai_insights SET dismissed_at = datetime('now') WHERE id = ?", [id]);
+  return run("UPDATE ai_insights SET dismissed_at = now() WHERE id = ?", [id]);
 }
 
 interface InsightInput {
@@ -59,7 +59,7 @@ async function insertInsight(input: InsightInput): Promise<number> {
   return run(
     `INSERT INTO ai_insights
        (insight_type, severity, entity_type, entity_id, title, description, recommendation, confidence)
-     VALUES (@type, @sev, @etype, @eid, @title, @desc, @rec, @conf)`,
+     VALUES (@type, @sev, @etype, @eid, @title, @desc, @rec, @conf) RETURNING id`,
     {
       type: input.insight_type,
       sev: input.severity,
@@ -77,8 +77,8 @@ async function insertInsight(input: InsightInput): Promise<number> {
 export async function createInsightIfAbsent(input: InsightInput): Promise<number | null> {
   const existing = await get<{ id: number }>(
     `SELECT id FROM ai_insights
-     WHERE insight_type = @type AND entity_type IS @etype AND entity_id IS @eid
-       AND dismissed_at IS NULL LIMIT 1`,
+     WHERE insight_type = @type AND entity_type IS NOT DISTINCT FROM @etype
+       AND entity_id IS NOT DISTINCT FROM @eid AND dismissed_at IS NULL LIMIT 1`,
     { type: input.insight_type, etype: input.entity_type, eid: input.entity_id }
   );
   if (existing) return null;
@@ -117,7 +117,7 @@ export async function generateInsights(): Promise<{ created: number }> {
   const conflicts = await all<{ customer_id: number; name: string }>(
     `SELECT t.customer_id, (c.first_name || ' ' || c.last_name) AS name
      FROM transactions t JOIN customers c ON c.id = t.customer_id
-     GROUP BY t.customer_id
+     GROUP BY t.customer_id, c.first_name, c.last_name
      HAVING SUM(CASE WHEN t.channel='SFA' THEN 1 ELSE 0 END) > 0
         AND SUM(CASE WHEN t.channel IN ('POS','ECOM','D2C') THEN 1 ELSE 0 END) > 0`
   );
@@ -153,7 +153,7 @@ export async function generateInsights(): Promise<{ created: number }> {
      FROM inventory_transactions it
      JOIN distributors d ON d.id = it.distributor_id
      JOIN products p ON p.id = it.product_id
-     GROUP BY it.distributor_id, it.product_id`
+     GROUP BY it.distributor_id, d.name, it.product_id, p.name, p.reorder_point`
   );
   for (const s of stock) {
     const sellThrough = s.total_in > 0 ? s.total_out / s.total_in : 0;
@@ -231,7 +231,7 @@ export async function generateInsights(): Promise<{ created: number }> {
      FROM customers c
      JOIN transactions t ON t.customer_id = c.id
      GROUP BY c.id
-     HAVING julianday('now') - julianday(MAX(t.tx_date)) > 60
+     HAVING now() - MAX(t.tx_date)::timestamptz > interval '60 days'
      ORDER BY last_tx DESC LIMIT 10`
   );
   for (const row of churn) {
@@ -283,7 +283,7 @@ export async function getNbaForCustomer(customerId: number): Promise<NbaResult> 
     hasMarketingConsent(customerId),
     get<{ n: number }>(
       `SELECT COUNT(*) AS n FROM transactions
-       WHERE customer_id = ? AND julianday('now') - julianday(tx_date) <= 30`,
+       WHERE customer_id = ? AND now() - tx_date::timestamptz <= interval '30 days'`,
       [customerId]
     ),
   ]);

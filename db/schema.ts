@@ -2,7 +2,7 @@
 // .sql file at runtime) so it is always present in the serverless bundle.
 export const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
@@ -11,14 +11,15 @@ CREATE TABLE IF NOT EXISTS users (
   -- Distinct from department_pics (M:N, "who manages a department's own
   -- settings"). NULL = unassigned, which resolves to Home + Guide only.
   -- Admins ignore this entirely. Forward-references departments (declared
-  -- further down) — harmless, sql.js runs with foreign_keys off.
-  home_department_id INTEGER REFERENCES departments(id) ON DELETE SET NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  -- further down) — the FK constraint itself is added via ALTER TABLE at the
+  -- bottom of this file, after departments exists.
+  home_department_id INTEGER,
+  created_at TEXT NOT NULL DEFAULT (now())
 );
 
 -- Customer / Master Data (CDP): unified member profile across all brands.
 CREATE TABLE IF NOT EXISTS customers (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   member_code TEXT NOT NULL UNIQUE,
   first_name TEXT NOT NULL,
   last_name TEXT NOT NULL,
@@ -32,29 +33,29 @@ CREATE TABLE IF NOT EXISTS customers (
   data_level TEXT NOT NULL DEFAULT 'Register',
   clv REAL NOT NULL DEFAULT 0,
   last_purchase_at TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (now()),
+  updated_at TEXT NOT NULL DEFAULT (now())
 );
 CREATE INDEX IF NOT EXISTS customers_brand ON customers(brand);
 CREATE INDEX IF NOT EXISTS customers_tier ON customers(tier);
 
 -- Interaction history: register / enrichment / purchase / engagement events.
 CREATE TABLE IF NOT EXISTS interactions (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   customer_id INTEGER REFERENCES customers(id) ON DELETE CASCADE,
   type TEXT NOT NULL CHECK (type IN ('register','enrichment','purchase','engagement')),
   channel TEXT,
   amount REAL NOT NULL DEFAULT 0,
   points INTEGER NOT NULL DEFAULT 0,
   description TEXT,
-  occurred_at TEXT NOT NULL DEFAULT (datetime('now'))
+  occurred_at TEXT NOT NULL DEFAULT (now())
 );
 CREATE INDEX IF NOT EXISTS interactions_customer ON interactions(customer_id);
 CREATE INDEX IF NOT EXISTS interactions_type ON interactions(type);
 
 -- S&I product master.
 CREATE TABLE IF NOT EXISTS products (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   sku TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
   brand TEXT NOT NULL,
@@ -63,13 +64,13 @@ CREATE TABLE IF NOT EXISTS products (
   reorder_point INTEGER NOT NULL DEFAULT 20,
   -- Remote product photo. NULL falls back to the drawn placeholder art.
   image_url TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (now())
 );
 CREATE INDEX IF NOT EXISTS products_brand ON products(brand);
 
 -- Sales / Trade / Channel: distributor master data.
 CREATE TABLE IF NOT EXISTS distributors (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   distributor_code TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
   region TEXT,
@@ -83,13 +84,13 @@ CREATE TABLE IF NOT EXISTS distributors (
   email TEXT,
   address TEXT,
   credit_limit REAL NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (now()),
+  updated_at TEXT NOT NULL DEFAULT (now())
 );
 
 -- Self-ordering: order header + line items + a full status-change timeline.
 CREATE TABLE IF NOT EXISTS orders (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   order_number TEXT NOT NULL UNIQUE,
   distributor_id INTEGER NOT NULL REFERENCES distributors(id) ON DELETE CASCADE,
   status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','submitted','approved','rejected','fulfilled','cancelled')),
@@ -99,14 +100,14 @@ CREATE TABLE IF NOT EXISTS orders (
   decided_at TEXT,
   decided_by INTEGER REFERENCES users(id),
   decision_note TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (now()),
+  updated_at TEXT NOT NULL DEFAULT (now())
 );
 CREATE INDEX IF NOT EXISTS orders_distributor ON orders(distributor_id);
 CREATE INDEX IF NOT EXISTS orders_status ON orders(status);
 
 CREATE TABLE IF NOT EXISTS order_items (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
   product_id INTEGER NOT NULL REFERENCES products(id),
   quantity INTEGER NOT NULL CHECK (quantity > 0),
@@ -117,25 +118,25 @@ CREATE INDEX IF NOT EXISTS order_items_order ON order_items(order_id);
 -- "How it got here" for an order — a timeline, distinct from orders.status
 -- ("what's true now"), same relationship as interactions is to customers.
 CREATE TABLE IF NOT EXISTS order_status_history (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
   from_status TEXT,
   to_status TEXT NOT NULL,
   note TEXT,
   changed_by INTEGER NOT NULL REFERENCES users(id),
-  changed_at TEXT NOT NULL DEFAULT (datetime('now'))
+  changed_at TEXT NOT NULL DEFAULT (now())
 );
 CREATE INDEX IF NOT EXISTS order_status_history_order ON order_status_history(order_id);
 
 CREATE TABLE IF NOT EXISTS delivery_plans (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   distributor_id INTEGER NOT NULL REFERENCES distributors(id) ON DELETE CASCADE,
   product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
   order_id INTEGER REFERENCES orders(id) ON DELETE SET NULL,
   plan_date TEXT NOT NULL,
   planned_qty INTEGER NOT NULL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'planned' CHECK (status IN ('planned','delivered','cancelled')),
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (now())
 );
 CREATE INDEX IF NOT EXISTS delivery_plans_distributor ON delivery_plans(distributor_id);
 CREATE INDEX IF NOT EXISTS delivery_plans_order ON delivery_plans(order_id);
@@ -144,7 +145,7 @@ CREATE INDEX IF NOT EXISTS delivery_plans_order ON delivery_plans(order_id);
 -- COALESCE(SUM(quantity),0) computed at query time — no maintained column,
 -- no trigger, so every mutation stays traceable to a single run()/batch() call.
 CREATE TABLE IF NOT EXISTS inventory_transactions (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   distributor_id INTEGER NOT NULL REFERENCES distributors(id) ON DELETE CASCADE,
   product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
   txn_type TEXT NOT NULL CHECK (txn_type IN ('stock_in','stock_out','adjustment')),
@@ -153,19 +154,19 @@ CREATE TABLE IF NOT EXISTS inventory_transactions (
   reference_id INTEGER,
   note TEXT,
   created_by INTEGER REFERENCES users(id),
-  occurred_at TEXT NOT NULL DEFAULT (datetime('now'))
+  occurred_at TEXT NOT NULL DEFAULT (now())
 );
 CREATE INDEX IF NOT EXISTS inventory_txn_distributor_product ON inventory_transactions(distributor_id, product_id);
 
 -- Sell-out actuals + demand forecast per distributor/product/period.
 CREATE TABLE IF NOT EXISTS distributor_reports (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   distributor_id INTEGER NOT NULL REFERENCES distributors(id) ON DELETE CASCADE,
   product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
   period TEXT NOT NULL,
   sell_out_qty INTEGER NOT NULL DEFAULT 0,
   forecast_qty INTEGER NOT NULL DEFAULT 0,
-  recorded_at TEXT NOT NULL DEFAULT (datetime('now'))
+  recorded_at TEXT NOT NULL DEFAULT (now())
 );
 CREATE INDEX IF NOT EXISTS distributor_reports_distributor ON distributor_reports(distributor_id);
 
@@ -174,7 +175,7 @@ CREATE INDEX IF NOT EXISTS distributor_reports_distributor ON distributor_report
 -- own products are being sold). Extraction happens via Claude vision; only the
 -- structured result is stored, never the image itself.
 CREATE TABLE IF NOT EXISTS receipt_scans (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   scan_type TEXT NOT NULL CHECK (scan_type IN ('order_verification','retail_audit')),
   order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
   store_name TEXT,
@@ -186,12 +187,12 @@ CREATE TABLE IF NOT EXISTS receipt_scans (
   match_status TEXT NOT NULL CHECK (match_status IN ('matched','partial','mismatched','unmatched')),
   note TEXT,
   created_by INTEGER REFERENCES users(id),
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (now())
 );
 CREATE INDEX IF NOT EXISTS receipt_scans_order ON receipt_scans(order_id);
 
 CREATE TABLE IF NOT EXISTS receipt_scan_lines (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   scan_id INTEGER NOT NULL REFERENCES receipt_scans(id) ON DELETE CASCADE,
   product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
   ocr_name TEXT NOT NULL,
@@ -208,14 +209,14 @@ CREATE INDEX IF NOT EXISTS receipt_scan_lines_scan ON receipt_scan_lines(scan_id
 -- that will eventually route approvals — routing is deferred; this phase is
 -- just the data model plus the admin and PIC-facing management surfaces.
 CREATE TABLE IF NOT EXISTS departments (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
   description TEXT,
   -- Members of an approver department may approve/reject submitted orders,
   -- a right that otherwise belongs to admins alone.
   is_approver INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (now()),
+  updated_at TEXT NOT NULL DEFAULT (now())
 );
 
 -- Many-to-many: a department can have multiple PICs, a user can be PIC of
@@ -223,7 +224,7 @@ CREATE TABLE IF NOT EXISTS departments (
 CREATE TABLE IF NOT EXISTS department_pics (
   department_id INTEGER NOT NULL REFERENCES departments(id) ON DELETE CASCADE,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  assigned_at TEXT NOT NULL DEFAULT (datetime('now')),
+  assigned_at TEXT NOT NULL DEFAULT (now()),
   PRIMARY KEY (department_id, user_id)
 );
 
@@ -240,7 +241,7 @@ CREATE TABLE IF NOT EXISTS department_modules (
 
 -- Data Cloud: linked source systems for data integration & migration.
 CREATE TABLE IF NOT EXISTS data_sources (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   name TEXT NOT NULL,
   source_type TEXT NOT NULL,
   direction TEXT NOT NULL DEFAULT 'inbound',
@@ -249,13 +250,13 @@ CREATE TABLE IF NOT EXISTS data_sources (
   records_synced INTEGER NOT NULL DEFAULT 0,
   last_synced_at TEXT,
   description TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (now())
 );
 
 -- Loyalty: purchase transactions. The interactions table remains the soft
 -- activity log; this is the money/points-bearing record of sale.
 CREATE TABLE IF NOT EXISTS transactions (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   tx_code TEXT NOT NULL UNIQUE,
   customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
   channel TEXT NOT NULL CHECK (channel IN ('POS','ECOM','D2C','SFA')),
@@ -263,7 +264,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   channel_flag TEXT CHECK (channel_flag IN ('CHANNEL_ELIGIBILITY_WARNING')),
   source_ref TEXT,
   created_by INTEGER REFERENCES users(id),
-  tx_date TEXT NOT NULL DEFAULT (datetime('now'))
+  tx_date TEXT NOT NULL DEFAULT (now())
 );
 CREATE INDEX IF NOT EXISTS transactions_customer ON transactions(customer_id);
 
@@ -272,7 +273,7 @@ CREATE INDEX IF NOT EXISTS transactions_customer ON transactions(customer_id);
 --   lifetime = SUM(points) WHERE entry_type='EARN'  (only EARN counts to tier)
 -- No updates, no deletes; points is always positive, sign derives from type.
 CREATE TABLE IF NOT EXISTS loyalty_ledger (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
   entry_type TEXT NOT NULL CHECK (entry_type IN ('EARN','BURN','ADJUST','EXPIRE')),
   points INTEGER NOT NULL CHECK (points > 0),
@@ -283,44 +284,44 @@ CREATE TABLE IF NOT EXISTS loyalty_ledger (
   ref_id INTEGER,
   note TEXT,
   created_by INTEGER REFERENCES users(id),
-  occurred_at TEXT NOT NULL DEFAULT (datetime('now'))
+  occurred_at TEXT NOT NULL DEFAULT (now())
 );
 CREATE INDEX IF NOT EXISTS loyalty_ledger_customer ON loyalty_ledger(customer_id, entry_type);
 
 CREATE TABLE IF NOT EXISTS tier_config (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   tier TEXT NOT NULL UNIQUE CHECK (tier IN ('Bronze','Silver','Gold')),
   min_lifetime_points INTEGER NOT NULL,
   multiplier REAL NOT NULL DEFAULT 1
 );
 
 CREATE TABLE IF NOT EXISTS rewards (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   code TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
   description TEXT,
   reward_type TEXT NOT NULL CHECK (reward_type IN ('VOUCHER','PRODUCT','DISCOUNT','EXPERIENCE')),
   points_cost INTEGER NOT NULL CHECK (points_cost > 0),
   active INTEGER NOT NULL DEFAULT 1,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (now())
 );
 
 -- Per-purpose PDPA consent, append-only history. Current status for a purpose
 -- is the latest row by captured_at (tie-break: highest id).
 CREATE TABLE IF NOT EXISTS consents (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
   purpose TEXT NOT NULL CHECK (purpose IN ('MARKETING','ANALYTICS','PROFILING')),
   status TEXT NOT NULL CHECK (status IN ('GRANTED','DENIED','WITHDRAWN')),
   source TEXT,
   note TEXT,
-  captured_at TEXT NOT NULL DEFAULT (datetime('now'))
+  captured_at TEXT NOT NULL DEFAULT (now())
 );
 CREATE INDEX IF NOT EXISTS consents_customer ON consents(customer_id, purpose, captured_at);
 
 -- Service cases.
 CREATE TABLE IF NOT EXISTS cases (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   case_number TEXT NOT NULL UNIQUE,
   customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
   subject TEXT NOT NULL,
@@ -331,8 +332,8 @@ CREATE TABLE IF NOT EXISTS cases (
   assigned_to INTEGER REFERENCES users(id),
   resolution TEXT,
   created_by INTEGER REFERENCES users(id),
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (now()),
+  updated_at TEXT NOT NULL DEFAULT (now()),
   resolved_at TEXT
 );
 CREATE INDEX IF NOT EXISTS cases_customer ON cases(customer_id);
@@ -341,7 +342,7 @@ CREATE INDEX IF NOT EXISTS cases_status ON cases(status);
 -- Rule-based AI insights. Analytic types are regenerated on demand; the
 -- transactional stock types are posted inline when a sell-out crosses a threshold.
 CREATE TABLE IF NOT EXISTS ai_insights (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   insight_type TEXT NOT NULL CHECK (insight_type IN (
     'CHANNEL_CONFLICT','LOW_SELLOUT_RATE','LOW_SELLIN_STOCK','OUT_OF_STOCK',
     'REORDER_POINT','CONSENT_GAP','LIABILITY_HIGH','CHURN_RISK','DEALER_UNLINKED')),
@@ -353,7 +354,16 @@ CREATE TABLE IF NOT EXISTS ai_insights (
   recommendation TEXT,
   confidence REAL,
   dismissed_at TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (now())
 );
 CREATE INDEX IF NOT EXISTS ai_insights_type ON ai_insights(insight_type, entity_type, entity_id);
+
+-- users.home_department_id forward-references departments (declared above but
+-- after users in this file) — added as a named constraint post-hoc so table
+-- creation order doesn't need to change. Postgres enforces this for real,
+-- unlike sql.js which ran with foreign_keys off.
+ALTER TABLE users
+  DROP CONSTRAINT IF EXISTS users_home_department_fk,
+  ADD CONSTRAINT users_home_department_fk
+    FOREIGN KEY (home_department_id) REFERENCES departments(id) ON DELETE SET NULL;
 `;

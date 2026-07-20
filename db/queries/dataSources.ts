@@ -21,7 +21,7 @@ export function listDataSources(): Promise<DataSource[]> {
 /** Marks a source as freshly synced (demo action for the Data Cloud module). */
 export async function markSourceSynced(id: number): Promise<void> {
   await run(
-    "UPDATE data_sources SET status = 'connected', last_synced_at = datetime('now') WHERE id = ?",
+    "UPDATE data_sources SET status = 'connected', last_synced_at = now() WHERE id = ?",
     [id]
   );
 }
@@ -29,6 +29,6 @@ export async function markSourceSynced(id: number): Promise<void> {
 /** Re-syncs every source at once. */
 export async function syncAllSources(): Promise<void> {
   await run(
-    "UPDATE data_sources SET status = 'connected', last_synced_at = datetime('now')"
+    "UPDATE data_sources SET status = 'connected', last_synced_at = now()"
   );
 }

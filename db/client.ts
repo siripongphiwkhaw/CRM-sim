@@ -1,113 +1,170 @@
-import fs from "node:fs";
-import path from "node:path";
-import initSqlJs, { type Database, type SqlValue } from "sql.js";
+import { neon } from "@neondatabase/serverless";
 import { SCHEMA_SQL } from "./schema";
 import { seedInto } from "./seed";
 
-// This CRM runs entirely on an in-memory SQLite database (SQLite compiled to
-// WebAssembly via sql.js — no native modules, so it deploys to serverless hosts
-// like Vercel with zero configuration). The database is created and seeded with
-// demo data on first use and memoized per server instance. Reads and writes work
-// normally, but because the store is in memory it resets whenever the instance
-// is recycled (i.e. this is a demo, not durable storage).
+// This CRM runs on Neon Postgres via the serverless HTTP driver — no
+// persistent connection to pool, each query is its own request. Schema
+// creation is idempotent (CREATE TABLE IF NOT EXISTS) and re-runs on every
+// cold start, which is cheap once tables already exist; seeding only runs
+// the first time (an empty `users` table), so redeploys never duplicate data.
 
+export type SqlValue = string | number | boolean | null;
 export type QueryArgs = SqlValue[] | Record<string, SqlValue>;
 
 declare global {
   // eslint-disable-next-line no-var
-  var __crmDbPromise: Promise<Database> | undefined;
+  var __crmSql: ReturnType<typeof neon> | undefined;
+  // eslint-disable-next-line no-var
+  var __crmDbReady: Promise<void> | undefined;
 }
 
-function loadWasmBinary(): ArrayBuffer {
-  // Read the wasm as a plain file at runtime (never as a bundler module request,
-  // which Turbopack can't externalize). sql.js is in serverExternalPackages, so
-  // its package — including this .wasm — ships in the serverless function.
-  const dist = path.join("node_modules", "sql.js", "dist", "sql-wasm.wasm");
-  const candidates = [
-    path.join(process.cwd(), dist),
-    path.join(process.cwd(), ".next", "server", dist),
-  ];
-  for (const file of candidates) {
-    if (fs.existsSync(file)) {
-      const buf = fs.readFileSync(file);
-      return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+function sqlClient() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error("DATABASE_URL is not set — add it to .env.local");
+  }
+  return (globalThis.__crmSql ??= neon(process.env.DATABASE_URL));
+}
+
+// Parses `?` and `@name` placeholders out of the app's SQLite-flavoured SQL
+// text (skipping single-quoted string literals) and rewrites them to
+// Postgres's `$1,$2,...` positional form, building a matching values array in
+// the same pass. This is the one place that translation happens — query
+// files keep calling all/get/run/batch exactly as before.
+const TOKEN_RE = /'(?:[^']|'')*'|\?|@[A-Za-z_]\w*/g;
+
+function toPositional(
+  sqlText: string,
+  args: QueryArgs
+): { text: string; values: SqlValue[] } {
+  const values: SqlValue[] = [];
+  const named = Array.isArray(args) ? null : args;
+  let posIndex = 0;
+  const nameToPos = new Map<string, number>();
+
+  const text = sqlText.replace(TOKEN_RE, (token) => {
+    if (token.startsWith("'")) return token; // string literal, untouched
+    if (token === "?") {
+      const value = Array.isArray(args) ? args[posIndex] : undefined;
+      posIndex++;
+      values.push(value ?? null);
+      return `$${values.length}`;
     }
-  }
-  throw new Error(`Could not locate sql.js WebAssembly binary (looked in: ${candidates.join(", ")})`);
-}
+    // @name — reuse the same $n if this name already appeared.
+    const key = token.slice(1);
+    const existing = nameToPos.get(key);
+    if (existing) return `$${existing}`;
+    values.push((named?.[key] ?? null) as SqlValue);
+    nameToPos.set(key, values.length);
+    return `$${values.length}`;
+  });
 
-async function createDatabase(): Promise<Database> {
-  const SQL = await initSqlJs({ wasmBinary: loadWasmBinary() });
-  const db = new SQL.Database();
-  db.exec(SCHEMA_SQL);
-  seedInto(db);
-  return db;
-}
-
-function getDb(): Promise<Database> {
-  return (globalThis.__crmDbPromise ??= createDatabase());
-}
-
-// sql.js binds named parameters by their full placeholder (e.g. "@name"). The
-// query modules pass bare-keyed objects for their `@name` placeholders, so add
-// the sigil here; positional (?) args pass straight through as an array.
-function bindParams(args: QueryArgs): SqlValue[] | Record<string, SqlValue> {
-  if (Array.isArray(args)) return args;
-  const bound: Record<string, SqlValue> = {};
-  for (const [key, value] of Object.entries(args)) bound["@" + key] = value;
-  return bound;
-}
-
-export async function all<T>(sql: string, args: QueryArgs = []): Promise<T[]> {
-  const db = await getDb();
-  const stmt = db.prepare(sql);
-  try {
-    stmt.bind(bindParams(args));
-    const rows: T[] = [];
-    while (stmt.step()) rows.push(stmt.getAsObject() as T);
-    return rows;
-  } finally {
-    stmt.free();
-  }
-}
-
-export async function get<T>(
-  sql: string,
-  args: QueryArgs = []
-): Promise<T | undefined> {
-  return (await all<T>(sql, args))[0];
-}
-
-/** Runs a write and returns the last inserted rowid (0 when not applicable). */
-export async function run(sql: string, args: QueryArgs = []): Promise<number> {
-  const db = await getDb();
-  db.run(sql, bindParams(args));
-  const res = db.exec("SELECT last_insert_rowid() AS id");
-  return Number(res[0]?.values[0]?.[0] ?? 0);
+  return { text, values };
 }
 
 /**
- * Runs raw SQL and returns sql.js result sets ({columns, values}). Used only by
- * the admin SQL console, which validates the statement is read-only first.
+ * Splits a semicolon-separated DDL script into individual statements. Line
+ * comments are stripped first — some of this app's own schema comments
+ * contain a literal ";" mid-sentence, which would otherwise produce a
+ * malformed split. Only ever run on SCHEMA_SQL (authored by this codebase,
+ * no user input), so a plain split after that is safe.
  */
-export async function execRaw(
-  sql: string
-): Promise<{ columns: string[]; values: SqlValue[][] }[]> {
-  const db = await getDb();
-  return db.exec(sql);
+function splitStatements(script: string): string[] {
+  const withoutComments = script.replace(/--[^\n]*/g, "");
+  return withoutComments
+    .split(";")
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
-/** Runs several writes atomically (stands in for the schema's ON DELETE rules). */
+// Unguarded cores — no `await ready()`. Called both by the public,
+// ready()-guarded exports below AND by ensureDatabase() itself (via
+// seedInto()) while the readiness promise is still in flight. Seeding through
+// the guarded `run`/`batch` would deadlock: ensureDatabase() would end up
+// awaiting its own not-yet-resolved __crmDbReady promise.
+async function runUnguarded(sqlText: string, args: QueryArgs = []): Promise<number> {
+  const { text, values } = toPositional(sqlText, args);
+  const rows = (await sqlClient().query(text, values)) as { id?: number }[];
+  return Number(rows[0]?.id ?? 0);
+}
+
+async function batchUnguarded(
+  statements: { sql: string; args?: QueryArgs }[]
+): Promise<void> {
+  const client = sqlClient();
+  const queries = statements.map((s) => {
+    const { text, values } = toPositional(s.sql, s.args ?? []);
+    return client.query(text, values);
+  });
+  await client.transaction(queries);
+}
+
+async function ensureDatabase(): Promise<void> {
+  const client = sqlClient();
+  const ddl = splitStatements(SCHEMA_SQL).map((stmt) => client.query(stmt));
+  await client.transaction(ddl);
+
+  const [row] = (await client.query("SELECT COUNT(*)::int AS n FROM users")) as {
+    n: number;
+  }[];
+  if (row.n === 0) await seedInto({ run: runUnguarded, batch: batchUnguarded });
+}
+
+function ready(): Promise<void> {
+  return (globalThis.__crmDbReady ??= ensureDatabase());
+}
+
+export async function all<T>(sqlText: string, args: QueryArgs = []): Promise<T[]> {
+  await ready();
+  const { text, values } = toPositional(sqlText, args);
+  const rows = await sqlClient().query(text, values);
+  return rows as T[];
+}
+
+export async function get<T>(
+  sqlText: string,
+  args: QueryArgs = []
+): Promise<T | undefined> {
+  return (await all<T>(sqlText, args))[0];
+}
+
+/** Runs a write and returns the inserted id (0 unless the SQL text ends in
+ * `RETURNING id`). */
+export async function run(sqlText: string, args: QueryArgs = []): Promise<number> {
+  await ready();
+  return runUnguarded(sqlText, args);
+}
+
+/** Runs several writes atomically as one Postgres transaction over HTTP. */
 export async function batch(
   statements: { sql: string; args?: QueryArgs }[]
 ): Promise<void> {
-  const db = await getDb();
-  db.run("BEGIN");
-  try {
-    for (const s of statements) db.run(s.sql, bindParams(s.args ?? []));
-    db.run("COMMIT");
-  } catch (err) {
-    db.run("ROLLBACK");
-    throw err;
-  }
+  await ready();
+  return batchUnguarded(statements);
+}
+
+export interface RawQueryResult {
+  columns: string[];
+  rows: SqlValue[][];
+}
+
+/**
+ * Runs a single, already-validated read-only statement — used only by the
+ * admin SQL console. Wrapped in a Postgres READ ONLY transaction so the
+ * database itself rejects any mutation that slips past the app-level
+ * guardrails, not just the regex check.
+ */
+export async function execRaw(sqlText: string): Promise<RawQueryResult> {
+  await ready();
+  const client = sqlClient();
+  // arrayMode/fullResults must be set on the transaction call itself — the
+  // driver ignores those options if passed to the individual query instead.
+  const [result] = await client.transaction([client.query(sqlText)], {
+    arrayMode: true,
+    fullResults: true,
+    readOnly: true,
+  });
+  return {
+    columns: result.fields.map((f) => f.name),
+    rows: result.rows,
+  };
 }

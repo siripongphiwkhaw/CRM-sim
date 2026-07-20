@@ -206,16 +206,16 @@ export async function applyOrderTransition(
     {
       sql: `UPDATE orders SET
               status = @to,
-              submitted_at = CASE WHEN @to = 'submitted' THEN datetime('now') ELSE submitted_at END,
-              decided_at = CASE WHEN @is_decision THEN datetime('now') ELSE decided_at END,
+              submitted_at = CASE WHEN @to = 'submitted' THEN now()::text ELSE submitted_at END,
+              decided_at = CASE WHEN @is_decision THEN now()::text ELSE decided_at END,
               decided_by = CASE WHEN @is_decision THEN @actor ELSE decided_by END,
-              decision_note = CASE WHEN @note IS NOT NULL THEN @note ELSE decision_note END,
-              updated_at = datetime('now')
+              decision_note = CASE WHEN @note::text IS NOT NULL THEN @note ELSE decision_note END,
+              updated_at = now()
             WHERE id = @id`,
       args: {
         id: orderId,
         to: toStatus,
-        is_decision: isDecision ? 1 : 0,
+        is_decision: isDecision,
         actor: actorUserId,
         note: note ?? null,
       },

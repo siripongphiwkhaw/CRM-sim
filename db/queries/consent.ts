@@ -45,7 +45,7 @@ export interface ConsentInput {
 export function recordConsent(input: ConsentInput): Promise<number> {
   return run(
     `INSERT INTO consents (customer_id, purpose, status, source, note)
-     VALUES (@cid, @purpose, @status, @source, @note)`,
+     VALUES (@cid, @purpose, @status, @source, @note) RETURNING id`,
     {
       cid: input.customer_id,
       purpose: input.purpose,

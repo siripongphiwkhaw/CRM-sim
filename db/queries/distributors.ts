@@ -120,7 +120,8 @@ export async function createDistributor(
     `INSERT INTO distributors
        (distributor_code, name, region, channel, status, dealer_type, customer_id, area, contact_name, phone, email, address, credit_limit)
      VALUES
-       (@code, @name, @region, @channel, @status, @dealer_type, @customer_id, @area, @contact_name, @phone, @email, @address, @credit_limit)`,
+       (@code, @name, @region, @channel, @status, @dealer_type, @customer_id, @area, @contact_name, @phone, @email, @address, @credit_limit)
+     RETURNING id`,
     {
       code,
       name: input.name,
@@ -148,7 +149,7 @@ export async function updateDistributor(
        name = @name, region = @region, channel = @channel, status = @status,
        dealer_type = @dealer_type, customer_id = @customer_id, area = @area,
        contact_name = @contact_name, phone = @phone, email = @email,
-       address = @address, credit_limit = @credit_limit, updated_at = datetime('now')
+       address = @address, credit_limit = @credit_limit, updated_at = now()
      WHERE id = @id`,
     {
       id,

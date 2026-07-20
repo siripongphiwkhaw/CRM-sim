@@ -69,7 +69,7 @@ export async function createInteraction(input: InteractionInput): Promise<void> 
       },
     },
     {
-      sql: `UPDATE customers SET points = points + @points, updated_at = datetime('now')
+      sql: `UPDATE customers SET points = points + @points, updated_at = now()
             WHERE id = @id`,
       args: { points: input.points, id: input.customer_id },
     },
@@ -77,7 +77,7 @@ export async function createInteraction(input: InteractionInput): Promise<void> 
 
   if (input.type === "purchase") {
     statements.push({
-      sql: `UPDATE customers SET clv = clv + @amount, last_purchase_at = datetime('now')
+      sql: `UPDATE customers SET clv = clv + @amount, last_purchase_at = now()
             WHERE id = @id`,
       args: { amount: input.amount, id: input.customer_id },
     });
