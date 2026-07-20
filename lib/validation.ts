@@ -69,6 +69,18 @@ export const liffConsentSchema = z.object({
   status: z.enum(CONSENT_STATUSES),
 });
 
+/** First-time LINE registration. Identity (the LINE sub) comes from the
+ * session; the member supplies profile details. */
+export const liffRegisterSchema = z.object({
+  first_name: z.string().min(1, "First name is required"),
+  last_name: z.string().min(1, "Last name is required"),
+  phone: z
+    .string()
+    .min(8, "Enter a valid phone number")
+    .regex(/^[0-9+()\-\s]+$/, "Phone can only contain digits and + ( ) -"),
+  email: z.string().email("Enter a valid email"),
+});
+
 /** Demo "simulate a purchase" from LIFF. Customer comes from the session. */
 export const liffEarnSchema = z.object({
   brand: z.enum(BRANDS),

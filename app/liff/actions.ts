@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import {
   requireMember,
   establishMemberSession,
@@ -12,13 +13,15 @@ import {
   liffRedeemSchema,
   liffConsentSchema,
   liffEarnSchema,
+  liffRegisterSchema,
   firstError,
   type FormState,
 } from "@/lib/validation";
 import { redeemReward } from "@/db/queries/loyalty";
 import { recordConsent } from "@/db/queries/consent";
 import { createTransaction } from "@/db/queries/transactions";
-import { createCase } from "@/db/queries/cases";
+import { registerLineMember } from "@/db/queries/member";
+import { getMemberSession } from "@/lib/liffAuth";
 
 /** Exchanges a LIFF ID token for a member session. Verification happens server-side. */
 export async function signInWithLineAction(idToken: string): Promise<{ ok: boolean; error?: string }> {
@@ -146,32 +149,43 @@ export async function liffConsentAction(
 }
 
 /**
- * Unlinked members request staff-assisted linking. Deliberately NOT a
- * self-serve match on phone number: phone numbers aren't secrets and
- * customers.phone is free text, so matching on one would hand over a stranger's
- * balance and the ability to burn it. Staff verify identity out of band.
+ * First-time registration from inside LIFF. Creates a membership bound to the
+ * verified LINE identity (from the session, never the form) with the profile
+ * details the member enters, then opens their session.
+ *
+ * Phone/email are stored as profile data only — they are not matched against
+ * existing members, so registering can never take over someone else's account.
  */
-export async function requestLinkAction(
+export async function registerLineMemberAction(
   _prev: FormState,
-  _formData: FormData
+  formData: FormData
 ): Promise<FormState> {
   const auth = await requireMember();
-  if (auth.ok) return { success: "Your account is already linked." };
+  if (auth.ok) return { success: "You're already registered." };
   if (auth.reason !== "UNLINKED" || !auth.lineUserId) {
     return { error: "Please reopen the app from LINE and try again." };
   }
 
-  await createCase({
-    customer_id: null,
-    subject: "LINE account linking request",
-    description:
-      `A LINE user asked to link their Only-One membership.\n` +
-      `LINE display name: ${auth.displayName ?? "(unknown)"}\n` +
-      `LINE user id: ${auth.lineUserId}\n\n` +
-      `Verify identity out of band, then paste the LINE user id into the member's record.`,
-    category: "ACCOUNT",
-    priority: "MEDIUM",
-    created_by: null,
+  const parsed = liffRegisterSchema.safeParse({
+    first_name: formData.get("first_name"),
+    last_name: formData.get("last_name"),
+    phone: formData.get("phone"),
+    email: formData.get("email"),
   });
-  return { success: "Request sent. Our team will link your account shortly." };
+  if (!parsed.success) return { error: firstError(parsed.error) };
+
+  const member = await registerLineMember(auth.lineUserId, {
+    firstName: parsed.data.first_name,
+    lastName: parsed.data.last_name,
+    phone: parsed.data.phone,
+    email: parsed.data.email,
+  });
+
+  // Open the member's session so the next render resolves straight to points.
+  const session = await getMemberSession();
+  session.customerId = member.id;
+  await session.save();
+
+  revalidatePath("/liff");
+  redirect("/liff");
 }

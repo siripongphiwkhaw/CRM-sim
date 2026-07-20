@@ -1,49 +1,53 @@
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/liffAuth";
 import { LiffShell } from "../components/ui";
-import { LinkRequestForm } from "./LinkRequestForm";
+import { RegisterForm } from "./RegisterForm";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Terminus for a verified LINE user with no membership yet.
+ * First-time registration for a verified LINE user with no membership yet.
  *
- * Linking is staff-assisted on purpose. The obvious alternative — "enter your
- * phone number to find your membership" — is an account-takeover vector: phone
- * numbers aren't secrets, and a match would hand over the balance plus the
- * ability to spend it. Phone OTP would be the safe version of that.
+ * Phone/email are collected as profile data and are NOT matched against
+ * existing members — registering mints a fresh account bound to the verified
+ * LINE identity, so it can never take over someone else's account.
  */
-export default async function LiffLinkPage() {
+export default async function LiffRegisterPage() {
   const auth = await requireMember();
   if (auth.ok) redirect("/liff");
   if (auth.reason === "NO_SESSION") redirect("/liff");
 
+  // Prefill name from the LINE display name where possible.
+  const parts = (auth.displayName ?? "").trim().split(/\s+/).filter(Boolean);
+  const firstName = parts[0] ?? "";
+  const lastName = parts.slice(1).join(" ") ?? "";
+
   return (
     <LiffShell>
-      <div className="rounded-[14px] border border-[#dde5e8] bg-white p-5 text-center">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand-50">
-          <svg viewBox="0 0 24 24" width={26} height={26} fill="none" stroke="#0d7d70" strokeWidth="2" aria-hidden>
-            <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5" strokeLinecap="round" />
-            <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7L12 19" strokeLinecap="round" />
-          </svg>
-        </div>
-
-        <h1 className="mt-4 text-lg font-bold text-[#14202b]">
-          {auth.displayName ? `Hi ${auth.displayName}` : "Almost there"}
-        </h1>
-        <p className="mt-2 text-sm text-[#3c4f5e]">
-          Your LINE account isn&apos;t linked to an Only-One membership yet. Send a
-          request and our team will connect it for you.
-        </p>
-
-        <div className="mt-4 rounded-[12px] bg-[#f8fafb] px-3 py-2 text-left">
-          <p className="text-xs text-[#607785]">Your LINE reference</p>
-          <p className="mt-0.5 break-all font-mono text-xs text-[#14202b]">{auth.lineUserId}</p>
+      <div className="rounded-[14px] border border-[#dde5e8] bg-white p-5">
+        <div className="text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand-50">
+            <svg viewBox="0 0 24 24" width={26} height={26} fill="#0d7d70" aria-hidden>
+              <path d="M12 3l2.5 5.3 5.5.7-4 4 1 5.7-5-2.8-5 2.8 1-5.7-4-4 5.5-.7z" />
+            </svg>
+          </div>
+          <h1 className="mt-4 text-lg font-bold text-[#14202b]">
+            {auth.displayName ? `Welcome, ${auth.displayName}` : "Join Only-One"}
+          </h1>
+          <p className="mt-2 text-sm text-[#3c4f5e]">
+            Create your Only-One membership to start earning points across every
+            brand. Just confirm your details.
+          </p>
         </div>
 
         <div className="mt-4">
-          <LinkRequestForm />
+          <RegisterForm firstName={firstName} lastName={lastName} />
         </div>
+
+        <p className="mt-3 text-center text-xs text-[#607785]">
+          Linked to your LINE account. You can manage marketing preferences later
+          in Account.
+        </p>
       </div>
     </LiffShell>
   );

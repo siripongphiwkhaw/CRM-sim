@@ -11,25 +11,28 @@ export function getCustomerByLineUserId(lineUserId: string): Promise<Customer | 
   return get<Customer>("SELECT * FROM customers WHERE line_user_id = ?", [lineUserId]);
 }
 
+export interface LineRegistration {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email: string;
+}
+
 /**
- * Returns the member for a verified LINE user, creating one on first login.
+ * Registers a member for a verified LINE user on first login.
  *
- * Safe to auto-create: the LINE user id is a signed `sub` verified server-side,
- * and this mints a fresh membership bound to it — it never matches an existing
- * account by a guessable field, so there is no takeover surface (unlike a
- * self-serve phone match). Marketing consent defaults to DENIED (opt-in via the
- * account screen); analytics is granted.
+ * Safe to create: the LINE user id is a signed `sub` verified server-side, so
+ * this mints a fresh membership bound to it. Phone/email are stored as profile
+ * data only — they are deliberately NOT used to match or merge into an existing
+ * member, which would be an account-takeover vector. Marketing consent defaults
+ * to DENIED (opt-in via the account screen); analytics is granted.
  */
-export async function getOrCreateLineMember(
+export async function registerLineMember(
   lineUserId: string,
-  displayName?: string
+  input: LineRegistration
 ): Promise<Customer> {
   const existing = await getCustomerByLineUserId(lineUserId);
   if (existing) return existing;
-
-  const parts = (displayName ?? "").trim().split(/\s+/).filter(Boolean);
-  const firstName = parts[0] || "LINE";
-  const lastName = parts.slice(1).join(" ") || "Member";
 
   const next = await get<{ next: number }>(
     "SELECT COALESCE(MAX(id), 0) + 1 AS next FROM customers"
@@ -40,11 +43,19 @@ export async function getOrCreateLineMember(
   try {
     id = await run(
       `INSERT INTO customers
-         (member_code, first_name, last_name, brand, cust_type, register_channel,
-          data_level, line_user_id, line_linked_at)
-       VALUES (@code, @first, @last, 'LINE', 'B2C', 'LINE', 'Register', @line, now())
+         (member_code, first_name, last_name, email, phone, brand, cust_type,
+          register_channel, data_level, line_user_id, line_linked_at)
+       VALUES (@code, @first, @last, @email, @phone, 'LINE', 'B2C', 'LINE',
+               'Register', @line, now())
        RETURNING id`,
-      { code: memberCode, first: firstName, last: lastName, line: lineUserId }
+      {
+        code: memberCode,
+        first: input.firstName,
+        last: input.lastName,
+        email: input.email || null,
+        phone: input.phone || null,
+        line: lineUserId,
+      }
     );
   } catch (e) {
     // Another concurrent first-login won the unique line_user_id — use theirs.
