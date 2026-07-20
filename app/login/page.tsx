@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { loginAction, type LoginFormState } from "./actions";
+import { BrandMark } from "@/app/components/BrandMark";
 
 const initialState: LoginFormState = {};
 
@@ -15,11 +16,8 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-[#eef3f5] px-4">
       <div className="w-full max-w-sm overflow-hidden rounded border border-[#dde5e8] bg-white shadow-[0_4px_20px_rgba(0,0,0,0.08)]">
         <div className="bg-brand-800 px-8 py-7 text-center">
-          {/* waffle mark, echoing the app-launcher icon in the signed-in shell */}
-          <span aria-hidden className="mx-auto mb-3 grid w-fit grid-cols-3 gap-[3px] rounded bg-white/10 p-2">
-            {Array.from({ length: 9 }).map((_, i) => (
-              <span key={i} className="h-1.5 w-1.5 rounded-[1px] bg-white" />
-            ))}
+          <span className="mx-auto mb-3 grid w-fit place-items-center rounded-[12px] bg-white p-2">
+            <BrandMark className="h-12 w-12" />
           </span>
           <h1 className="text-xl font-bold text-white">Jenonutz Cloud</h1>
           <p className="mt-1 text-xs text-brand-100">Customer Data Platform</p>

@@ -15,6 +15,9 @@ export const LINE_CHANNEL_ID = process.env.LINE_CHANNEL_ID ?? "";
 /** True once real LINE credentials are present. */
 export const LIFF_CONFIGURED = Boolean(LIFF_ID) && Boolean(LINE_CHANNEL_ID);
 
+/** The link that opens the mini-app inside LINE. Empty until LIFF_ID is set. */
+export const LIFF_URL = LIFF_ID ? `https://liff.line.me/${LIFF_ID}` : "";
+
 /**
  * The demo member picker. Three fail-closed conditions, all required:
  *

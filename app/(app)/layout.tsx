@@ -8,6 +8,7 @@ import { logoutAction } from "./actions";
 // Always visible, whatever the department grants.
 const HOME_ITEM: RailItem = { href: "/dashboard", label: "Home", icon: "home" };
 const GUIDE_ITEM: RailItem = { href: "/guide", label: "Guide", icon: "guide" };
+const ONLYONE_ITEM: RailItem = { href: "/liff-qr", label: "Only-One QR", icon: "loyalty" };
 
 // Shown only when the user's department grants the module (admins get all).
 const GATED_ITEMS: { module: ModuleKey; item: RailItem }[] = [
@@ -38,6 +39,7 @@ export default async function AppLayout({
   const items: RailItem[] = [
     HOME_ITEM,
     ...GATED_ITEMS.filter((g) => isAdmin || granted.has(g.module)).map((g) => g.item),
+    ONLYONE_ITEM,
     GUIDE_ITEM,
     ...(isPic
       ? [{ href: "/department", label: "My Department", icon: "department" as const }]
