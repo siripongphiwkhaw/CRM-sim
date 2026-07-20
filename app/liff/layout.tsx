@@ -31,7 +31,11 @@ export default async function LiffLayout({ children }: { children: React.ReactNo
       <LiffProvider
         liffId={LIFF_ID}
         configured={LIFF_CONFIGURED}
-        hasSession={auth.ok || (!auth.ok && auth.reason === "UNLINKED")}
+        // Only a fully-resolved member counts as an established session. An
+        // UNLINKED session must keep re-verifying, otherwise a member stays
+        // stuck on the link screen until the cookie expires even after staff
+        // have linked them — the re-verify re-runs the line_user_id lookup.
+        hasSession={auth.ok}
       />
       {children}
     </div>
