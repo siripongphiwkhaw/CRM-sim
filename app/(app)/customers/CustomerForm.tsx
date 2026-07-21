@@ -43,6 +43,9 @@ export function CustomerForm({
         <Field label="Phone" htmlFor="phone">
           <TextInput id="phone" name="phone" placeholder="081-234-5678" defaultValue={customer?.phone ?? ""} />
         </Field>
+        <Field label="Birth date" htmlFor="birth_date" hint="Used for the yearly birthday points bonus">
+          <TextInput id="birth_date" name="birth_date" type="date" defaultValue={customer?.birth_date ?? ""} />
+        </Field>
         <Field label="Member type" htmlFor="cust_type" required>
           <Select id="cust_type" name="cust_type" defaultValue={customer?.cust_type ?? "B2C"}>
             {CUST_TYPES.map((t) => (

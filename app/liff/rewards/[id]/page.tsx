@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requireMember } from "@/lib/liffAuth";
 import { getReward, getBalance } from "@/db/queries/loyalty";
+import { rewardAvailable } from "@/lib/loyaltyEngine";
 import { LiffShell, BottomNav } from "../../components/ui";
 import { RedeemForm } from "./RedeemForm";
 
@@ -22,7 +23,8 @@ export default async function LiffRewardDetailPage({
   const [reward, balance] = await Promise.all([getReward(rewardId), getBalance(auth.customerId)]);
   if (!reward) notFound();
 
-  const affordable = balance >= reward.points_cost && Boolean(reward.active);
+  const available = rewardAvailable(reward);
+  const affordable = balance >= reward.points_cost && available;
   const short = reward.points_cost - balance;
 
   return (
@@ -52,12 +54,12 @@ export default async function LiffRewardDetailPage({
             </span>
           </div>
 
-          {!reward.active && (
+          {!available && (
             <p className="mt-3 rounded-[12px] bg-[#eef3f5] px-3 py-2 text-sm text-[#607785]">
               This reward is no longer available.
             </p>
           )}
-          {reward.active && !affordable && (
+          {available && !affordable && (
             <p className="mt-3 rounded-[12px] bg-[#fff5ec] px-3 py-2 text-sm text-[#8a4b1e]">
               You need {short.toLocaleString("en-US")} more points. Keep shopping at any
               Only-One brand — they all add to the same balance.

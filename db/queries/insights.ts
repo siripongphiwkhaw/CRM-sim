@@ -225,19 +225,24 @@ export async function generateInsights(): Promise<{ created: number }> {
   }
 
   // CHURN_RISK — active members with no transaction in 60+ days (cap 10).
-  const churn = await all<{ id: number; name: string; last_tx: string | null }>(
+  // Severity reflects the stored churn score (see recomputeScores()) when
+  // it's been computed, for consistency with the Customer 360 panel and
+  // segment builder that read the same column; falls back to WARNING when
+  // scores haven't been run yet, rather than requiring that ordering.
+  const churn = await all<{ id: number; name: string; last_tx: string | null; churn_score: string | null }>(
     `SELECT c.id, (c.first_name || ' ' || c.last_name) AS name,
-       MAX(t.tx_date) AS last_tx
+       MAX(t.tx_date) AS last_tx, s.churn_score
      FROM customers c
      JOIN transactions t ON t.customer_id = c.id
-     GROUP BY c.id
+     LEFT JOIN customer_scores s ON s.customer_id = c.id
+     GROUP BY c.id, s.churn_score
      HAVING now() - MAX(t.tx_date)::timestamptz > interval '60 days'
      ORDER BY last_tx DESC LIMIT 10`
   );
   for (const row of churn) {
     await add({
       insight_type: "CHURN_RISK",
-      severity: "WARNING",
+      severity: row.churn_score === "High" ? "CRITICAL" : "WARNING",
       entity_type: "customer",
       entity_id: row.id,
       title: `Churn risk: ${row.name}`,

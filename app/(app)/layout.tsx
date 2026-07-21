@@ -19,6 +19,7 @@ const GATED_ITEMS: { module: ModuleKey; item: RailItem }[] = [
   { module: "products", item: { href: "/products", label: "Products", icon: "products" } },
   { module: "channel", item: { href: "/channel", label: "Sales & Channel", icon: "channel" } },
   { module: "data-cloud", item: { href: "/data-cloud", label: "Data Cloud", icon: "datacloud" } },
+  { module: "marketing", item: { href: "/marketing", label: "Marketing", icon: "insights" } },
 ];
 
 const ADMIN_ITEMS: RailItem[] = [

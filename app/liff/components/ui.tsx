@@ -213,6 +213,7 @@ export function LiffEmpty({ message }: { message: string }) {
 const NAV = [
   { href: "/liff", label: "Points", icon: "M12 3l2.5 5.3 5.5.7-4 4 1 5.7-5-2.8-5 2.8 1-5.7-4-4 5.5-.7z" },
   { href: "/liff/history", label: "History", icon: "M13 3a9 9 0 1 0 8.9 10.5h-2.1A7 7 0 1 1 13 5v4l5-4.5L13 0v3zm-1 5v5.4l4.5 2.7.8-1.3-3.8-2.3V8H12z" },
+  { href: "/liff/missions", label: "Missions", icon: "M6 3h1.6v18H6V3zm1.6 1.5h11l-2.2 4L18.6 13h-11V4.5z" },
   { href: "/liff/rewards", label: "Rewards", icon: "M20 7h-2.2a3 3 0 0 0-4.8-3.5A3 3 0 0 0 6.2 7H4v5h1v8h14v-8h1V7zm-6.5-2a1 1 0 1 1 1 1h-1V5zm-4 0a1 1 0 0 1 1 1h-1a1 1 0 0 1 0-2zM11 18H7v-6h4v6zm6 0h-4v-6h4v6z" },
   { href: "/liff/account", label: "Account", icon: "M12 5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7zm0 8.5c3.6 0 6.5 1.8 6.5 4V19h-13v-1.5c0-2.2 2.9-4 6.5-4z" },
 ];

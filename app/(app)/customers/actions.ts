@@ -34,6 +34,7 @@ function parseCustomer(formData: FormData) {
     register_channel: formData.get("register_channel") ?? "",
     data_level: formData.get("data_level"),
     consent_mode: formData.get("consent_mode") || "all",
+    birth_date: formData.get("birth_date") ?? "",
   });
 }
 
@@ -159,6 +160,8 @@ export async function redeemRewardAction(
       return { error: "Not enough points for this reward." };
     if (result.error === "REWARD_INACTIVE")
       return { error: "That reward is no longer active." };
+    if (result.error === "REWARD_LIMIT_REACHED")
+      return { error: "This member has already redeemed this reward the maximum number of times." };
     return { error: "Reward not found." };
   }
   return { success: `Redeemed — ${result.balance} points remaining.` };

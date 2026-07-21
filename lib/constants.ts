@@ -48,6 +48,35 @@ export type ConsentStatus = (typeof CONSENT_STATUSES)[number];
 export const REWARD_TYPES = ["VOUCHER", "PRODUCT", "DISCOUNT", "EXPERIENCE"] as const;
 export type RewardType = (typeof REWARD_TYPES)[number];
 
+export const REWARD_STATUSES = ["DRAFT", "PUBLISHED", "SUSPENDED"] as const;
+export type RewardStatus = (typeof REWARD_STATUSES)[number];
+
+export const MISSION_TYPES = ["GENERAL", "PURCHASE", "SOCIAL", "SURVEY"] as const;
+export type MissionType = (typeof MISSION_TYPES)[number];
+
+export const MISSION_STATUSES = ["DRAFT", "PUBLISHED", "SUSPENDED"] as const;
+export type MissionStatus = (typeof MISSION_STATUSES)[number];
+
+export const MISSION_SUBMISSION_STATUSES = ["PENDING", "APPROVED", "REJECTED"] as const;
+export type MissionSubmissionStatus = (typeof MISSION_SUBMISSION_STATUSES)[number];
+
+export const SEGMENT_TYPES = ["custom", "ai"] as const;
+export type SegmentType = (typeof SEGMENT_TYPES)[number];
+
+export const CAMPAIGN_CHANNELS = ["LINE", "Email", "Push", "SMS"] as const;
+export type CampaignChannel = (typeof CAMPAIGN_CHANNELS)[number];
+
+export const CAMPAIGN_STATUSES = ["DRAFT", "SCHEDULED", "RUNNING", "PAUSED", "DONE"] as const;
+export type CampaignStatus = (typeof CAMPAIGN_STATUSES)[number];
+
+export const CHURN_LEVELS = ["High", "Medium", "Low"] as const;
+export type ChurnLevel = (typeof CHURN_LEVELS)[number];
+
+export const AUDIT_ACTIONS = [
+  "create", "update", "publish", "suspend", "delete", "launch", "pause", "resume",
+] as const;
+export type AuditAction = (typeof AUDIT_ACTIONS)[number];
+
 export const CASE_CATEGORIES = ["POINTS", "REDEMPTION", "PRODUCT", "DELIVERY", "ACCOUNT", "OTHER"] as const;
 export type CaseCategory = (typeof CASE_CATEGORIES)[number];
 
@@ -146,6 +175,7 @@ export const MODULES = [
   "products",
   "channel",
   "data-cloud",
+  "marketing",
 ] as const;
 export type ModuleKey = (typeof MODULES)[number];
 
@@ -157,6 +187,7 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
   products: "Products",
   channel: "Sales & Channel",
   "data-cloud": "Data Cloud",
+  marketing: "Marketing",
 };
 
 /** Route prefix each module owns — used by the rail and by proxy.ts gating. */
@@ -168,6 +199,7 @@ export const MODULE_ROUTES: Record<ModuleKey, string> = {
   products: "/products",
   channel: "/channel",
   "data-cloud": "/data-cloud",
+  marketing: "/marketing",
 };
 
 // Sales/Trade & Channel Enablement: trade channels distributors sell through.

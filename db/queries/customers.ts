@@ -20,6 +20,12 @@ export interface Customer {
   /** Linked Only-One LINE account, NULL until staff link it. */
   line_user_id: string | null;
   line_linked_at: string | null;
+  /** YYYY-MM-DD, month+day used for birthday bonuses — see runBirthdayRewards. */
+  birth_date: string | null;
+  /** This member's own shareable referral code. */
+  referral_code: string | null;
+  /** Customer id of whoever referred this member, set once at registration. */
+  referred_by: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -33,6 +39,7 @@ export interface CustomerInput {
   cust_type: CustType;
   register_channel?: string | null;
   data_level: DataLevel;
+  birth_date?: string | null;
 }
 
 // Sortable columns are allow-listed — the sort key comes from the URL.
@@ -105,6 +112,10 @@ export function getCustomerByCode(code: string): Promise<Customer | undefined> {
   return get<Customer>("SELECT * FROM customers WHERE member_code = ?", [code]);
 }
 
+export function getCustomerByReferralCode(code: string): Promise<Customer | undefined> {
+  return get<Customer>("SELECT * FROM customers WHERE referral_code = ?", [code]);
+}
+
 /** Finds an existing member by phone or email (duplicate-registration guard). */
 export function findDuplicate(
   phone?: string | null,
@@ -133,15 +144,19 @@ export async function createCustomer(
   const next = await get<{ next: number }>(
     "SELECT COALESCE(MAX(id), 0) + 1 AS next FROM customers"
   );
-  const memberCode = `CUS-${String(next?.next ?? 1).padStart(6, "0")}`;
+  const nextId = next?.next ?? 1;
+  const memberCode = `CUS-${String(nextId).padStart(6, "0")}`;
+  // Derived from the predicted next id (same prediction member_code already
+  // relies on) — deterministic and unique with no extra round trip.
+  const referralCode = `RF-${nextId.toString(36).toUpperCase()}`;
 
   const id = await run(
     `INSERT INTO customers
        (member_code, first_name, last_name, email, phone, brand, cust_type,
-        register_channel, data_level)
+        register_channel, data_level, birth_date, referral_code)
      VALUES
        (@member_code, @first_name, @last_name, @email, @phone, @brand, @cust_type,
-        @register_channel, @data_level)
+        @register_channel, @data_level, @birth_date, @referral_code)
      RETURNING id`,
     {
       member_code: memberCode,
@@ -153,6 +168,10 @@ export async function createCustomer(
       cust_type: input.cust_type,
       register_channel: input.register_channel ?? null,
       data_level: input.data_level,
+      // `|| null` not `?? null`: the form can submit "" for a cleared date,
+      // and an empty string would fail the ::date cast in runBirthdayRewards.
+      birth_date: input.birth_date || null,
+      referral_code: referralCode,
     }
   );
 
@@ -180,7 +199,7 @@ export async function updateCustomer(
        first_name = @first_name, last_name = @last_name, email = @email,
        phone = @phone, brand = @brand, cust_type = @cust_type,
        register_channel = @register_channel, data_level = @data_level,
-       updated_at = now()
+       birth_date = @birth_date, updated_at = now()
      WHERE id = @id`,
     {
       id,
@@ -192,6 +211,7 @@ export async function updateCustomer(
       cust_type: input.cust_type,
       register_channel: input.register_channel ?? null,
       data_level: input.data_level,
+      birth_date: input.birth_date || null,
     }
   );
 }

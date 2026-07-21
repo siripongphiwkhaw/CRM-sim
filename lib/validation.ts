@@ -11,9 +11,17 @@ import {
   CONSENT_PURPOSES,
   CONSENT_STATUSES,
   REWARD_TYPES,
+  REWARD_STATUSES,
+  MISSION_TYPES,
+  MISSION_STATUSES,
+  SEGMENT_TYPES,
+  CAMPAIGN_CHANNELS,
+  CAMPAIGN_STATUSES,
   CASE_CATEGORIES,
   CASE_PRIORITIES,
   CASE_STATUSES,
+  TIERS,
+  CHURN_LEVELS,
 } from "./constants";
 
 export const customerSchema = z.object({
@@ -26,6 +34,8 @@ export const customerSchema = z.object({
   register_channel: z.string().optional(),
   data_level: z.enum(DATA_LEVELS),
   consent_mode: z.enum(["all", "no_marketing"]).default("all"),
+  // YYYY-MM-DD, used only for month+day birthday matching — see runBirthdayRewards.
+  birth_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD").or(z.literal("")).optional(),
 });
 
 export const productSchema = z.object({
@@ -79,6 +89,9 @@ export const liffRegisterSchema = z.object({
     .min(8, "Enter a valid phone number")
     .regex(/^[0-9+()\-\s]+$/, "Phone can only contain digits and + ( ) -"),
   email: z.string().email("Enter a valid email"),
+  // Optional referrer's code, typed in by the new member — never resolves to
+  // an existing account by phone/email, only by this opaque code lookup.
+  referral_code: z.string().trim().optional(),
 });
 
 /** Demo "simulate a purchase" from LIFF. Customer comes from the session. */
@@ -99,6 +112,58 @@ export const rewardSchema = z.object({
   description: z.string().optional(),
   reward_type: z.enum(REWARD_TYPES),
   points_cost: z.coerce.number().int().positive(),
+  status: z.enum(REWARD_STATUSES).default("PUBLISHED"),
+  starts_at: z.string().or(z.literal("")).optional(),
+  ends_at: z.string().or(z.literal("")).optional(),
+  per_member_limit: z.coerce.number().int().positive().or(z.literal("")).optional(),
+});
+
+export const missionSchema = z.object({
+  name: z.string().min(1, "Mission name is required"),
+  description: z.string().optional(),
+  mission_type: z.enum(MISSION_TYPES),
+  reward_points: z.coerce.number().int().positive(),
+  status: z.enum(MISSION_STATUSES).default("DRAFT"),
+  starts_at: z.string().or(z.literal("")).optional(),
+  ends_at: z.string().or(z.literal("")).optional(),
+  requires_proof: z.coerce.boolean().default(false),
+});
+
+/** Member submission from LIFF. Customer comes from the session, never the form. */
+export const missionSubmitSchema = z.object({
+  mission_id: z.coerce.number().int().positive(),
+  proof_note: z.string().max(500).optional(),
+});
+
+export const missionReviewSchema = z.object({
+  submission_id: z.coerce.number().int().positive(),
+  approve: z.coerce.boolean(),
+});
+
+/** Segment rule: an allow-listed filter set, never raw SQL from the client. */
+export const segmentRuleSchema = z.object({
+  tier: z.enum(TIERS).optional(),
+  brand: z.enum(BRANDS).optional(),
+  cust_type: z.enum(CUST_TYPES).optional(),
+  min_points: z.coerce.number().int().min(0).optional(),
+  churn_level: z.enum(CHURN_LEVELS).optional(),
+  marketing_consent: z.boolean().optional(),
+});
+
+export const segmentSchema = z.object({
+  name: z.string().min(1, "Segment name is required"),
+  segment_type: z.enum(SEGMENT_TYPES).default("custom"),
+  rule: segmentRuleSchema,
+});
+
+export const campaignSchema = z.object({
+  name: z.string().min(1, "Campaign name is required"),
+  channel: z.enum(CAMPAIGN_CHANNELS),
+  segment_id: z.coerce.number().int().positive(),
+});
+
+export const campaignStatusSchema = z.object({
+  status: z.enum(CAMPAIGN_STATUSES),
 });
 
 export const caseCreateSchema = z.object({

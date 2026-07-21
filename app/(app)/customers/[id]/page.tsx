@@ -4,6 +4,7 @@ import { getLoyaltySummary, listRewards } from "@/db/queries/loyalty";
 import { getCustomerTimeline } from "@/db/queries/transactions";
 import { getCurrentConsents, listConsentHistory } from "@/db/queries/consent";
 import { getNbaForCustomer } from "@/db/queries/insights";
+import { getCustomerScore } from "@/db/queries/scores";
 import { listCases } from "@/db/queries/cases";
 import {
   PageHeader,
@@ -46,15 +47,16 @@ export default async function CustomerDetailPage({
   const customer = await getCustomer(Number(id));
   if (!customer) notFound();
 
-  const [summary, timeline, currentConsents, consentHistory, nba, rewards, cases] =
+  const [summary, timeline, currentConsents, consentHistory, nba, rewards, cases, score] =
     await Promise.all([
       getLoyaltySummary(customer.id),
       getCustomerTimeline(customer.id),
       getCurrentConsents(customer.id),
       listConsentHistory(customer.id),
       getNbaForCustomer(customer.id),
-      listRewards({ activeOnly: true }),
+      listRewards({ availableOnly: true }),
       listCases({ customerId: customer.id }),
+      getCustomerScore(customer.id),
     ]);
 
   const currentStatuses: Partial<Record<(typeof CONSENT_PURPOSES)[number], ConsentStatus>> = {};
@@ -155,6 +157,40 @@ export default async function CustomerDetailPage({
               <DetailRow label="Last purchase" value={formatDate(customer.last_purchase_at)} />
               <DetailRow label="Member since" value={formatDate(customer.created_at)} />
             </dl>
+          </Card>
+
+          <Card>
+            <SectionHeader title="RFM &amp; churn" />
+            {score ? (
+              <dl>
+                <DetailRow label="RFM cell" value={<span className="font-mono">{score.rfm_cell}</span>} />
+                <DetailRow
+                  label="Recency / Frequency / Monetary"
+                  value={`${score.rfm_recency} / ${score.rfm_frequency} / ${score.rfm_monetary}`}
+                />
+                <DetailRow
+                  label="Churn risk"
+                  value={
+                    <span
+                      className={
+                        score.churn_score === "High"
+                          ? "text-[#8e030f]"
+                          : score.churn_score === "Medium"
+                            ? "text-[#5f3e02]"
+                            : "text-[#194e31]"
+                      }
+                    >
+                      {score.churn_score}
+                    </span>
+                  }
+                />
+                <DetailRow label="Last computed" value={formatDate(score.calculated_at)} />
+              </dl>
+            ) : (
+              <p className="text-sm text-[#607785]">
+                Not yet computed — run &quot;Recompute scores &amp; insights&quot; from AI Insights.
+              </p>
+            )}
           </Card>
 
           <Card>

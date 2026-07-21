@@ -5,9 +5,11 @@ import { getCurrentConsents } from "@/db/queries/consent";
 import { getLoyaltySummary } from "@/db/queries/loyalty";
 import { CONSENT_PURPOSES, CONSENT_PURPOSE_LABELS } from "@/lib/constants";
 import { maskLineId } from "@/lib/format";
+import { LIFF_URL } from "@/lib/liffEnv";
 import { LiffShell, SectionCard, BottomNav, DemoBanner } from "../components/ui";
 import { ConsentToggle } from "./ConsentToggle";
 import { SignOutButton } from "./SignOutButton";
+import { ReferralShare } from "./ReferralShare";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +69,17 @@ export default async function LiffAccountPage() {
             </div>
           </dl>
         </SectionCard>
+
+        {member.referral_code && LIFF_URL && (
+          <div className="mt-3">
+            <SectionCard title="Invite friends">
+              <ReferralShare
+                code={member.referral_code}
+                shareUrl={`${LIFF_URL}?ref=${member.referral_code}`}
+              />
+            </SectionCard>
+          </div>
+        )}
 
         <div className="mt-3">
           <SectionCard title="Privacy preferences">

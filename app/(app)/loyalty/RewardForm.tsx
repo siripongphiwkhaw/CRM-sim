@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { Field, TextInput, Select, FormError, FormSuccess, SubmitButton } from "@/app/components/form";
-import { REWARD_TYPES } from "@/lib/constants";
+import { REWARD_TYPES, REWARD_STATUSES } from "@/lib/constants";
 import type { FormState } from "@/lib/validation";
 import { createRewardAction } from "./actions";
 
@@ -30,8 +30,24 @@ export function RewardForm() {
         <Field label="Points cost" htmlFor="reward-cost">
           <TextInput id="reward-cost" name="points_cost" type="number" min="1" placeholder="e.g. 200" required />
         </Field>
+        <Field label="Status" htmlFor="reward-status">
+          <Select id="reward-status" name="status" defaultValue="PUBLISHED">
+            {REWARD_STATUSES.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </Select>
+        </Field>
         <Field label="Description" htmlFor="reward-desc">
           <TextInput id="reward-desc" name="description" placeholder="Optional" />
+        </Field>
+        <Field label="Per-member limit" htmlFor="reward-limit">
+          <TextInput id="reward-limit" name="per_member_limit" type="number" min="1" placeholder="Optional" />
+        </Field>
+        <Field label="Available from" htmlFor="reward-starts">
+          <TextInput id="reward-starts" name="starts_at" type="date" placeholder="Optional" />
+        </Field>
+        <Field label="Available until" htmlFor="reward-ends">
+          <TextInput id="reward-ends" name="ends_at" type="date" placeholder="Optional" />
         </Field>
       </div>
       <SubmitButton>Add reward</SubmitButton>

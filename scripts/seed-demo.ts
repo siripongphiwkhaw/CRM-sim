@@ -12,11 +12,24 @@
  */
 
 import { all, run } from "../db/client";
-import { createCustomer } from "../db/queries/customers";
+import { createCustomer, updateCustomer, getCustomer } from "../db/queries/customers";
 import { createTransaction } from "../db/queries/transactions";
 import { createReward, listRewards, getLoyaltySummary } from "../db/queries/loyalty";
+import { createMission, submitMission, reviewSubmission } from "../db/queries/missions";
+import { recomputeScores } from "../db/queries/scores";
+import { createSegment } from "../db/queries/segments";
+import { createCampaign, launchCampaign, recomputeConversions } from "../db/queries/campaigns";
 import { recordConsent } from "../db/queries/consent";
 import { BRANDS, type TxChannel } from "../lib/constants";
+
+/** "YYYY-MM-DD" for today's month/day but a fixed birth year, so the
+ * birthday-rewards demo always has at least one match whenever this runs. */
+function todayAsBirthdate(year: number): string {
+  const now = new Date();
+  const mm = String(now.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(now.getUTCDate()).padStart(2, "0");
+  return `${year}-${mm}-${dd}`;
+}
 
 const B2C_CHANNELS: TxChannel[] = ["POS", "ECOM", "D2C"];
 
@@ -32,13 +45,36 @@ const MEMBERS: { first: string; last: string; brand: string; purchases: [number,
   { first: "Suda", last: "Chaiyaporn", brand: "Sunmato", purchases: [[260, 1]] },
 ];
 
-const REWARDS: { name: string; type: string; desc: string; cost: number }[] = [
+const REWARDS: {
+  name: string;
+  type: string;
+  desc: string;
+  cost: number;
+  status?: string;
+  perMemberLimit?: number;
+}[] = [
   { name: "฿50 cash voucher", type: "VOUCHER", desc: "Redeemable at any Only-One brand.", cost: 80 },
-  { name: "Free drink upsize", type: "PRODUCT", desc: "Any size, any participating store.", cost: 150 },
+  { name: "Free drink upsize", type: "PRODUCT", desc: "Any size, any participating store.", cost: 150, perMemberLimit: 2 },
   { name: "10% off next purchase", type: "DISCOUNT", desc: "One-time code, valid 30 days.", cost: 300 },
   { name: "฿250 cash voucher", type: "VOUCHER", desc: "Redeemable at any Only-One brand.", cost: 500 },
   { name: "Premium gift set", type: "PRODUCT", desc: "Curated best-sellers across brands.", cost: 1200 },
   { name: "Cooking class seat", type: "EXPERIENCE", desc: "One seat at a partner cooking class.", cost: 2500 },
+  // Lifecycle demo: not everything in the catalog is redeemable right now.
+  { name: "VIP tasting event (coming soon)", type: "EXPERIENCE", desc: "Draft — not yet published.", cost: 1800, status: "DRAFT" },
+  { name: "Retired anniversary mug", type: "PRODUCT", desc: "Suspended — past promotion.", cost: 200, status: "SUSPENDED" },
+];
+
+const MISSIONS: {
+  name: string;
+  type: string;
+  desc: string;
+  points: number;
+  status: string;
+  requiresProof: boolean;
+}[] = [
+  { name: "Complete your profile", type: "GENERAL", desc: "Add a birthday and confirm your details.", points: 30, status: "PUBLISHED", requiresProof: false },
+  { name: "Share a photo at checkout", type: "SOCIAL", desc: "Show us where you shop — staff review before points post.", points: 60, status: "PUBLISHED", requiresProof: true },
+  { name: "Take the satisfaction survey", type: "SURVEY", desc: "Two minutes, helps us improve.", points: 40, status: "DRAFT", requiresProof: false },
 ];
 
 async function main() {
@@ -55,11 +91,32 @@ async function main() {
       description: r.desc,
       reward_type: r.type as never,
       points_cost: r.cost,
+      status: (r.status as never) ?? "PUBLISHED",
+      per_member_limit: r.perMemberLimit ?? null,
     });
   }
   console.log(`  ${REWARDS.length} rewards`);
 
+  console.log("Creating missions…");
+  const missionIds: number[] = [];
+  for (const m of MISSIONS) {
+    const id = await createMission(
+      {
+        name: m.name,
+        description: m.desc,
+        mission_type: m.type as never,
+        reward_points: m.points,
+        status: m.status as never,
+        requires_proof: m.requiresProof,
+      },
+      null
+    );
+    missionIds.push(id);
+  }
+  console.log(`  ${MISSIONS.length} missions`);
+
   console.log("Creating members and purchases…");
+  const memberIds: number[] = [];
   for (const m of MEMBERS) {
     const id = await createCustomer(
       {
@@ -100,6 +157,16 @@ async function main() {
       });
     }
 
+    // Two birthdays land "today" so the birthday-rewards button always has
+    // something to award whenever this seed runs; the rest are off-date.
+    if (m.first === "Malee" || m.first === "Wichai") {
+      const customer = await getCustomer(id);
+      if (customer) {
+        await updateCustomer(id, { ...customer, birth_date: todayAsBirthdate(1992) });
+      }
+    }
+
+    memberIds.push(id);
     const summary = await getLoyaltySummary(id);
     console.log(
       `  ${m.first} ${m.last}: ${m.purchases.length} purchases · ` +
@@ -107,10 +174,38 @@ async function main() {
     );
   }
 
+  console.log("Submitting a mission…");
+  // Auto-awarded mission (no proof) for the top member.
+  await submitMission(memberIds[6], missionIds[0], null, "liff");
+  // Proof-required mission, submitted then approved by staff — leaves a real
+  // submission history row so /loyalty/missions/[id] has something to show.
+  const pendingResult = await submitMission(memberIds[0], missionIds[1], "Photo attached", "liff");
+  if (pendingResult.ok && pendingResult.status === "PENDING") {
+    const subs = await all<{ id: number }>(
+      "SELECT id FROM mission_submissions WHERE mission_id = ? AND customer_id = ?",
+      [missionIds[1], memberIds[0]]
+    );
+    if (subs[0]) await reviewSubmission(subs[0].id, true, null);
+  }
+
+  console.log("Computing RFM + churn scores…");
+  await recomputeScores();
+
+  console.log("Creating segments and a campaign…");
+  const goldSegmentId = await createSegment("Gold members", "custom", { tier: "Gold" }, null);
+  await createSegment("Marketing opted-in", "custom", { marketing_consent: true }, null);
+  await createSegment("High churn risk", "custom", { churn_level: "High" }, null);
+  const campaignId = await createCampaign("Gold appreciation", "LINE", goldSegmentId, null);
+  const launch = await launchCampaign(campaignId);
+  if (launch.ok) await recomputeConversions(campaignId);
+
   const [{ n: txCount }] = await all<{ n: number }>(
     "SELECT COUNT(*)::int AS n FROM transactions WHERE source_ref = 'seed-demo'"
   );
-  console.log(`\nDone — ${MEMBERS.length} members, ${txCount} transactions, ${REWARDS.length} rewards.`);
+  console.log(
+    `\nDone — ${MEMBERS.length} members, ${txCount} transactions, ${REWARDS.length} rewards, ` +
+      `${MISSIONS.length} missions, 3 segments, 1 campaign (${launch.ok ? `reach ${launch.reach}` : "not launched"}).`
+  );
   console.log("To remove it all again:");
   console.log("  npx tsx --env-file=.env.local scripts/seed-demo.ts --clear");
 }
@@ -131,6 +226,12 @@ async function clear() {
   );
   await run("DELETE FROM customers WHERE email LIKE '%@example.com'");
   await run("DELETE FROM rewards");
+  // Campaigns before segments — segment_id is ON DELETE SET NULL, not
+  // CASCADE, so a stale campaign would otherwise survive with a null segment.
+  await run("DELETE FROM campaigns");
+  await run("DELETE FROM segments");
+  await run("DELETE FROM missions"); // cascades mission_submissions
+  await run("DELETE FROM audit_log");
   console.log("Demo data removed.");
 }
 

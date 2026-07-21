@@ -11,7 +11,7 @@ export default async function LiffRewardsPage() {
   if (!auth.ok) redirect("/liff");
 
   const [rewards, balance] = await Promise.all([
-    listRewards({ activeOnly: true }),
+    listRewards({ availableOnly: true }),
     getBalance(auth.customerId),
   ]);
 

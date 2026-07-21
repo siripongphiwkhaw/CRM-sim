@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { LiffShell } from "./components/ui";
 import { RegisterForm } from "./link/RegisterForm";
 import { maskLineId } from "@/lib/format";
@@ -43,7 +44,10 @@ export function RegisterPanel({
         </div>
 
         <div className="mt-4">
-          <RegisterForm firstName={firstName} lastName={lastName} />
+          {/* useSearchParams (for the ?ref= prefill) needs a Suspense boundary. */}
+          <Suspense fallback={null}>
+            <RegisterForm firstName={firstName} lastName={lastName} />
+          </Suspense>
         </div>
 
         <p className="mt-3 text-center text-xs text-[#607785]">

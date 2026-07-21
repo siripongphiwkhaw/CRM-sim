@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { FormState } from "@/lib/validation";
 import { registerLineMemberAction } from "../actions";
 import { LiffButton } from "../components/LiffButton";
@@ -20,6 +20,9 @@ export function RegisterForm({
 }) {
   const [state, formAction] = useActionState<FormState, FormData>(registerLineMemberAction, {});
   const router = useRouter();
+  // Prefills from a shared link (liff.line.me/<id>?ref=CODE) — the referrer's
+  // Account screen surfaces exactly that URL. Still editable/removable.
+  const referralCode = useSearchParams().get("ref") ?? "";
 
   // The action opens the member session and returns success rather than
   // redirecting (Server-Action redirects are unreliable inside the LINE
@@ -71,6 +74,16 @@ export function RegisterForm({
           placeholder="you@example.com"
           required
           className={control}
+        />
+      </label>
+
+      <label className="block text-xs text-[#607785]">
+        Referral code <span className="text-[#9aa8b0]">(optional)</span>
+        <input
+          name="referral_code"
+          placeholder="e.g. RF-1A2B"
+          defaultValue={referralCode}
+          className={`${control} uppercase`}
         />
       </label>
 

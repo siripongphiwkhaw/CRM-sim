@@ -38,6 +38,13 @@ CREATE TABLE IF NOT EXISTS customers (
   -- collide but one LINE account can never claim two members.
   line_user_id TEXT,
   line_linked_at TEXT,
+  -- Birthday auto-rewards (month+day match, see runBirthdayRewards).
+  birth_date TEXT,
+  -- Referral program. referral_code is this member's own shareable code;
+  -- referred_by is the customer id of whoever referred them (set once, at
+  -- registration, never editable after — see registerLineMember).
+  referral_code TEXT,
+  referred_by INTEGER,
   created_at TEXT NOT NULL DEFAULT (now()),
   updated_at TEXT NOT NULL DEFAULT (now())
 );
@@ -239,7 +246,7 @@ CREATE TABLE IF NOT EXISTS department_pics (
 CREATE TABLE IF NOT EXISTS department_modules (
   department_id INTEGER NOT NULL REFERENCES departments(id) ON DELETE CASCADE,
   module TEXT NOT NULL CHECK (module IN (
-    'customers','loyalty','cases','insights','products','channel','data-cloud'
+    'customers','loyalty','cases','insights','products','channel','data-cloud','marketing'
   )),
   PRIMARY KEY (department_id, module)
 );
@@ -315,9 +322,114 @@ CREATE TABLE IF NOT EXISTS rewards (
   description TEXT,
   reward_type TEXT NOT NULL CHECK (reward_type IN ('VOUCHER','PRODUCT','DISCOUNT','EXPERIENCE')),
   points_cost INTEGER NOT NULL CHECK (points_cost > 0),
+  -- Kept for back-compat with existing active=1 filters (API/LIFF); status is
+  -- the source of truth going forward and setRewardStatus() keeps both in
+  -- sync. See rewardAvailable() in lib/loyaltyEngine.ts for the full rule.
   active INTEGER NOT NULL DEFAULT 1,
+  status TEXT NOT NULL DEFAULT 'PUBLISHED' CHECK (status IN ('DRAFT','PUBLISHED','SUSPENDED')),
+  starts_at TEXT,
+  ends_at TEXT,
+  per_member_limit INTEGER,
   created_at TEXT NOT NULL DEFAULT (now())
 );
+
+-- Loyalty missions: staff-authored tasks members complete for bonus points.
+-- Draft/Published/Suspended mirrors the rewards lifecycle.
+CREATE TABLE IF NOT EXISTS missions (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  code TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  description TEXT,
+  mission_type TEXT NOT NULL DEFAULT 'GENERAL',
+  reward_points INTEGER NOT NULL CHECK (reward_points > 0),
+  status TEXT NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT','PUBLISHED','SUSPENDED')),
+  starts_at TEXT,
+  ends_at TEXT,
+  -- 0 = auto-award on submit; 1 = a staff member must approve first.
+  requires_proof INTEGER NOT NULL DEFAULT 0,
+  created_by INTEGER REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (now())
+);
+
+-- One row per member attempt at a mission. ledger_id points at the EARN entry
+-- once approved/auto-awarded, so the award is traceable to exactly one write.
+CREATE TABLE IF NOT EXISTS mission_submissions (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  mission_id INTEGER NOT NULL REFERENCES missions(id) ON DELETE CASCADE,
+  customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','APPROVED','REJECTED')),
+  proof_note TEXT,
+  ledger_id INTEGER REFERENCES loyalty_ledger(id),
+  reviewed_by INTEGER REFERENCES users(id),
+  submitted_at TEXT NOT NULL DEFAULT (now()),
+  reviewed_at TEXT
+);
+CREATE INDEX IF NOT EXISTS mission_submissions_customer ON mission_submissions(customer_id);
+CREATE INDEX IF NOT EXISTS mission_submissions_mission ON mission_submissions(mission_id);
+
+-- RFM + churn scoring, recomputed on demand (recomputeScores). One row per
+-- customer — PK doubles as the upsert target, no separate id/versioning.
+CREATE TABLE IF NOT EXISTS customer_scores (
+  customer_id INTEGER PRIMARY KEY REFERENCES customers(id) ON DELETE CASCADE,
+  rfm_recency INTEGER,
+  rfm_frequency INTEGER,
+  rfm_monetary INTEGER,
+  rfm_cell TEXT,
+  churn_score TEXT CHECK (churn_score IN ('High','Medium','Low')),
+  nba_action TEXT,
+  calculated_at TEXT
+);
+
+-- Saved audience definitions for campaigns. rule_json is an allow-listed
+-- filter set (see db/queries/segments.ts) — never raw SQL from the client.
+CREATE TABLE IF NOT EXISTS segments (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  name TEXT NOT NULL,
+  segment_type TEXT NOT NULL DEFAULT 'custom' CHECK (segment_type IN ('custom','ai')),
+  rule_json TEXT NOT NULL,
+  live_count INTEGER NOT NULL DEFAULT 0,
+  created_by INTEGER REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (now()),
+  updated_at TEXT NOT NULL DEFAULT (now())
+);
+
+-- Campaigns target a segment and simulate a multi-channel send (no live LINE
+-- Messaging API channel yet — see the "Simulated send" note in the UI).
+CREATE TABLE IF NOT EXISTS campaigns (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  name TEXT NOT NULL,
+  channel TEXT NOT NULL CHECK (channel IN ('LINE','Email','Push','SMS')),
+  segment_id INTEGER REFERENCES segments(id) ON DELETE SET NULL,
+  status TEXT NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT','SCHEDULED','RUNNING','PAUSED','DONE')),
+  audience_size INTEGER NOT NULL DEFAULT 0,
+  reach INTEGER NOT NULL DEFAULT 0,
+  converted INTEGER NOT NULL DEFAULT 0,
+  launched_at TEXT,
+  created_by INTEGER REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (now()),
+  updated_at TEXT NOT NULL DEFAULT (now())
+);
+
+-- Audience snapshot taken at launch — segment membership can drift after, so
+-- reach/conversion are always measured against who was actually targeted.
+CREATE TABLE IF NOT EXISTS campaign_audience (
+  campaign_id INTEGER NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+  customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  delivered INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (campaign_id, customer_id)
+);
+
+-- Governance: who did what to which record. Append-only, never updated.
+CREATE TABLE IF NOT EXISTS audit_log (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  entity_name TEXT NOT NULL,
+  entity_id INTEGER NOT NULL,
+  action TEXT NOT NULL CHECK (action IN ('create','update','publish','suspend','delete','launch','pause','resume')),
+  user_id INTEGER REFERENCES users(id),
+  detail TEXT,
+  created_at TEXT NOT NULL DEFAULT (now())
+);
+CREATE INDEX IF NOT EXISTS audit_log_entity ON audit_log(entity_name, entity_id);
 
 -- Per-purpose PDPA consent, append-only history. Current status for a purpose
 -- is the latest row by captured_at (tie-break: highest id).
@@ -393,4 +505,31 @@ ALTER TABLE transactions ADD COLUMN IF NOT EXISTS brand TEXT;
 CREATE INDEX IF NOT EXISTS transactions_brand ON transactions(brand);
 ALTER TABLE loyalty_ledger ADD COLUMN IF NOT EXISTS source TEXT;
 CREATE INDEX IF NOT EXISTS loyalty_ledger_source ON loyalty_ledger(source);
+
+-- Version 2: reward lifecycle, referrals/birthday, RFM/churn, segments,
+-- campaigns, audit log. New tables above are CREATE TABLE IF NOT EXISTS so
+-- they need no ALTER here — only columns added to pre-existing tables and
+-- CHECK constraints being widened need to run again on an already-live DB.
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS birth_date TEXT;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS referral_code TEXT;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS referred_by INTEGER;
+CREATE UNIQUE INDEX IF NOT EXISTS customers_referral_code ON customers(referral_code);
+
+ALTER TABLE rewards ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'PUBLISHED';
+ALTER TABLE rewards ADD COLUMN IF NOT EXISTS starts_at TEXT;
+ALTER TABLE rewards ADD COLUMN IF NOT EXISTS ends_at TEXT;
+ALTER TABLE rewards ADD COLUMN IF NOT EXISTS per_member_limit INTEGER;
+ALTER TABLE rewards DROP CONSTRAINT IF EXISTS rewards_status_check;
+ALTER TABLE rewards ADD CONSTRAINT rewards_status_check
+  CHECK (status IN ('DRAFT','PUBLISHED','SUSPENDED'));
+
+-- loyalty_ledger.ref_type gains mission/referral/birthday/expire origins.
+ALTER TABLE loyalty_ledger DROP CONSTRAINT IF EXISTS loyalty_ledger_ref_type_check;
+ALTER TABLE loyalty_ledger ADD CONSTRAINT loyalty_ledger_ref_type_check
+  CHECK (ref_type IN ('transaction','reward','manual','seed','mission','referral','birthday','expire'));
+
+-- department_modules gains the marketing module.
+ALTER TABLE department_modules DROP CONSTRAINT IF EXISTS department_modules_module_check;
+ALTER TABLE department_modules ADD CONSTRAINT department_modules_module_check
+  CHECK (module IN ('customers','loyalty','cases','insights','products','channel','data-cloud','marketing'));
 `;

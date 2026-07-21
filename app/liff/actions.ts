@@ -13,10 +13,12 @@ import {
   liffConsentSchema,
   liffEarnSchema,
   liffRegisterSchema,
+  missionSubmitSchema,
   firstError,
   type FormState,
 } from "@/lib/validation";
 import { redeemReward } from "@/db/queries/loyalty";
+import { submitMission } from "@/db/queries/missions";
 import { recordConsent } from "@/db/queries/consent";
 import { createTransaction } from "@/db/queries/transactions";
 import { registerLineMember } from "@/db/queries/member";
@@ -80,9 +82,47 @@ export async function liffRedeemAction(
     if (result.error === "REWARD_INACTIVE") {
       return { error: "This reward is no longer available." };
     }
+    if (result.error === "REWARD_LIMIT_REACHED") {
+      return { error: "You've already redeemed this reward the maximum number of times." };
+    }
     return { error: "That reward could not be found." };
   }
   return { success: `Redeemed. You have ${result.balance.toLocaleString("en-US")} points left.` };
+}
+
+/**
+ * Member completes a mission from LIFF. Identity from the session, never the
+ * form — same IDOR rule as redeem/consent.
+ */
+export async function submitMissionAction(
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const auth = await requireMember();
+  if (!auth.ok) return { error: "Your session expired. Please reopen the app." };
+
+  const parsed = missionSubmitSchema.safeParse({
+    mission_id: formData.get("mission_id"),
+    proof_note: formData.get("proof_note") || undefined,
+  });
+  if (!parsed.success) return { error: firstError(parsed.error) };
+
+  const result = await submitMission(auth.customerId, parsed.data.mission_id, parsed.data.proof_note ?? null);
+
+  revalidatePath("/liff/missions");
+  revalidatePath("/liff");
+
+  if (!result.ok) {
+    if (result.error === "MISSION_UNAVAILABLE") return { error: "This mission is no longer available." };
+    if (result.error === "ALREADY_SUBMITTED") return { error: "You've already submitted this mission." };
+    return { error: "That mission could not be found." };
+  }
+  return {
+    success:
+      result.status === "APPROVED"
+        ? "Completed — points awarded."
+        : "Submitted — you'll be notified once staff review it.",
+  };
 }
 
 /**
@@ -170,6 +210,7 @@ export async function registerLineMemberAction(
     last_name: formData.get("last_name"),
     phone: formData.get("phone"),
     email: formData.get("email"),
+    referral_code: formData.get("referral_code") || undefined,
   });
   if (!parsed.success) return { error: firstError(parsed.error) };
 
@@ -180,6 +221,7 @@ export async function registerLineMemberAction(
       lastName: parsed.data.last_name,
       phone: parsed.data.phone,
       email: parsed.data.email,
+      referralCode: parsed.data.referral_code,
     });
     memberId = member.id;
   } catch {

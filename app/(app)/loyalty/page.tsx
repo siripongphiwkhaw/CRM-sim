@@ -10,6 +10,7 @@ import { PageHeader, Card, SectionHeader, EmptyState, StatTile } from "@/app/com
 import { formatDate } from "@/lib/format";
 import { RewardForm } from "./RewardForm";
 import { RewardActiveToggle } from "./RewardActiveToggle";
+import { JobButtons } from "./JobButtons";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,11 @@ export default async function LoyaltyPage() {
         overline="Loyalty"
         title="Loyalty Management"
         subtitle="Points liability, tiers, rewards catalog and the ledger feed"
+        action={
+          <Link href="/loyalty/missions" className="text-sm font-medium text-brand-700">
+            Missions →
+          </Link>
+        }
       />
 
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -63,9 +69,9 @@ export default async function LoyaltyPage() {
                       <td className="py-2 pr-2 text-right text-[#14202b]">{r.points_cost.toLocaleString("en-US")}</td>
                       <td className="py-2">
                         {isAdmin ? (
-                          <RewardActiveToggle id={r.id} active={!!r.active} />
+                          <RewardActiveToggle id={r.id} status={r.status} />
                         ) : (
-                          <span className="text-xs text-[#607785]">{r.active ? "Active" : "Inactive"}</span>
+                          <span className="text-xs text-[#607785]">{r.status}</span>
                         )}
                       </td>
                     </tr>
@@ -122,6 +128,13 @@ export default async function LoyaltyPage() {
               every purchase; the ledger is the system of record for the balance.
             </p>
           </Card>
+
+          {isAdmin && (
+            <Card className="mt-4">
+              <SectionHeader title="Scheduled jobs (on-demand)" />
+              <JobButtons />
+            </Card>
+          )}
         </div>
       </div>
     </div>
