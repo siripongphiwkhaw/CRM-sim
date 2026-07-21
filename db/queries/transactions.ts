@@ -124,13 +124,6 @@ export async function createTransaction(
   };
 }
 
-export function listTransactions(customerId: number, limit = 100): Promise<TransactionRow[]> {
-  return all<TransactionRow>(
-    `SELECT * FROM transactions WHERE customer_id = ? ORDER BY tx_date DESC, id DESC LIMIT ${limit}`,
-    [customerId]
-  );
-}
-
 export interface TimelineItem {
   kind: "transaction" | "earn" | "burn" | "adjust" | "interaction" | "case";
   title: string;

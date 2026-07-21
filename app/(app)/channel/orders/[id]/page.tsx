@@ -12,6 +12,7 @@ import {
   ScanMatchBadge,
   LineMatchBadge,
   EmptyState,
+  DetailRow,
 } from "@/app/components/ui";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { ORDER_STATUS_LABELS } from "@/lib/orderWorkflow";
@@ -20,15 +21,6 @@ import { PlanDeliveryForm } from "../PlanDeliveryForm";
 import { ReceiptScanCard } from "./ReceiptScanCard";
 
 export const dynamic = "force-dynamic";
-
-function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex justify-between gap-4 border-b border-[#eef3f5] py-2 last:border-0">
-      <dt className="text-xs text-[#607785]">{label}</dt>
-      <dd className="text-right text-sm text-[#14202b]">{value || "—"}</dd>
-    </div>
-  );
-}
 
 export default async function OrderDetailPage({
   params,

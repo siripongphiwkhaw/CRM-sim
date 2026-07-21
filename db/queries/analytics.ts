@@ -1,5 +1,5 @@
 import { get, all } from "../client";
-import { TIERS, BRANDS, DATA_LEVELS, type Tier } from "@/lib/constants";
+import { TIERS, BRANDS, type Tier } from "@/lib/constants";
 import { getConsentGapStats } from "./consent";
 
 export interface Overview {
@@ -102,15 +102,4 @@ export function getMonthlyPurchases(): Promise<MonthlyPurchases[]> {
 /** Members whose current MARKETING consent is not GRANTED. */
 export async function getMembersWithoutPdpa(): Promise<number> {
   return (await getConsentGapStats()).without_marketing;
-}
-
-export async function getDataLevelDistribution(): Promise<Bucket[]> {
-  const rows = await all<{ label: string; count: number }>(
-    "SELECT data_level AS label, COUNT(*) AS count FROM customers GROUP BY data_level"
-  );
-  const map = new Map(rows.map((r) => [r.label, r.count]));
-  return DATA_LEVELS.map((level) => ({
-    label: level,
-    count: map.get(level) ?? 0,
-  }));
 }

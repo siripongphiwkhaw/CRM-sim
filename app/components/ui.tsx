@@ -366,15 +366,20 @@ export function OrderStatusBadge({ status }: { status: OrderStatus }) {
   );
 }
 
-export function ConsentPill({ granted, label }: { granted: boolean; label: string }) {
+/* ---------- Detail rows ---------- */
+
+export function DetailRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
   return (
-    <Badge
-      className={
-        granted ? "bg-[#cdefc4] text-[#194e31]" : "bg-[#ecebea] text-[#607785]"
-      }
-    >
-      {granted ? "✓" : "✕"} {label}
-    </Badge>
+    <div className="flex justify-between gap-4 border-b border-[#eef3f5] py-2 last:border-0">
+      <dt className="text-xs text-[#607785]">{label}</dt>
+      <dd className="text-right text-sm text-[#14202b]">{value || "—"}</dd>
+    </div>
   );
 }
 

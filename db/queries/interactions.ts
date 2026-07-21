@@ -17,15 +17,6 @@ export interface InteractionWithCustomer extends Interaction {
   member_code: string;
 }
 
-export function listInteractionsByCustomer(
-  customerId: number
-): Promise<Interaction[]> {
-  return all<Interaction>(
-    "SELECT * FROM interactions WHERE customer_id = ? ORDER BY occurred_at DESC",
-    [customerId]
-  );
-}
-
 export function listRecentInteractions(
   limit = 12
 ): Promise<InteractionWithCustomer[]> {
