@@ -47,7 +47,13 @@ export function OrderLineItemsForm({
 
   return (
     <form action={formAction} className="max-w-3xl space-y-5">
-      <input type="hidden" name="items_json" value={JSON.stringify(rows)} />
+      <input
+        type="hidden"
+        name="items_json"
+        value={JSON.stringify(
+          rows.map((r) => ({ product_id: r.productId, quantity: r.quantity }))
+        )}
+      />
       <FormError message={state.error} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
