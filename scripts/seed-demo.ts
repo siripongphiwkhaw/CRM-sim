@@ -191,20 +191,37 @@ async function main() {
   console.log("Computing RFM + churn scores…");
   await recomputeScores();
 
-  console.log("Creating segments and a campaign…");
+  console.log("Creating segments and campaigns…");
   const goldSegmentId = await createSegment("Gold members", "custom", { tier: "Gold" }, null);
   await createSegment("Marketing opted-in", "custom", { marketing_consent: true }, null);
   await createSegment("High churn risk", "custom", { churn_level: "High" }, null);
-  const campaignId = await createCampaign("Gold appreciation", "LINE", goldSegmentId, null);
+  // Channel-classification demo segments.
+  await createSegment("HoReCa buyers", "custom", { behavior_class: "HORECA" }, null);
+  const contestedSegmentId = await createSegment("Contested customers", "custom", { channel_affinity: "CONTESTED" }, null);
+
+  const campaignId = await createCampaign("Gold appreciation", "LINE", goldSegmentId, "retention", 30, null);
   const launch = await launchCampaign(campaignId);
   if (launch.ok) await recomputeConversions(campaignId);
+  // Second campaign over an overlapping audience shows cross-channel exclusion:
+  // members already targeted above (still in cooldown) are skipped here.
+  const contestedCampaignId = await createCampaign(
+    "E-com re-engage",
+    "Email",
+    contestedSegmentId,
+    "acquisition",
+    30,
+    null
+  );
+  const launch2 = await launchCampaign(contestedCampaignId);
 
   const [{ n: txCount }] = await all<{ n: number }>(
     "SELECT COUNT(*)::int AS n FROM transactions WHERE source_ref = 'seed-demo'"
   );
   console.log(
     `\nDone — ${MEMBERS.length} members, ${txCount} transactions, ${REWARDS.length} rewards, ` +
-      `${MISSIONS.length} missions, 3 segments, 1 campaign (${launch.ok ? `reach ${launch.reach}` : "not launched"}).`
+      `${MISSIONS.length} missions, 5 segments, 2 campaigns ` +
+      `(1st reach ${launch.ok ? launch.reach : "—"}, 2nd reach ${launch2.ok ? launch2.reach : "—"} / ` +
+      `${launch2.ok ? launch2.excluded : "—"} excluded by cross-channel arbitration).`
   );
   console.log("To remove it all again:");
   console.log("  npx tsx --env-file=.env.local scripts/seed-demo.ts --clear");

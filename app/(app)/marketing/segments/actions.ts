@@ -19,6 +19,9 @@ function parseRule(formData: FormData): SegmentRule {
     cust_type: (formData.get("cust_type") as SegmentRule["cust_type"]) || undefined,
     min_points: formData.get("min_points") ? Number(formData.get("min_points")) : undefined,
     churn_level: (formData.get("churn_level") as SegmentRule["churn_level"]) || undefined,
+    behavior_class: (formData.get("behavior_class") as SegmentRule["behavior_class"]) || undefined,
+    channel_affinity: (formData.get("channel_affinity") as SegmentRule["channel_affinity"]) || undefined,
+    primary_channel: (formData.get("primary_channel") as SegmentRule["primary_channel"]) || undefined,
     marketing_consent:
       formData.get("marketing_consent") === "true"
         ? true

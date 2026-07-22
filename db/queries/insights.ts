@@ -94,6 +94,8 @@ const ANALYTIC_TYPES = [
   "LIABILITY_HIGH",
   "CHURN_RISK",
   "DEALER_UNLINKED",
+  "CHANNEL_CANNIBALIZATION",
+  "RECLASSIFY_SUGGESTION",
 ];
 
 /**
@@ -267,6 +269,58 @@ export async function generateInsights(): Promise<{ created: number }> {
       description: "This dealer has no linked CRM member, breaking the identity chain.",
       recommendation: "Link the dealer to a B2B member to enable sell-in loyalty earn.",
       confidence: 1,
+    });
+  }
+
+  // RECLASSIFY_SUGGESTION — a customer whose behavioral class (from
+  // customer_scores) disagrees with their declared cust_type: e.g. a B2C-
+  // registered account buying like HORECA/TRADE. Left as a suggestion, never
+  // an automatic change, so pricing/terms move only with a human decision.
+  const reclass = await all<{ id: number; name: string; cust_type: string; behavior_class: string }>(
+    `SELECT c.id, (c.first_name || ' ' || c.last_name) AS name, c.cust_type, s.behavior_class
+       FROM customers c JOIN customer_scores s ON s.customer_id = c.id
+      WHERE (c.cust_type = 'B2C' AND s.behavior_class IN ('HORECA','TRADE'))
+         OR (c.cust_type = 'B2B' AND s.behavior_class = 'CONSUMER')`
+  );
+  for (const row of reclass) {
+    await add({
+      insight_type: "RECLASSIFY_SUGGESTION",
+      severity: "OPPORTUNITY",
+      entity_type: "customer",
+      entity_id: row.id,
+      title: `Reclassify ${row.name}? Registered ${row.cust_type}, buys like ${row.behavior_class}`,
+      description:
+        "Declared type and buying behaviour disagree — a business buyer on consumer terms (or the reverse) leaks margin.",
+      recommendation: "Review and move them to the correct trade / consumer motion and pricing.",
+      confidence: 0.8,
+    });
+  }
+
+  // CHANNEL_CANNIBALIZATION — CONTESTED customers (active across ≥2 channels)
+  // who were also targeted by more than one campaign. These are exactly the
+  // people two channels spend promo budget competing for; the count is the
+  // measurable overlap the arbitration at launch is meant to shrink.
+  const contested = await all<{ id: number; name: string; campaigns: number }>(
+    `SELECT c.id, (c.first_name || ' ' || c.last_name) AS name,
+            COUNT(DISTINCT ca.campaign_id)::int AS campaigns
+       FROM customers c
+       JOIN customer_scores s ON s.customer_id = c.id
+       JOIN campaign_audience ca ON ca.customer_id = c.id
+      WHERE s.channel_affinity = 'CONTESTED'
+      GROUP BY c.id, c.first_name, c.last_name
+     HAVING COUNT(DISTINCT ca.campaign_id) > 1`
+  );
+  for (const row of contested) {
+    await add({
+      insight_type: "CHANNEL_CANNIBALIZATION",
+      severity: "WARNING",
+      entity_type: "customer",
+      entity_id: row.id,
+      title: `Overlapping promos: ${row.name} targeted by ${row.campaigns} campaigns`,
+      description:
+        "A contested customer is being promoted to by multiple campaigns — channels are spending to win the same person.",
+      recommendation: "Assign a single owning channel and rely on the cross-channel cooldown at launch.",
+      confidence: 0.85,
     });
   }
 

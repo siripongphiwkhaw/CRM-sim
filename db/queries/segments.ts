@@ -1,6 +1,15 @@
 import { get, all, run } from "../client";
 import type { SqlValue } from "../client";
-import type { Tier, Brand, CustType, ChurnLevel, SegmentType } from "@/lib/constants";
+import type {
+  Tier,
+  Brand,
+  CustType,
+  ChurnLevel,
+  SegmentType,
+  BehaviorClass,
+  ChannelAffinity,
+  TxChannel,
+} from "@/lib/constants";
 
 /**
  * Segment audiences for campaigns. The rule is an allow-listed filter set
@@ -15,6 +24,12 @@ export interface SegmentRule {
   cust_type?: CustType;
   min_points?: number;
   churn_level?: ChurnLevel;
+  /** Derived behavioral class (from customer_scores). */
+  behavior_class?: BehaviorClass;
+  /** Derived channel spread (from customer_scores). */
+  channel_affinity?: ChannelAffinity;
+  /** Members whose dominant channel is this one. */
+  primary_channel?: TxChannel;
   /** true = must have current GRANTED marketing consent; false = must not. */
   marketing_consent?: boolean;
 }
@@ -56,6 +71,18 @@ function segmentQuery(rule: SegmentRule): {
   if (rule.churn_level) {
     clauses.push("s.churn_score = @churn_level");
     params.churn_level = rule.churn_level;
+  }
+  if (rule.behavior_class) {
+    clauses.push("s.behavior_class = @behavior_class");
+    params.behavior_class = rule.behavior_class;
+  }
+  if (rule.channel_affinity) {
+    clauses.push("s.channel_affinity = @channel_affinity");
+    params.channel_affinity = rule.channel_affinity;
+  }
+  if (rule.primary_channel) {
+    clauses.push("s.primary_channel = @primary_channel");
+    params.primary_channel = rule.primary_channel;
   }
   if (rule.marketing_consent != null) {
     // "Current" consent = latest row per customer for the MARKETING purpose,

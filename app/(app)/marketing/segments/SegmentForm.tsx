@@ -2,7 +2,18 @@
 
 import { useActionState, useRef, useState, useTransition } from "react";
 import { Field, TextInput, Select, FormError, FormSuccess, SubmitButton } from "@/app/components/form";
-import { TIERS, BRANDS, CUST_TYPES, CHURN_LEVELS } from "@/lib/constants";
+import {
+  TIERS,
+  BRANDS,
+  CUST_TYPES,
+  CHURN_LEVELS,
+  BEHAVIOR_CLASSES,
+  BEHAVIOR_CLASS_LABELS,
+  CHANNEL_AFFINITIES,
+  CHANNEL_AFFINITY_LABELS,
+  TX_CHANNELS,
+  TX_CHANNEL_LABELS,
+} from "@/lib/constants";
 import type { FormState } from "@/lib/validation";
 import { createSegmentAction, previewSegmentCountAction } from "./actions";
 
@@ -52,6 +63,24 @@ export function SegmentForm() {
           <Select id="seg-churn" name="churn_level" defaultValue="">
             <option value="">Any</option>
             {CHURN_LEVELS.map((c) => <option key={c} value={c}>{c}</option>)}
+          </Select>
+        </Field>
+        <Field label="Behaves as" htmlFor="seg-behavior">
+          <Select id="seg-behavior" name="behavior_class" defaultValue="">
+            <option value="">Any</option>
+            {BEHAVIOR_CLASSES.map((b) => <option key={b} value={b}>{BEHAVIOR_CLASS_LABELS[b]}</option>)}
+          </Select>
+        </Field>
+        <Field label="Channel affinity" htmlFor="seg-affinity">
+          <Select id="seg-affinity" name="channel_affinity" defaultValue="">
+            <option value="">Any</option>
+            {CHANNEL_AFFINITIES.map((a) => <option key={a} value={a}>{CHANNEL_AFFINITY_LABELS[a]}</option>)}
+          </Select>
+        </Field>
+        <Field label="Primary channel" htmlFor="seg-primary">
+          <Select id="seg-primary" name="primary_channel" defaultValue="">
+            <option value="">Any</option>
+            {TX_CHANNELS.map((c) => <option key={c} value={c}>{TX_CHANNEL_LABELS[c]}</option>)}
           </Select>
         </Field>
         <Field label="Marketing consent" htmlFor="seg-consent">

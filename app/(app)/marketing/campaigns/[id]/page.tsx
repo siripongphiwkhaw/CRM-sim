@@ -53,9 +53,15 @@ export default async function CampaignDetailPage({
         </Card>
       ) : (
         <>
-          <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
             <StatTile label="Segment size at launch" value={campaign.audience_size.toLocaleString("en-US")} />
-            <StatTile label="Reach (consented)" value={campaign.reach.toLocaleString("en-US")} tone="brand" />
+            <StatTile label="Reach (targeted)" value={campaign.reach.toLocaleString("en-US")} tone="brand" />
+            <StatTile
+              label="Excluded (arbitration)"
+              value={campaign.excluded.toLocaleString("en-US")}
+              tone="warning"
+              hint="Skipped to avoid overlapping another channel's promo"
+            />
             <StatTile label="Converted" value={campaign.converted.toLocaleString("en-US")} tone="positive" />
             <StatTile
               label="Conversion rate"

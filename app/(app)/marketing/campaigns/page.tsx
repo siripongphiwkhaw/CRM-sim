@@ -2,7 +2,6 @@ import Link from "next/link";
 import { listCampaigns } from "@/db/queries/campaigns";
 import { listSegments } from "@/db/queries/segments";
 import { PageHeader, Card, SectionHeader, EmptyState } from "@/app/components/ui";
-import { formatDate } from "@/lib/format";
 import { CampaignForm } from "./CampaignForm";
 
 export const dynamic = "force-dynamic";
@@ -43,9 +42,10 @@ export default async function CampaignsPage() {
                 <tr>
                   <th className="py-2 pr-2">Campaign</th>
                   <th className="py-2 pr-2">Channel</th>
+                  <th className="py-2 pr-2">Intent</th>
                   <th className="py-2 pr-2 text-right">Reach</th>
+                  <th className="py-2 pr-2 text-right">Excluded</th>
                   <th className="py-2 pr-2 text-right">Converted</th>
-                  <th className="py-2 pr-2">Created</th>
                   <th className="py-2">Status</th>
                 </tr>
               </thead>
@@ -58,9 +58,10 @@ export default async function CampaignsPage() {
                       </Link>
                     </td>
                     <td className="py-2 pr-2 text-[#607785]">{c.channel}</td>
+                    <td className="py-2 pr-2 text-[#607785]">{c.campaign_type}</td>
                     <td className="py-2 pr-2 text-right text-[#14202b]">{c.reach.toLocaleString("en-US")}</td>
+                    <td className="py-2 pr-2 text-right text-[#8a4b1e]">{c.excluded.toLocaleString("en-US")}</td>
                     <td className="py-2 pr-2 text-right text-[#14202b]">{c.converted.toLocaleString("en-US")}</td>
-                    <td className="py-2 pr-2 text-[#607785]">{formatDate(c.created_at)}</td>
                     <td className="py-2">
                       <span className={`rounded-[16px] px-2 py-0.5 text-xs font-medium ${STATUS_TONE[c.status]}`}>
                         {c.status}

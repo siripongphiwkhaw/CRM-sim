@@ -22,6 +22,9 @@ import {
   CASE_STATUSES,
   TIERS,
   CHURN_LEVELS,
+  BEHAVIOR_CLASSES,
+  CHANNEL_AFFINITIES,
+  CAMPAIGN_TYPES,
 } from "./constants";
 
 export const customerSchema = z.object({
@@ -147,6 +150,9 @@ export const segmentRuleSchema = z.object({
   cust_type: z.enum(CUST_TYPES).optional(),
   min_points: z.coerce.number().int().min(0).optional(),
   churn_level: z.enum(CHURN_LEVELS).optional(),
+  behavior_class: z.enum(BEHAVIOR_CLASSES).optional(),
+  channel_affinity: z.enum(CHANNEL_AFFINITIES).optional(),
+  primary_channel: z.enum(TX_CHANNELS).optional(),
   marketing_consent: z.boolean().optional(),
 });
 
@@ -160,6 +166,8 @@ export const campaignSchema = z.object({
   name: z.string().min(1, "Campaign name is required"),
   channel: z.enum(CAMPAIGN_CHANNELS),
   segment_id: z.coerce.number().int().positive(),
+  campaign_type: z.enum(CAMPAIGN_TYPES).default("retention"),
+  cooldown_days: z.coerce.number().int().min(0).max(365).default(30),
 });
 
 export const campaignStatusSchema = z.object({

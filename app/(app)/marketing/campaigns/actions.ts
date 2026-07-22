@@ -21,10 +21,19 @@ export async function createCampaignAction(
     name: formData.get("name"),
     channel: formData.get("channel"),
     segment_id: formData.get("segment_id"),
+    campaign_type: formData.get("campaign_type") || "retention",
+    cooldown_days: formData.get("cooldown_days") || 30,
   });
   if (!parsed.success) return { error: firstError(parsed.error) };
 
-  const id = await createCampaign(parsed.data.name, parsed.data.channel, parsed.data.segment_id, session.userId ?? null);
+  const id = await createCampaign(
+    parsed.data.name,
+    parsed.data.channel,
+    parsed.data.segment_id,
+    parsed.data.campaign_type,
+    parsed.data.cooldown_days,
+    session.userId ?? null
+  );
   await recordAudit("campaign", id, "create", session.userId ?? null, parsed.data.name);
   revalidatePath("/marketing/campaigns");
   return { success: "Campaign created as a draft." };
@@ -46,11 +55,17 @@ export async function launchCampaignAction(id: number): Promise<FormState> {
     id,
     "launch",
     session.userId ?? null,
-    `reach ${result.reach}/${result.audienceSize}`
+    `reach ${result.reach}/${result.audienceSize}, ${result.excluded} excluded by arbitration`
   );
   revalidatePath("/marketing/campaigns");
   revalidatePath(`/marketing/campaigns/${id}`);
-  return { success: `Launched — reached ${result.reach} of ${result.audienceSize} members (consent-gated).` };
+  const excludedNote =
+    result.excluded > 0
+      ? ` ${result.excluded} skipped to avoid overlapping another channel's promo.`
+      : "";
+  return {
+    success: `Launched — reached ${result.reach} of ${result.audienceSize} members (consent-gated).${excludedNote}`,
+  };
 }
 
 export async function setCampaignStatusAction(id: number, status: CampaignStatus) {

@@ -19,7 +19,13 @@ import {
 } from "@/app/components/ui";
 import { DeleteButton } from "@/app/components/form";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { CONSENT_PURPOSES, type ConsentStatus } from "@/lib/constants";
+import {
+  CONSENT_PURPOSES,
+  BEHAVIOR_CLASS_LABELS,
+  CHANNEL_AFFINITY_LABELS,
+  TX_CHANNEL_LABELS,
+  type ConsentStatus,
+} from "@/lib/constants";
 import { TierPath } from "../TierPath";
 import { RecordTransactionForm } from "./RecordTransactionForm";
 import { RedeemForm } from "./RedeemForm";
@@ -160,9 +166,42 @@ export default async function CustomerDetailPage({
           </Card>
 
           <Card>
-            <SectionHeader title="RFM &amp; churn" />
+            <SectionHeader title="Classification &amp; scores" />
             {score ? (
               <dl>
+                <DetailRow label="Declared type" value={customer.cust_type} />
+                <DetailRow
+                  label="Behaves as"
+                  value={
+                    score.behavior_class ? (
+                      <span className={score.behavior_class !== "CONSUMER" ? "font-medium text-[#5f3e02]" : ""}>
+                        {score.behavior_class
+                          ? BEHAVIOR_CLASS_LABELS[score.behavior_class]
+                          : "—"}
+                        {score.behavior_class === "HORECA" || score.behavior_class === "TRADE"
+                          ? customer.cust_type === "B2C"
+                            ? " · review reclassification"
+                            : ""
+                          : ""}
+                      </span>
+                    ) : (
+                      "—"
+                    )
+                  }
+                />
+                <DetailRow
+                  label="Channel affinity"
+                  value={
+                    score.channel_affinity ? (
+                      <span className={score.channel_affinity === "CONTESTED" ? "font-medium text-[#8e030f]" : ""}>
+                        {CHANNEL_AFFINITY_LABELS[score.channel_affinity]}
+                        {score.primary_channel ? ` · ${TX_CHANNEL_LABELS[score.primary_channel]}` : ""}
+                      </span>
+                    ) : (
+                      "—"
+                    )
+                  }
+                />
                 <DetailRow label="RFM cell" value={<span className="font-mono">{score.rfm_cell}</span>} />
                 <DetailRow
                   label="Recency / Frequency / Monetary"

@@ -72,6 +72,34 @@ export type CampaignStatus = (typeof CAMPAIGN_STATUSES)[number];
 export const CHURN_LEVELS = ["High", "Medium", "Low"] as const;
 export type ChurnLevel = (typeof CHURN_LEVELS)[number];
 
+// Behavioral classification — what a customer's buying says they are,
+// independent of the declared cust_type. HORECA = a food-service / business
+// buyer (chef, small restaurant) transacting on consumer channels.
+export const BEHAVIOR_CLASSES = ["CONSUMER", "HORECA", "TRADE"] as const;
+export type BehaviorClass = (typeof BEHAVIOR_CLASSES)[number];
+
+export const BEHAVIOR_CLASS_LABELS: Record<BehaviorClass, string> = {
+  CONSUMER: "Consumer",
+  HORECA: "HoReCa (food service)",
+  TRADE: "Trade / reseller",
+};
+
+// Which channels a customer buys through. CONTESTED = active across ≥2
+// channels in the window — the customer the channels are competing over.
+export const CHANNEL_AFFINITIES = ["SINGLE_CHANNEL", "MULTI_CHANNEL", "CONTESTED"] as const;
+export type ChannelAffinity = (typeof CHANNEL_AFFINITIES)[number];
+
+export const CHANNEL_AFFINITY_LABELS: Record<ChannelAffinity, string> = {
+  SINGLE_CHANNEL: "Single channel",
+  MULTI_CHANNEL: "Multi-channel",
+  CONTESTED: "Contested",
+};
+
+// Promo intent — an acquisition campaign spends to win new demand; a retention
+// campaign keeps an existing customer. Drives the acquisition-waste guard.
+export const CAMPAIGN_TYPES = ["acquisition", "retention"] as const;
+export type CampaignType = (typeof CAMPAIGN_TYPES)[number];
+
 export const AUDIT_ACTIONS = [
   "create", "update", "publish", "suspend", "delete", "launch", "pause", "resume",
 ] as const;
@@ -103,6 +131,8 @@ export const INSIGHT_TYPES = [
   "LIABILITY_HIGH",
   "CHURN_RISK",
   "DEALER_UNLINKED",
+  "CHANNEL_CANNIBALIZATION",
+  "RECLASSIFY_SUGGESTION",
 ] as const;
 export type InsightType = (typeof INSIGHT_TYPES)[number];
 

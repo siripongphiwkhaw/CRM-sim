@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { Field, TextInput, Select, FormError, FormSuccess, SubmitButton } from "@/app/components/form";
-import { CAMPAIGN_CHANNELS } from "@/lib/constants";
+import { CAMPAIGN_CHANNELS, CAMPAIGN_TYPES } from "@/lib/constants";
 import type { FormState } from "@/lib/validation";
 import type { Segment } from "@/db/queries/segments";
 import { createCampaignAction } from "./actions";
@@ -37,6 +37,14 @@ export function CampaignForm({ segments }: { segments: Segment[] }) {
               <option key={s.id} value={s.id}>{s.name} ({s.live_count})</option>
             ))}
           </Select>
+        </Field>
+        <Field label="Intent" htmlFor="camp-type">
+          <Select id="camp-type" name="campaign_type" defaultValue="retention">
+            {CAMPAIGN_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </Select>
+        </Field>
+        <Field label="Cooldown (days)" htmlFor="camp-cooldown" hint="Others' campaigns skip these members while it runs">
+          <TextInput id="camp-cooldown" name="cooldown_days" type="number" min="0" max="365" defaultValue={30} />
         </Field>
       </div>
       <SubmitButton>Create draft</SubmitButton>

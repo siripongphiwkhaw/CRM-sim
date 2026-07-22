@@ -16,6 +16,9 @@ function ruleSummary(rule: ReturnType<typeof parseSegmentRule>): string {
   if (rule.cust_type) parts.push(`Type=${rule.cust_type}`);
   if (rule.min_points != null) parts.push(`Points≥${rule.min_points}`);
   if (rule.churn_level) parts.push(`Churn=${rule.churn_level}`);
+  if (rule.behavior_class) parts.push(`Behaves=${rule.behavior_class}`);
+  if (rule.channel_affinity) parts.push(`Affinity=${rule.channel_affinity}`);
+  if (rule.primary_channel) parts.push(`Channel=${rule.primary_channel}`);
   if (rule.marketing_consent != null) parts.push(`Marketing=${rule.marketing_consent ? "granted" : "not granted"}`);
   return parts.length ? parts.join(" · ") : "All members";
 }

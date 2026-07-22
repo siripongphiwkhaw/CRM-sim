@@ -377,6 +377,12 @@ CREATE TABLE IF NOT EXISTS customer_scores (
   rfm_cell TEXT,
   churn_score TEXT CHECK (churn_score IN ('High','Medium','Low')),
   nba_action TEXT,
+  -- Behavioral classification (CONSUMER/HORECA/TRADE) + channel affinity, both
+  -- derived by recomputeScores() — validity enforced in code, not CHECK, so
+  -- adding a class later needs no constraint migration.
+  behavior_class TEXT,
+  primary_channel TEXT,
+  channel_affinity TEXT,
   calculated_at TEXT
 );
 
@@ -401,9 +407,14 @@ CREATE TABLE IF NOT EXISTS campaigns (
   channel TEXT NOT NULL CHECK (channel IN ('LINE','Email','Push','SMS')),
   segment_id INTEGER REFERENCES segments(id) ON DELETE SET NULL,
   status TEXT NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT','SCHEDULED','RUNNING','PAUSED','DONE')),
+  -- Promo intent + how many days a targeted customer is "spoken for" so other
+  -- channels' campaigns skip them (cross-channel promo frequency cap).
+  campaign_type TEXT NOT NULL DEFAULT 'retention' CHECK (campaign_type IN ('acquisition','retention')),
+  cooldown_days INTEGER NOT NULL DEFAULT 30,
   audience_size INTEGER NOT NULL DEFAULT 0,
   reach INTEGER NOT NULL DEFAULT 0,
   converted INTEGER NOT NULL DEFAULT 0,
+  excluded INTEGER NOT NULL DEFAULT 0,
   launched_at TEXT,
   created_by INTEGER REFERENCES users(id),
   created_at TEXT NOT NULL DEFAULT (now()),
@@ -470,7 +481,8 @@ CREATE TABLE IF NOT EXISTS ai_insights (
   id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   insight_type TEXT NOT NULL CHECK (insight_type IN (
     'CHANNEL_CONFLICT','LOW_SELLOUT_RATE','LOW_SELLIN_STOCK','OUT_OF_STOCK',
-    'REORDER_POINT','CONSENT_GAP','LIABILITY_HIGH','CHURN_RISK','DEALER_UNLINKED')),
+    'REORDER_POINT','CONSENT_GAP','LIABILITY_HIGH','CHURN_RISK','DEALER_UNLINKED',
+    'CHANNEL_CANNIBALIZATION','RECLASSIFY_SUGGESTION')),
   severity TEXT NOT NULL CHECK (severity IN ('CRITICAL','WARNING','OPPORTUNITY','INFO')),
   entity_type TEXT CHECK (entity_type IN ('customer','distributor','product','global')),
   entity_id INTEGER,
@@ -532,4 +544,25 @@ ALTER TABLE loyalty_ledger ADD CONSTRAINT loyalty_ledger_ref_type_check
 ALTER TABLE department_modules DROP CONSTRAINT IF EXISTS department_modules_module_check;
 ALTER TABLE department_modules ADD CONSTRAINT department_modules_module_check
   CHECK (module IN ('customers','loyalty','cases','insights','products','channel','data-cloud','marketing'));
+
+-- Channel classification + anti-cannibalization: behavioral class + channel
+-- affinity on the score row, promo intent/cooldown/exclusion on campaigns, and
+-- two new insight types.
+ALTER TABLE customer_scores ADD COLUMN IF NOT EXISTS behavior_class TEXT;
+ALTER TABLE customer_scores ADD COLUMN IF NOT EXISTS primary_channel TEXT;
+ALTER TABLE customer_scores ADD COLUMN IF NOT EXISTS channel_affinity TEXT;
+
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS campaign_type TEXT NOT NULL DEFAULT 'retention';
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS cooldown_days INTEGER NOT NULL DEFAULT 30;
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS excluded INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE campaigns DROP CONSTRAINT IF EXISTS campaigns_campaign_type_check;
+ALTER TABLE campaigns ADD CONSTRAINT campaigns_campaign_type_check
+  CHECK (campaign_type IN ('acquisition','retention'));
+
+ALTER TABLE ai_insights DROP CONSTRAINT IF EXISTS ai_insights_insight_type_check;
+ALTER TABLE ai_insights ADD CONSTRAINT ai_insights_insight_type_check
+  CHECK (insight_type IN (
+    'CHANNEL_CONFLICT','LOW_SELLOUT_RATE','LOW_SELLIN_STOCK','OUT_OF_STOCK',
+    'REORDER_POINT','CONSENT_GAP','LIABILITY_HIGH','CHURN_RISK','DEALER_UNLINKED',
+    'CHANNEL_CANNIBALIZATION','RECLASSIFY_SUGGESTION'));
 `;
