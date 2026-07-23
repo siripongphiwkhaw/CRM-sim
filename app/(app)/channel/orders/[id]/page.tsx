@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getOrder, getOrderItems, getOrderStatusHistory } from "@/db/queries/orders";
 import { listDeliveryPlans } from "@/db/queries/deliveryPlans";
 import { listReceiptScans, getReceiptScanLines } from "@/db/queries/receiptScans";
+import { ReceiptDetail, tryParseReceiptSummary } from "@/app/components/ReceiptDetail";
 import { isOcrConfigured } from "@/lib/receiptOcr";
 import { getSession } from "@/lib/session";
 import {
@@ -189,6 +190,20 @@ export default async function OrderDetailPage({
                         </table>
                       </div>
                     )}
+                    {(() => {
+                      const parsedReceipt = tryParseReceiptSummary(scan.raw_summary);
+                      if (!parsedReceipt) return null;
+                      return (
+                        <details className="mt-3">
+                          <summary className="cursor-pointer text-xs font-medium text-brand-700">
+                            Full receipt details
+                          </summary>
+                          <div className="mt-2">
+                            <ReceiptDetail receipt={parsedReceipt} />
+                          </div>
+                        </details>
+                      );
+                    })()}
                   </div>
                 ))}
               </div>

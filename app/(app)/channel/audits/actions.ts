@@ -74,7 +74,11 @@ export async function scanRetailReceiptAction(
     receipt_date: extracted.receipt_date,
     receipt_total: extracted.receipt_total,
     currency: extracted.currency,
-    raw_summary: extracted.reference_numbers.join(", ") || null,
+    // Full structured extract (header, totals, per-line modifiers) — no
+    // schema change needed, this column was already free TEXT. A reader
+    // JSON.parses it; older rows still hold the plain joined-references
+    // string this used to be, and fall back to rendering that as-is.
+    raw_summary: JSON.stringify(extracted),
     match_status: result.status,
     note:
       ownCount > 0

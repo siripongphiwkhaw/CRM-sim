@@ -167,7 +167,9 @@ export async function scanOrderReceiptAction(
     receipt_date: extracted.receipt_date,
     receipt_total: extracted.receipt_total,
     currency: extracted.currency,
-    raw_summary: extracted.reference_numbers.join(", ") || null,
+    // Full structured extract — see the matching comment in
+    // channel/audits/actions.ts for why this is safe with no schema change.
+    raw_summary: JSON.stringify(extracted),
     match_status: result.status,
     note: notes.join(" "),
     created_by: session.userId!,

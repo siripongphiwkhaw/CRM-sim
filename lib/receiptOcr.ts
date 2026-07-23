@@ -15,11 +15,49 @@ export type ReceiptImageMediaType =
   | "image/webp"
   | "image/gif";
 
+/** A per-item option/add-on printed under its parent line (e.g. "Oat Milk
+ * +20.00"). Its amount is already included in the parent's line_total. */
+const extractedModifierSchema = z.object({
+  name: z.string(),
+  amount: z.number().nullable(),
+});
+
 const extractedLineSchema = z.object({
   name: z.string(),
   quantity: z.number().nullable(),
   unit_price: z.number().nullable(),
   line_total: z.number().nullable(),
+  modifiers: z.array(extractedModifierSchema).default([]),
+});
+
+/** Tax-invoice header identifiers, printed above the item table. */
+const taxInvoiceSchema = z.object({
+  invoice_no: z.string().nullable(),
+  tax_id: z.string().nullable(),
+  pos_id: z.string().nullable(),
+  order_no: z.string().nullable(),
+  branch: z.string().nullable(),
+  seller: z.string().nullable(),
+});
+
+/** The settlement block below the items. */
+const receiptTotalsSchema = z.object({
+  subtotal: z.number().nullable(),
+  /** Positive magnitude of any discount, however it was printed. */
+  discount: z.number().nullable(),
+  vat_amount: z.number().nullable(),
+  /** Percentage, e.g. 7 for "VAT 7%". */
+  vat_rate: z.number().nullable(),
+  /** True when VAT is included in the total rather than added on top. */
+  vat_inclusive: z.boolean().nullable(),
+  taxable: z.number().nullable(),
+  service_charge: z.number().nullable(),
+  rounding: z.number().nullable(),
+  total: z.number().nullable(),
+  payment_method: z.string().nullable(),
+  paid_amount: z.number().nullable(),
+  change: z.number().nullable(),
+  payment_reference: z.string().nullable(),
 });
 
 const extractedReceiptSchema = z.object({
@@ -29,10 +67,16 @@ const extractedReceiptSchema = z.object({
   receipt_total: z.number().nullable(),
   reference_numbers: z.array(z.string()),
   line_items: z.array(extractedLineSchema),
+  document_type: z.string().nullable().default(null),
+  tax_invoice: taxInvoiceSchema.nullable().default(null),
+  totals: receiptTotalsSchema.nullable().default(null),
 });
 
 export type ExtractedReceipt = z.infer<typeof extractedReceiptSchema>;
 export type ExtractedLine = z.infer<typeof extractedLineSchema>;
+export type ExtractedModifier = z.infer<typeof extractedModifierSchema>;
+export type TaxInvoiceHeader = z.infer<typeof taxInvoiceSchema>;
+export type ReceiptTotals = z.infer<typeof receiptTotalsSchema>;
 
 /** JSON schema mirror of extractedReceiptSchema for the structured-output format. */
 const RECEIPT_JSON_SCHEMA = {
@@ -45,6 +89,9 @@ const RECEIPT_JSON_SCHEMA = {
     "receipt_total",
     "reference_numbers",
     "line_items",
+    "document_type",
+    "tax_invoice",
+    "totals",
   ],
   properties: {
     store_name: { type: ["string", "null"], description: "Store / vendor name printed on the receipt" },
@@ -61,13 +108,64 @@ const RECEIPT_JSON_SCHEMA = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["name", "quantity", "unit_price", "line_total"],
+        required: ["name", "quantity", "unit_price", "line_total", "modifiers"],
         properties: {
-          name: { type: "string", description: "Item description exactly as printed" },
+          name: { type: "string", description: "Item description exactly as printed, without its modifiers" },
           quantity: { type: ["number", "null"] },
-          unit_price: { type: ["number", "null"] },
-          line_total: { type: ["number", "null"] },
+          unit_price: { type: ["number", "null"], description: "Base unit price, e.g. from '(80.00/ea)'" },
+          line_total: { type: ["number", "null"], description: "Full line amount including modifiers" },
+          modifiers: {
+            type: "array",
+            description: "Options/add-ons printed under this item (e.g. 'Oat Milk +20.00'), already included in line_total",
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["name", "amount"],
+              properties: {
+                name: { type: "string" },
+                amount: { type: ["number", "null"] },
+              },
+            },
+          },
         },
+      },
+    },
+    document_type: { type: ["string", "null"], description: "e.g. 'Tax Invoice (ABB) / Receipt'" },
+    tax_invoice: {
+      type: ["object", "null"],
+      additionalProperties: false,
+      required: ["invoice_no", "tax_id", "pos_id", "order_no", "branch", "seller"],
+      properties: {
+        invoice_no: { type: ["string", "null"] },
+        tax_id: { type: ["string", "null"] },
+        pos_id: { type: ["string", "null"] },
+        order_no: { type: ["string", "null"], description: "Order/table number, e.g. 'GF003'" },
+        branch: { type: ["string", "null"], description: "Branch / location name" },
+        seller: { type: ["string", "null"], description: "Registered company name if different from store_name" },
+      },
+    },
+    totals: {
+      type: ["object", "null"],
+      additionalProperties: false,
+      required: [
+        "subtotal", "discount", "vat_amount", "vat_rate", "vat_inclusive", "taxable",
+        "service_charge", "rounding", "total", "payment_method", "paid_amount",
+        "change", "payment_reference",
+      ],
+      properties: {
+        subtotal: { type: ["number", "null"] },
+        discount: { type: ["number", "null"], description: "Positive magnitude of any discount" },
+        vat_amount: { type: ["number", "null"] },
+        vat_rate: { type: ["number", "null"], description: "Percentage, e.g. 7 for VAT 7%" },
+        vat_inclusive: { type: ["boolean", "null"], description: "True if VAT is included in the total, not added on top" },
+        taxable: { type: ["number", "null"] },
+        service_charge: { type: ["number", "null"] },
+        rounding: { type: ["number", "null"] },
+        total: { type: ["number", "null"] },
+        payment_method: { type: ["string", "null"], description: "e.g. 'GRAB FOOD', 'Cash', 'Visa'" },
+        paid_amount: { type: ["number", "null"] },
+        change: { type: ["number", "null"] },
+        payment_reference: { type: ["string", "null"] },
       },
     },
   },
@@ -81,9 +179,22 @@ Extract:
 - currency: ISO code (Thai baht ฿ → "THB")
 - receipt_total: the grand total
 - reference_numbers: every order / PO / SO / invoice / receipt number printed (e.g. ORD-10023, INV-xxxx)
-- line_items: one entry per purchased item with quantity, unit price, and line total when printed. Convert Thai numerals to Arabic. Exclude subtotal, discount, VAT, and total rows — items only.
+- document_type: the document title as printed, e.g. "Tax Invoice (ABB) / Receipt"
+- tax_invoice: invoice_no, tax_id, pos_id, order_no (order/table number), branch, seller (registered company name)
+- totals: subtotal, discount, vat_amount, vat_rate, vat_inclusive (true if VAT is included in the total), taxable,
+  service_charge, rounding, total, payment_method, paid_amount, change, payment_reference
+- line_items: one entry per purchased item, in the order printed. quantity is usually the leading column on the
+  left. unit_price is often printed inline as "(80.00/ea)" — that is the BASE price before modifiers, not the
+  line_total. line_total is the full line amount including any modifiers. Convert Thai numerals to Arabic.
+  - modifiers: indented rows under an item (bullets, "•", "+", or "-" prefixed — e.g. "Oat Milk +20.00",
+    "+Vanilla Syrup +10.00") are OPTIONS of the item above, not separate items. Their amounts are already part of
+    that item's line_total. Record them as {name, amount}. A bare marker with no price (e.g. "• TA" for takeaway)
+    still counts as a modifier with amount null — do not turn it into an item.
+  - Never emit Subtotal / Qty summary / discount / VAT / service charge / rounding / total / payment rows as
+    line_items — those belong in totals.
 
-Use null for anything not printed on the document.`;
+Use null for anything not printed on the document, and an empty array for reference_numbers / modifiers when none
+are printed.`;
 
 export class OcrError extends Error {}
 

@@ -11,6 +11,7 @@ import {
   EmptyState,
   DetailRow,
 } from "@/app/components/ui";
+import { ReceiptDetail, tryParseReceiptSummary } from "@/app/components/ReceiptDetail";
 import { formatCurrency, formatDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +27,10 @@ export default async function AuditScanDetailPage({
 
   const lines = await getReceiptScanLines(scan.id);
   const ownLines = lines.filter((l) => l.match_status === "matched");
+  // Rows scanned before the structured extract existed hold a plain
+  // joined-references string in raw_summary instead of JSON — fall back to
+  // showing that as-is rather than a blank "Tax invoice" section.
+  const parsedReceipt = tryParseReceiptSummary(scan.raw_summary);
 
   return (
     <div>
@@ -57,7 +62,7 @@ export default async function AuditScanDetailPage({
                 value={scan.receipt_total != null ? formatCurrency(scan.receipt_total) : null}
               />
               <DetailRow label="Currency" value={scan.currency} />
-              <DetailRow label="References" value={scan.raw_summary} />
+              {!parsedReceipt && <DetailRow label="References" value={scan.raw_summary} />}
               <DetailRow
                 label="Own products"
                 value={`${ownLines.length} of ${lines.length} lines`}
@@ -119,6 +124,12 @@ export default async function AuditScanDetailPage({
           </Card>
         </div>
       </div>
+
+      {parsedReceipt && (
+        <div className="mt-4">
+          <ReceiptDetail receipt={parsedReceipt} />
+        </div>
+      )}
     </div>
   );
 }
