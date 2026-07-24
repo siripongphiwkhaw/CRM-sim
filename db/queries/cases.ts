@@ -11,6 +11,7 @@ export interface CaseRow {
   priority: CasePriority;
   status: CaseStatus;
   assigned_to: number | null;
+  department_id: number | null;
   resolution: string | null;
   created_by: number | null;
   created_at: string;
@@ -22,6 +23,7 @@ export interface CaseWithNames extends CaseRow {
   member_name: string | null;
   member_code: string | null;
   assignee_name: string | null;
+  department_name: string | null;
 }
 
 const SORT_COLUMNS: Record<string, string> = {
@@ -35,15 +37,18 @@ const CASE_SELECT = `
   SELECT cs.*,
     (c.first_name || ' ' || c.last_name) AS member_name,
     c.member_code AS member_code,
-    u.name AS assignee_name
+    u.name AS assignee_name,
+    d.name AS department_name
   FROM cases cs
   LEFT JOIN customers c ON c.id = cs.customer_id
-  LEFT JOIN users u ON u.id = cs.assigned_to`;
+  LEFT JOIN users u ON u.id = cs.assigned_to
+  LEFT JOIN departments d ON d.id = cs.department_id`;
 
 export function listCases(opts?: {
   status?: string;
   priority?: string;
   customerId?: number;
+  departmentId?: number;
   search?: string;
   sort?: string;
   dir?: string;
@@ -61,6 +66,10 @@ export function listCases(opts?: {
   if (opts?.customerId) {
     clauses.push("cs.customer_id = ?");
     params.push(opts.customerId);
+  }
+  if (opts?.departmentId) {
+    clauses.push("cs.department_id = ?");
+    params.push(opts.departmentId);
   }
   if (opts?.search) {
     clauses.push("(cs.subject LIKE ? OR cs.case_number LIKE ?)");
@@ -83,14 +92,15 @@ export interface CaseInput {
   category?: CaseCategory | null;
   priority?: CasePriority;
   created_by?: number | null;
+  department_id?: number | null;
 }
 
 export async function createCase(input: CaseInput): Promise<number> {
   const next = await get<{ n: number }>("SELECT COALESCE(MAX(id),0)+1 AS n FROM cases");
   const caseNumber = `CASE-${String(next?.n ?? 1).padStart(5, "0")}`;
   return run(
-    `INSERT INTO cases (case_number, customer_id, subject, description, category, priority, created_by)
-     VALUES (@num, @cid, @subject, @desc, @cat, @prio, @actor) RETURNING id`,
+    `INSERT INTO cases (case_number, customer_id, subject, description, category, priority, created_by, department_id)
+     VALUES (@num, @cid, @subject, @desc, @cat, @prio, @actor, @dept) RETURNING id`,
     {
       num: caseNumber,
       cid: input.customer_id ?? null,
@@ -99,6 +109,7 @@ export async function createCase(input: CaseInput): Promise<number> {
       cat: input.category ?? null,
       prio: input.priority ?? "MEDIUM",
       actor: input.created_by ?? null,
+      dept: input.department_id ?? null,
     }
   );
 }

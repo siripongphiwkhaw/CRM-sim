@@ -105,7 +105,7 @@ export const AUDIT_ACTIONS = [
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
-export const CASE_CATEGORIES = ["POINTS", "REDEMPTION", "PRODUCT", "DELIVERY", "ACCOUNT", "OTHER"] as const;
+export const CASE_CATEGORIES = ["POINTS", "REDEMPTION", "PRODUCT", "DELIVERY", "ACCOUNT", "OTHER", "IDENTITY_REVIEW"] as const;
 export type CaseCategory = (typeof CASE_CATEGORIES)[number];
 
 export const CASE_PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const;

@@ -38,6 +38,12 @@ export function getDepartment(id: number): Promise<Department | undefined> {
   return get<Department>("SELECT * FROM departments WHERE id = ?", [id]);
 }
 
+/** Resolve a seeded department by its exact name (e.g. "Digital Marketing").
+ * Returns undefined if a deployment renamed or removed it. */
+export function getDepartmentByName(name: string): Promise<Department | undefined> {
+  return get<Department>("SELECT * FROM departments WHERE name = ?", [name]);
+}
+
 /** Departments where the given user is a PIC — powers the "My Department"
  * page and whether that nav tab is shown at all. */
 export function listDepartmentsForUser(userId: number): Promise<Department[]> {

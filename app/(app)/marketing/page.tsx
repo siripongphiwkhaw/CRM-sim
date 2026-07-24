@@ -58,7 +58,7 @@ export default async function MarketingPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Link href="/marketing/segments">
           <Card className="h-full transition hover:border-brand-600">
             <h2 className="text-sm font-bold text-[#14202b]">Segments</h2>
@@ -72,6 +72,14 @@ export default async function MarketingPage() {
             <h2 className="text-sm font-bold text-[#14202b]">Campaigns</h2>
             <p className="mt-1 text-xs text-[#607785]">
               Launch a simulated multi-channel send to a segment and track reach and conversion.
+            </p>
+          </Card>
+        </Link>
+        <Link href="/marketing/identity-links">
+          <Card className="h-full transition hover:border-brand-600">
+            <h2 className="text-sm font-bold text-[#14202b]">Identity links</h2>
+            <p className="mt-1 text-xs text-[#607785]">
+              Find one buyer registered as both B2C and B2B, and promote from one side only.
             </p>
           </Card>
         </Link>

@@ -19,6 +19,7 @@ import { createMission, submitMission, reviewSubmission } from "../db/queries/mi
 import { recomputeScores } from "../db/queries/scores";
 import { createSegment } from "../db/queries/segments";
 import { createCampaign, launchCampaign, recomputeConversions } from "../db/queries/campaigns";
+import { runIdentityLinkScan } from "../db/queries/identityLinks";
 import { recordConsent } from "../db/queries/consent";
 import { BRANDS, type TxChannel } from "../lib/constants";
 
@@ -174,6 +175,37 @@ async function main() {
     );
   }
 
+  // Shared-identity demo: a B2B "restaurant" account that reuses Ratana's
+  // email — the same chef buying big through the trade (SFA) channel. Its
+  // spend outweighs her consumer side, so the identity scan should judge it
+  // B2B-dominant and route the review to Sales and Ingredient.
+  console.log("Creating a shared-identity B2B account…");
+  const chefB2bId = await createCustomer(
+    {
+      first_name: "Ratana",
+      last_name: "Kitchen (B2B)",
+      email: "ratana.boonmee@example.com", // same as the B2C "Ratana Boonmee"
+      phone: null,
+      brand: "VitaCharge",
+      cust_type: "B2B",
+      register_channel: "SFA",
+      data_level: "Purchase & Engagement",
+    },
+    "all"
+  );
+  for (const [amount, i] of [[22000, 0], [25000, 1], [19000, 2]] as [number, number][]) {
+    await createTransaction({
+      customer_id: chefB2bId,
+      channel: "SFA",
+      amount_thb: amount,
+      brand: "VitaCharge",
+      source_ref: "seed-demo",
+      created_by: null,
+      tx_date: new Date(Date.now() - (i + 1) * 18 * 86_400_000).toISOString(),
+    });
+  }
+  memberIds.push(chefB2bId);
+
   console.log("Submitting a mission…");
   // Auto-awarded mission (no proof) for the top member.
   await submitMission(memberIds[6], missionIds[0], null, "liff");
@@ -214,6 +246,10 @@ async function main() {
   );
   const launch2 = await launchCampaign(contestedCampaignId);
 
+  console.log("Scanning for shared-identity B2C/B2B pairs…");
+  const identityScan = await runIdentityLinkScan(null);
+  console.log(`  ${identityScan.found} identity link(s) detected and routed.`);
+
   const [{ n: txCount }] = await all<{ n: number }>(
     "SELECT COUNT(*)::int AS n FROM transactions WHERE source_ref = 'seed-demo'"
   );
@@ -241,6 +277,14 @@ async function clear() {
     `DELETE FROM consents WHERE customer_id IN
        (SELECT id FROM customers WHERE email LIKE '%@example.com')`
   );
+  // Identity links cascade with their customers, but the routed review cases
+  // have customer_id ON DELETE SET NULL, so clear them explicitly first.
+  await run(
+    `DELETE FROM customer_identity_links WHERE customer_a_id IN
+       (SELECT id FROM customers WHERE email LIKE '%@example.com')
+       OR customer_b_id IN (SELECT id FROM customers WHERE email LIKE '%@example.com')`
+  );
+  await run("DELETE FROM cases WHERE category = 'IDENTITY_REVIEW'");
   await run("DELETE FROM customers WHERE email LIKE '%@example.com'");
   await run("DELETE FROM rewards");
   // Campaigns before segments — segment_id is ON DELETE SET NULL, not

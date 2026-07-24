@@ -1,6 +1,7 @@
 import { get, all, run, batch } from "../client";
 import { getSegment, getSegmentMembers, parseSegmentRule } from "./segments";
 import { hasMarketingConsent } from "./consent";
+import { customersOwnedByOtherSide } from "./identityLinks";
 import type { CampaignChannel, CampaignStatus, CampaignType } from "@/lib/constants";
 
 /**
@@ -98,12 +99,15 @@ export type LaunchResult =
 
 /**
  * Snapshots who the campaign actually reaches into campaign_audience, applying
- * three gates in order:
+ * these gates in order:
  *   1. MARKETING consent (same gate /api/v1/notifications/line enforces).
  *   2. Cross-channel exclusivity — skip anyone another running campaign already
  *      "owns" inside its cooldown window, so channels can't double-target.
  *   3. Acquisition guard — an acquisition campaign additionally skips
  *      already-won active loyalists.
+ *   4. Confirmed identity ownership — skip anyone a confirmed B2C/B2B identity
+ *      link assigns to the OTHER side, so a shared-identity buyer is promoted
+ *      to from one side only. All campaign channels are B2C-side today.
  * Segment membership can drift afterwards; the snapshot is what reach and
  * conversion are always measured against.
  */
@@ -117,16 +121,17 @@ export async function launchCampaign(id: number): Promise<LaunchResult> {
 
   const members = await getSegmentMembers(parseSegmentRule(segment));
 
-  const [spokenFor, loyalists] = await Promise.all([
+  const [spokenFor, loyalists, otherSideOwned] = await Promise.all([
     spokenForCustomers(id),
     campaign.campaign_type === "acquisition" ? activeLoyalists() : Promise.resolve(new Set<number>()),
+    customersOwnedByOtherSide("B2C"),
   ]);
 
   const targeted: number[] = [];
   let excluded = 0;
   for (const m of members) {
     if (!(await hasMarketingConsent(m.id))) continue; // consent gate (not counted as arbitration exclusion)
-    if (spokenFor.has(m.id) || loyalists.has(m.id)) {
+    if (spokenFor.has(m.id) || loyalists.has(m.id) || otherSideOwned.has(m.id)) {
       excluded += 1;
       continue;
     }

@@ -462,10 +462,13 @@ CREATE TABLE IF NOT EXISTS cases (
   customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
   subject TEXT NOT NULL,
   description TEXT,
-  category TEXT CHECK (category IN ('POINTS','REDEMPTION','PRODUCT','DELIVERY','ACCOUNT','OTHER')),
+  category TEXT CHECK (category IN ('POINTS','REDEMPTION','PRODUCT','DELIVERY','ACCOUNT','OTHER','IDENTITY_REVIEW')),
   priority TEXT NOT NULL DEFAULT 'MEDIUM' CHECK (priority IN ('LOW','MEDIUM','HIGH','URGENT')),
   status TEXT NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN','IN_PROGRESS','RESOLVED','CLOSED')),
   assigned_to INTEGER REFERENCES users(id),
+  -- Routes a case to a whole department's PICs, not just one assignee. Used by
+  -- identity-review cases (see customer_identity_links). NULL = unrouted.
+  department_id INTEGER REFERENCES departments(id) ON DELETE SET NULL,
   resolution TEXT,
   created_by INTEGER REFERENCES users(id),
   created_at TEXT NOT NULL DEFAULT (now()),
@@ -474,6 +477,29 @@ CREATE TABLE IF NOT EXISTS cases (
 );
 CREATE INDEX IF NOT EXISTS cases_customer ON cases(customer_id);
 CREATE INDEX IF NOT EXISTS cases_status ON cases(status);
+CREATE INDEX IF NOT EXISTS cases_department ON cases(department_id);
+
+-- A detected same-person link between a B2C and a B2B customer row sharing an
+-- email or phone. dominant_side records which side actually spends/buys more
+-- (judged from the merged transaction history). Only a CONFIRMED link enforces
+-- exclusive promotion in launchCampaign(); PENDING waits on a routed
+-- department review, REJECTED is a dismissed false match.
+CREATE TABLE IF NOT EXISTS customer_identity_links (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  customer_a_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  customer_b_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  matched_by TEXT NOT NULL CHECK (matched_by IN ('email','phone')),
+  dominant_side TEXT CHECK (dominant_side IN ('B2C','B2B')),
+  verdict_note TEXT,
+  status TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','CONFIRMED','REJECTED')),
+  case_id INTEGER REFERENCES cases(id) ON DELETE SET NULL,
+  confirmed_by INTEGER REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (now()),
+  confirmed_at TEXT,
+  UNIQUE (customer_a_id, customer_b_id)
+);
+CREATE INDEX IF NOT EXISTS customer_identity_links_a ON customer_identity_links(customer_a_id);
+CREATE INDEX IF NOT EXISTS customer_identity_links_b ON customer_identity_links(customer_b_id);
 
 -- Rule-based AI insights. Analytic types are regenerated on demand; the
 -- transactional stock types are posted inline when a sell-out crosses a threshold.
@@ -565,4 +591,16 @@ ALTER TABLE ai_insights ADD CONSTRAINT ai_insights_insight_type_check
     'CHANNEL_CONFLICT','LOW_SELLOUT_RATE','LOW_SELLIN_STOCK','OUT_OF_STOCK',
     'REORDER_POINT','CONSENT_GAP','LIABILITY_HIGH','CHURN_RISK','DEALER_UNLINKED',
     'CHANNEL_CANNIBALIZATION','RECLASSIFY_SUGGESTION'));
+
+-- Identity-linked classification: department routing for cases + the
+-- IDENTITY_REVIEW category. (customer_identity_links is CREATE TABLE IF NOT
+-- EXISTS above, so it needs no ALTER here.)
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS department_id INTEGER;
+ALTER TABLE cases DROP CONSTRAINT IF EXISTS cases_department_fk;
+ALTER TABLE cases ADD CONSTRAINT cases_department_fk
+  FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS cases_department ON cases(department_id);
+ALTER TABLE cases DROP CONSTRAINT IF EXISTS cases_category_check;
+ALTER TABLE cases ADD CONSTRAINT cases_category_check
+  CHECK (category IN ('POINTS','REDEMPTION','PRODUCT','DELIVERY','ACCOUNT','OTHER','IDENTITY_REVIEW'));
 `;

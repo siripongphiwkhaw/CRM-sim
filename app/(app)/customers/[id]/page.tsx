@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCustomer } from "@/db/queries/customers";
 import { getLoyaltySummary, listRewards } from "@/db/queries/loyalty";
@@ -5,6 +6,7 @@ import { getCustomerTimeline } from "@/db/queries/transactions";
 import { getCurrentConsents, listConsentHistory } from "@/db/queries/consent";
 import { getNbaForCustomer } from "@/db/queries/insights";
 import { getCustomerScore } from "@/db/queries/scores";
+import { getLinksForCustomer } from "@/db/queries/identityLinks";
 import { listCases } from "@/db/queries/cases";
 import {
   PageHeader,
@@ -53,7 +55,7 @@ export default async function CustomerDetailPage({
   const customer = await getCustomer(Number(id));
   if (!customer) notFound();
 
-  const [summary, timeline, currentConsents, consentHistory, nba, rewards, cases, score] =
+  const [summary, timeline, currentConsents, consentHistory, nba, rewards, cases, score, identityLinks] =
     await Promise.all([
       getLoyaltySummary(customer.id),
       getCustomerTimeline(customer.id),
@@ -63,6 +65,7 @@ export default async function CustomerDetailPage({
       listRewards({ availableOnly: true }),
       listCases({ customerId: customer.id }),
       getCustomerScore(customer.id),
+      getLinksForCustomer(customer.id),
     ]);
 
   const currentStatuses: Partial<Record<(typeof CONSENT_PURPOSES)[number], ConsentStatus>> = {};
@@ -231,6 +234,42 @@ export default async function CustomerDetailPage({
               </p>
             )}
           </Card>
+
+          {identityLinks.length > 0 && (
+            <Card>
+              <SectionHeader title="Identity link (B2C ↔ B2B)" />
+              <ul className="space-y-2 text-sm">
+                {identityLinks.map((l) => {
+                  const otherId = l.customer_a_id === customer.id ? l.customer_b_id : l.customer_a_id;
+                  const otherName = l.customer_a_id === customer.id ? l.b_name : l.a_name;
+                  const otherCode = l.customer_a_id === customer.id ? l.b_code : l.a_code;
+                  const otherType = l.customer_a_id === customer.id ? l.b_type : l.a_type;
+                  return (
+                    <li key={l.id}>
+                      <p className="text-[#14202b]">
+                        Same {l.matched_by} as{" "}
+                        <Link href={`/customers/${otherId}`} className="text-brand-600 hover:underline">
+                          {otherName} ({otherCode} · {otherType})
+                        </Link>
+                      </p>
+                      <p className="text-xs text-[#607785]">
+                        Dominant side <strong>{l.dominant_side ?? "—"}</strong> · {l.status}
+                        {l.status === "CONFIRMED" && " — promotion restricted to that side"}
+                        {l.case_id ? (
+                          <>
+                            {" · "}
+                            <Link href={`/cases/${l.case_id}`} className="text-brand-600 hover:underline">
+                              review case
+                            </Link>
+                          </>
+                        ) : null}
+                      </p>
+                    </li>
+                  );
+                })}
+              </ul>
+            </Card>
+          )}
 
           <Card>
             <SectionHeader title="Consent (PDPA)" />
