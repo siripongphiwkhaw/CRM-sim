@@ -477,7 +477,10 @@ CREATE TABLE IF NOT EXISTS cases (
 );
 CREATE INDEX IF NOT EXISTS cases_customer ON cases(customer_id);
 CREATE INDEX IF NOT EXISTS cases_status ON cases(status);
-CREATE INDEX IF NOT EXISTS cases_department ON cases(department_id);
+-- NOTE: the cases(department_id) index is created in the migration block at the
+-- bottom, AFTER the ADD COLUMN — never here. On an already-provisioned DB the
+-- CREATE TABLE above is a no-op, so department_id doesn't exist at this point;
+-- indexing it here would abort the whole schema transaction and brick the app.
 
 -- A detected same-person link between a B2C and a B2B customer row sharing an
 -- email or phone. dominant_side records which side actually spends/buys more
