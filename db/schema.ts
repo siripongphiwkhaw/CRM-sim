@@ -603,9 +603,15 @@ ALTER TABLE cases DROP CONSTRAINT IF EXISTS cases_department_fk;
 ALTER TABLE cases ADD CONSTRAINT cases_department_fk
   FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS cases_department ON cases(department_id);
+-- Widened in place (not a second later ALTER) — CHECK constraints validate
+-- immediately when the statement runs, not deferred to transaction end, and
+-- this whole file re-runs every cold start. A second DROP/ADD later in the
+-- file would transiently re-narrow the constraint back to this list first,
+-- failing against any row already carrying a category only the later
+-- statement allows. One statement, one canonical list.
 ALTER TABLE cases DROP CONSTRAINT IF EXISTS cases_category_check;
 ALTER TABLE cases ADD CONSTRAINT cases_category_check
-  CHECK (category IN ('POINTS','REDEMPTION','PRODUCT','DELIVERY','ACCOUNT','OTHER','IDENTITY_REVIEW'));
+  CHECK (category IN ('POINTS','REDEMPTION','PRODUCT','DELIVERY','ACCOUNT','OTHER','IDENTITY_REVIEW','CLASSIFICATION_REVIEW'));
 
 -- Classification v2: identity keys, resolution tiers, and transaction line
 -- items. Ordering rule for everything below: a CREATE INDEX may only appear
@@ -665,4 +671,34 @@ CREATE TABLE IF NOT EXISTS transaction_items (
 );
 CREATE INDEX IF NOT EXISTS transaction_items_transaction ON transaction_items(transaction_id);
 CREATE INDEX IF NOT EXISTS transaction_items_product ON transaction_items(product_id);
+
+-- Classification review workflow: a customer whose evidence tiers disagreed
+-- (customer_scores.disagreement_flag, previously written but never read by
+-- anything) now gets a routed, accountable review instead of a silently
+-- dismissible insight. Mirrors customer_identity_links: PENDING waits on the
+-- routed department, CONFIRMED means staff reviewed it and will act (the
+-- actual customers.cust_type edit stays a separate manual step — same as a
+-- CONFIRMED identity link doesn't merge customer rows), REJECTED dismisses a
+-- false positive without erasing the record.
+CREATE TABLE IF NOT EXISTS customer_classification_reviews (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  cust_type TEXT NOT NULL,
+  behavior_class TEXT NOT NULL,
+  resolution_tier TEXT NOT NULL,
+  note TEXT,
+  status TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','CONFIRMED','REJECTED')),
+  case_id INTEGER REFERENCES cases(id) ON DELETE SET NULL,
+  confirmed_by INTEGER REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (now()),
+  confirmed_at TEXT
+);
+CREATE INDEX IF NOT EXISTS classification_reviews_customer ON customer_classification_reviews(customer_id);
+CREATE INDEX IF NOT EXISTS classification_reviews_status ON customer_classification_reviews(status);
+-- Partial unique index: blocks a second PENDING review for the same customer
+-- (the scan's dedup target, via ON CONFLICT) while still allowing a fresh
+-- review to open later once a prior one is CONFIRMED/REJECTED and the
+-- disagreement recurs — unlike identity links, this signal can flip back on.
+CREATE UNIQUE INDEX IF NOT EXISTS classification_reviews_open_customer
+  ON customer_classification_reviews(customer_id) WHERE status = 'PENDING';
 `;

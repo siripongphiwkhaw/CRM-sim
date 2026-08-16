@@ -95,11 +95,16 @@ const ANALYTIC_TYPES = [
   "CHURN_RISK",
   "DEALER_UNLINKED",
   "CHANNEL_CANNIBALIZATION",
-  "RECLASSIFY_SUGGESTION",
+  // RECLASSIFY_SUGGESTION deliberately not regenerated any more — superseded
+  // by the routed, accountable customer_classification_reviews workflow (see
+  // db/queries/classificationReviews.ts), which reads the real tier-aware
+  // disagreement_flag instead of re-deriving a weaker one here. The type
+  // stays in lib/constants.ts/db/schema.ts's CHECK constraint (existing rows
+  // must keep validating) — it just never gets a new row.
 ];
 
 /**
- * Rebuilds the eight analytic insight types from current data. Transactional
+ * Rebuilds the nine analytic insight types from current data. Transactional
  * stock alerts (REORDER_POINT, and inline OUT_OF_STOCK from sell-out) are left
  * untouched. Dismissed rows stay dismissed (only non-dismissed analytic rows
  * are cleared before regeneration).
@@ -269,34 +274,6 @@ export async function generateInsights(): Promise<{ created: number }> {
       description: "This dealer has no linked CRM member, breaking the identity chain.",
       recommendation: "Link the dealer to a B2B member to enable sell-in loyalty earn.",
       confidence: 1,
-    });
-  }
-
-  // RECLASSIFY_SUGGESTION — a customer whose behavioral class (from
-  // customer_scores) disagrees with their declared cust_type: e.g. a B2C-
-  // registered account buying like a business. Left as a suggestion, never an
-  // automatic change, so pricing/terms move only with a human decision.
-  //
-  // Matched as "not CONSUMER" rather than a list of class names: a SQL literal
-  // is invisible to the compiler, so an explicit list silently stops matching
-  // whenever the taxonomy grows (it did — three classes became six).
-  const reclass = await all<{ id: number; name: string; cust_type: string; behavior_class: string }>(
-    `SELECT c.id, (c.first_name || ' ' || c.last_name) AS name, c.cust_type, s.behavior_class
-       FROM customers c JOIN customer_scores s ON s.customer_id = c.id
-      WHERE (c.cust_type = 'B2C' AND s.behavior_class IS NOT NULL AND s.behavior_class <> 'CONSUMER')
-         OR (c.cust_type = 'B2B' AND s.behavior_class = 'CONSUMER')`
-  );
-  for (const row of reclass) {
-    await add({
-      insight_type: "RECLASSIFY_SUGGESTION",
-      severity: "OPPORTUNITY",
-      entity_type: "customer",
-      entity_id: row.id,
-      title: `Reclassify ${row.name}? Registered ${row.cust_type}, buys like ${row.behavior_class}`,
-      description:
-        "Declared type and buying behaviour disagree — a business buyer on consumer terms (or the reverse) leaks margin.",
-      recommendation: "Review and move them to the correct trade / consumer motion and pricing.",
-      confidence: 0.8,
     });
   }
 

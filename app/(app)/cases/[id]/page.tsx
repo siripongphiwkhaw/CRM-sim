@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCase } from "@/db/queries/cases";
 import { getPendingLinkForCustomer } from "@/db/queries/identityLinks";
+import { getPendingReviewForCustomer } from "@/db/queries/classificationReviews";
 import {
   PageHeader,
   Card,
@@ -11,9 +12,10 @@ import {
   DetailRow,
 } from "@/app/components/ui";
 import { formatDate } from "@/lib/format";
-import type { CaseStatus } from "@/lib/constants";
+import { BEHAVIOR_CLASS_LABELS, RESOLUTION_TIER_LABELS, type CaseStatus } from "@/lib/constants";
 import { CaseActions } from "./CaseActions";
 import { DecideButtons } from "@/app/(app)/marketing/identity-links/IdentityLinkControls";
+import { ReviewDecideButtons } from "@/app/(app)/marketing/classification-reviews/ReviewControls";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +33,13 @@ export default async function CaseDetailPage({
   const identityLink =
     c.category === "IDENTITY_REVIEW" && c.customer_id
       ? await getPendingLinkForCustomer(c.customer_id)
+      : undefined;
+
+  // Classification-review cases carry the same kind of Confirm/Reject
+  // decision — see db/queries/classificationReviews.ts.
+  const classificationReview =
+    c.category === "CLASSIFICATION_REVIEW" && c.customer_id
+      ? await getPendingReviewForCustomer(c.customer_id)
       : undefined;
 
   return (
@@ -73,6 +82,22 @@ export default async function CaseDetailPage({
                 <p className="mb-3 text-xs text-[#607785]">{identityLink.verdict_note}</p>
               )}
               <DecideButtons linkId={identityLink.id} />
+            </Card>
+          )}
+
+          {classificationReview && (
+            <Card>
+              <SectionHeader title="Classification decision" />
+              <p className="mb-2 text-sm text-[#3c4f5e]">
+                Declared <strong>{classificationReview.cust_type}</strong>, resolved as{" "}
+                <strong>{BEHAVIOR_CLASS_LABELS[classificationReview.behavior_class]}</strong> via the{" "}
+                {RESOLUTION_TIER_LABELS[classificationReview.resolution_tier]} tier. Confirm to acknowledge
+                and act on the reclassification, or reject as a false positive.
+              </p>
+              {classificationReview.note && (
+                <p className="mb-3 text-xs text-[#607785]">{classificationReview.note}</p>
+              )}
+              <ReviewDecideButtons reviewId={classificationReview.id} />
             </Card>
           )}
 

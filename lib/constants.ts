@@ -18,6 +18,17 @@ export type Tier = (typeof TIERS)[number];
 export const CUST_TYPES = ["B2C", "B2B"] as const;
 export type CustType = (typeof CUST_TYPES)[number];
 
+/** Which seeded department(s) own review cases for a customer's declared
+ * side — a B2C case routes to both departments that touch consumers; a B2B
+ * case routes to the one that owns the trade book. Shared by every workflow
+ * that opens a human-review case scoped to "which side owns this customer"
+ * (identity-link conflicts, classification disagreements). Department names
+ * must match db/seed.ts exactly. */
+export const DEPARTMENTS_BY_CUST_TYPE: Record<CustType, string[]> = {
+  B2C: ["Business Unit", "Digital Marketing"],
+  B2B: ["Sales and Ingredient"],
+};
+
 // Purchase transaction channels. POS/ECOM/D2C are B2C; SFA is B2B.
 export const TX_CHANNELS = ["POS", "ECOM", "D2C", "SFA"] as const;
 export type TxChannel = (typeof TX_CHANNELS)[number];
@@ -170,7 +181,7 @@ export const AUDIT_ACTIONS = [
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
-export const CASE_CATEGORIES = ["POINTS", "REDEMPTION", "PRODUCT", "DELIVERY", "ACCOUNT", "OTHER", "IDENTITY_REVIEW"] as const;
+export const CASE_CATEGORIES = ["POINTS", "REDEMPTION", "PRODUCT", "DELIVERY", "ACCOUNT", "OTHER", "IDENTITY_REVIEW", "CLASSIFICATION_REVIEW"] as const;
 export type CaseCategory = (typeof CASE_CATEGORIES)[number];
 
 export const CASE_PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const;

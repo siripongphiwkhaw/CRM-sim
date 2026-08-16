@@ -2,7 +2,7 @@ import { get, all, run } from "../client";
 import { behaviorClassFor, channelAffinityFor } from "@/lib/classification";
 import { createCase } from "./cases";
 import { getDepartmentByName } from "./departments";
-import type { CustType, TxChannel, BehaviorClass } from "@/lib/constants";
+import { DEPARTMENTS_BY_CUST_TYPE, type CustType, type TxChannel, type BehaviorClass } from "@/lib/constants";
 
 /**
  * Cross-registration identity resolution: a B2C customer row and a B2B customer
@@ -192,10 +192,6 @@ async function judgeIdentityLink(aId: number, bId: number): Promise<Verdict> {
   return { dominantSide, note };
 }
 
-const DEPARTMENTS_BY_SIDE: Record<DominantSide, string[]> = {
-  B2C: ["Business Unit", "Digital Marketing"],
-  B2B: ["Sales and Ingredient"],
-};
 
 /**
  * On-demand scan (mirrors recomputeScores/generateInsights): find new
@@ -230,7 +226,7 @@ export async function runIdentityLinkScan(actorId: number | null): Promise<{ fou
       detail?.a_type === verdict.dominantSide ? match.customer_a_id : match.customer_b_id;
 
     let firstCaseId: number | null = null;
-    for (const deptName of DEPARTMENTS_BY_SIDE[verdict.dominantSide]) {
+    for (const deptName of DEPARTMENTS_BY_CUST_TYPE[verdict.dominantSide]) {
       const dept = await getDepartmentByName(deptName);
       const caseId = await createCase({
         customer_id: dominantCustomerId,

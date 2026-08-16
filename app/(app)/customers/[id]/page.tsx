@@ -8,6 +8,9 @@ import { getNbaForCustomer } from "@/db/queries/insights";
 import { getCustomerScore } from "@/db/queries/scores";
 import { getLinksForCustomer } from "@/db/queries/identityLinks";
 import { listCases } from "@/db/queries/cases";
+import { getDistributorsForCustomer, listUnlinkedDistributors } from "@/db/queries/distributors";
+import { getPendingReviewForCustomer } from "@/db/queries/classificationReviews";
+import { isPiiConfigured } from "@/lib/pii";
 import {
   PageHeader,
   LinkButton,
@@ -27,6 +30,7 @@ import {
   isBusinessBehaviorClass,
   CHANNEL_AFFINITY_LABELS,
   TX_CHANNEL_LABELS,
+  RESOLUTION_TIER_LABELS,
   type ConsentStatus,
 } from "@/lib/constants";
 import { TierPath } from "../TierPath";
@@ -34,6 +38,9 @@ import { RecordTransactionForm } from "./RecordTransactionForm";
 import { RedeemForm } from "./RedeemForm";
 import { ConsentCard } from "./ConsentCard";
 import { LineLinkForm } from "./LineLinkForm";
+import { TaxIdForm, InstitutionalOverrideForm } from "./IdentityControls";
+import { DealerLinkForm } from "./DealerLinkForm";
+import { ReviewDecideButtons } from "@/app/(app)/marketing/classification-reviews/ReviewControls";
 import { deleteCustomerAction } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -56,21 +63,37 @@ export default async function CustomerDetailPage({
   const customer = await getCustomer(Number(id));
   if (!customer) notFound();
 
-  const [summary, timeline, currentConsents, consentHistory, nba, rewards, cases, score, identityLinks] =
-    await Promise.all([
-      getLoyaltySummary(customer.id),
-      getCustomerTimeline(customer.id),
-      getCurrentConsents(customer.id),
-      listConsentHistory(customer.id),
-      getNbaForCustomer(customer.id),
-      listRewards({ availableOnly: true }),
-      listCases({ customerId: customer.id }),
-      getCustomerScore(customer.id),
-      getLinksForCustomer(customer.id),
-    ]);
+  const [
+    summary,
+    timeline,
+    currentConsents,
+    consentHistory,
+    nba,
+    rewards,
+    cases,
+    score,
+    identityLinks,
+    linkedDistributors,
+    unlinkedDistributors,
+    pendingReview,
+  ] = await Promise.all([
+    getLoyaltySummary(customer.id),
+    getCustomerTimeline(customer.id),
+    getCurrentConsents(customer.id),
+    listConsentHistory(customer.id),
+    getNbaForCustomer(customer.id),
+    listRewards({ availableOnly: true }),
+    listCases({ customerId: customer.id }),
+    getCustomerScore(customer.id),
+    getLinksForCustomer(customer.id),
+    getDistributorsForCustomer(customer.id),
+    listUnlinkedDistributors(),
+    getPendingReviewForCustomer(customer.id),
+  ]);
 
   const currentStatuses: Partial<Record<(typeof CONSENT_PURPOSES)[number], ConsentStatus>> = {};
   for (const p of CONSENT_PURPOSES) currentStatuses[p] = currentConsents[p]?.status;
+  const linkedDistributor = linkedDistributors[0] ?? null;
 
   return (
     <div>
@@ -225,6 +248,10 @@ export default async function CustomerDetailPage({
                     </span>
                   }
                 />
+                <DetailRow
+                  label="Evidence tier"
+                  value={score.resolution_tier ? RESOLUTION_TIER_LABELS[score.resolution_tier] : "—"}
+                />
                 <DetailRow label="Last computed" value={formatDate(score.calculated_at)} />
               </dl>
             ) : (
@@ -232,6 +259,50 @@ export default async function CustomerDetailPage({
                 Not yet computed — run &quot;Recompute scores &amp; insights&quot; from AI Insights.
               </p>
             )}
+          </Card>
+
+          {pendingReview && (
+            <Card>
+              <SectionHeader title="Classification disagreement" />
+              <p className="mb-2 text-sm text-[#3c4f5e]">
+                Declared <strong>{pendingReview.cust_type}</strong>, resolved as{" "}
+                <strong>{BEHAVIOR_CLASS_LABELS[pendingReview.behavior_class]}</strong> via the{" "}
+                {RESOLUTION_TIER_LABELS[pendingReview.resolution_tier]} tier.
+              </p>
+              {pendingReview.note && <p className="mb-3 text-xs text-[#607785]">{pendingReview.note}</p>}
+              <ReviewDecideButtons reviewId={pendingReview.id} />
+            </Card>
+          )}
+
+          <Card>
+            <SectionHeader title="Identity &amp; classification evidence" />
+            <div className="space-y-4">
+              <div>
+                <p className="mb-1 text-xs font-semibold text-[#3c4f5e]">Tax ID / national ID (Tier 1)</p>
+                <TaxIdForm
+                  customerId={customer.id}
+                  last4={customer.tax_id_last4}
+                  entityType={customer.tax_entity_type}
+                  verifiedAt={customer.identity_verified_at}
+                  piiConfigured={isPiiConfigured()}
+                  identityConsentGranted={currentStatuses.IDENTITY_VERIFICATION === "GRANTED"}
+                />
+              </div>
+              <div className="border-t border-[#dde5e8] pt-4">
+                <p className="mb-1 text-xs font-semibold text-[#3c4f5e]">Linked dealer (Tier 2)</p>
+                <DealerLinkForm
+                  customerId={customer.id}
+                  linked={linkedDistributor}
+                  pickable={unlinkedDistributors}
+                />
+              </div>
+              <div className="border-t border-[#dde5e8] pt-4">
+                <InstitutionalOverrideForm
+                  customerId={customer.id}
+                  value={Boolean(customer.institutional_override)}
+                />
+              </div>
+            </div>
           </Card>
 
           {identityLinks.length > 0 && (

@@ -59,6 +59,12 @@ export interface ClassificationStats {
  * TypeScript compiler: when the taxonomy grew from three classes to six, an
  * `IN ('HORECA','TRADE')` list kept compiling happily while silently counting
  * the wrong rows. Negating CONSUMER cannot rot the same way.
+ *
+ * `reclassify` reads customer_scores.disagreement_flag — the tier-aware
+ * verdict classifyCustomer() already computed — rather than re-deriving a
+ * weaker "cust_type vs behavior_class" check in SQL here. Two definitions of
+ * the same disagreement used to exist (this rollup and the now-removed
+ * RECLASSIFY_SUGGESTION insight); this is the one source of truth.
  */
 export async function getClassificationStats(): Promise<ClassificationStats> {
   const row = await get<ClassificationStats>(
@@ -70,11 +76,8 @@ export async function getClassificationStats(): Promise<ClassificationStats> {
          WHEN s.behavior_class IS NOT NULL
           AND s.behavior_class NOT IN ('CONSUMER','HORECA','INSTITUTIONAL')
          THEN 1 ELSE 0 END), 0)::int AS trade,
-       COALESCE(SUM(CASE
-         WHEN (c.cust_type = 'B2C' AND s.behavior_class IS NOT NULL AND s.behavior_class <> 'CONSUMER')
-           OR (c.cust_type = 'B2B' AND s.behavior_class = 'CONSUMER')
-         THEN 1 ELSE 0 END), 0)::int AS reclassify
-     FROM customer_scores s JOIN customers c ON c.id = s.customer_id`
+       COALESCE(SUM(CASE WHEN s.disagreement_flag = 1 THEN 1 ELSE 0 END), 0)::int AS reclassify
+     FROM customer_scores s`
   );
   return row ?? { scored: 0, contested: 0, horeca: 0, trade: 0, reclassify: 0 };
 }
