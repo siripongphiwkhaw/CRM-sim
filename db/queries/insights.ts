@@ -274,12 +274,16 @@ export async function generateInsights(): Promise<{ created: number }> {
 
   // RECLASSIFY_SUGGESTION — a customer whose behavioral class (from
   // customer_scores) disagrees with their declared cust_type: e.g. a B2C-
-  // registered account buying like HORECA/TRADE. Left as a suggestion, never
-  // an automatic change, so pricing/terms move only with a human decision.
+  // registered account buying like a business. Left as a suggestion, never an
+  // automatic change, so pricing/terms move only with a human decision.
+  //
+  // Matched as "not CONSUMER" rather than a list of class names: a SQL literal
+  // is invisible to the compiler, so an explicit list silently stops matching
+  // whenever the taxonomy grows (it did — three classes became six).
   const reclass = await all<{ id: number; name: string; cust_type: string; behavior_class: string }>(
     `SELECT c.id, (c.first_name || ' ' || c.last_name) AS name, c.cust_type, s.behavior_class
        FROM customers c JOIN customer_scores s ON s.customer_id = c.id
-      WHERE (c.cust_type = 'B2C' AND s.behavior_class IN ('HORECA','TRADE'))
+      WHERE (c.cust_type = 'B2C' AND s.behavior_class IS NOT NULL AND s.behavior_class <> 'CONSUMER')
          OR (c.cust_type = 'B2B' AND s.behavior_class = 'CONSUMER')`
   );
   for (const row of reclass) {

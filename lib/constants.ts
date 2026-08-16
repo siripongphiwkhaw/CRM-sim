@@ -33,13 +33,23 @@ export const DEALER_TYPES = ["Dealer", "Retailer"] as const;
 export type DealerType = (typeof DEALER_TYPES)[number];
 
 // PDPA consent: per-purpose, with a granted/denied/withdrawn lifecycle.
-export const CONSENT_PURPOSES = ["MARKETING", "ANALYTICS", "PROFILING"] as const;
+// IDENTITY_VERIFICATION gates storage of a 13-digit identity number. Under
+// PDPA a national ID is sensitive personal data, so it is only ever stored
+// against an explicit, separately-granted purpose — never bundled into
+// MARKETING or ANALYTICS consent.
+export const CONSENT_PURPOSES = [
+  "MARKETING",
+  "ANALYTICS",
+  "PROFILING",
+  "IDENTITY_VERIFICATION",
+] as const;
 export type ConsentPurpose = (typeof CONSENT_PURPOSES)[number];
 
 export const CONSENT_PURPOSE_LABELS: Record<ConsentPurpose, string> = {
   MARKETING: "Marketing",
   ANALYTICS: "Analytics",
   PROFILING: "Profiling",
+  IDENTITY_VERIFICATION: "Identity verification",
 };
 
 export const CONSENT_STATUSES = ["GRANTED", "DENIED", "WITHDRAWN"] as const;
@@ -72,16 +82,71 @@ export type CampaignStatus = (typeof CAMPAIGN_STATUSES)[number];
 export const CHURN_LEVELS = ["High", "Medium", "Low"] as const;
 export type ChurnLevel = (typeof CHURN_LEVELS)[number];
 
-// Behavioral classification — what a customer's buying says they are,
-// independent of the declared cust_type. HORECA = a food-service / business
-// buyer (chef, small restaurant) transacting on consumer channels.
-export const BEHAVIOR_CLASSES = ["CONSUMER", "HORECA", "TRADE"] as const;
+/**
+ * What a customer's buying says they are, independent of the declared
+ * cust_type. Follows the FMCG route-to-market ladder (Modern Trade / General
+ * Trade / HoReCa / Wholesale) with one deliberate addition: industry channel
+ * taxonomies have no CONSUMER member, because the consumer *ends* the channel
+ * rather than sitting in it. This CRM serves B2C loyalty and B2B trade from
+ * one customer table, so the end-consumer needs a home in the same enum.
+ *
+ * HORECA is the cross-channel leak case: a chef or small restaurant buying on
+ * consumer channels while also holding a trade account.
+ */
+export const BEHAVIOR_CLASSES = [
+  "CONSUMER",
+  "HORECA",
+  "TRADITIONAL_TRADE",
+  "MODERN_TRADE",
+  "WHOLESALER",
+  "INSTITUTIONAL",
+] as const;
 export type BehaviorClass = (typeof BEHAVIOR_CLASSES)[number];
 
 export const BEHAVIOR_CLASS_LABELS: Record<BehaviorClass, string> = {
   CONSUMER: "Consumer",
   HORECA: "HoReCa (food service)",
-  TRADE: "Trade / reseller",
+  TRADITIONAL_TRADE: "Traditional trade",
+  MODERN_TRADE: "Modern trade",
+  WHOLESALER: "Wholesaler",
+  INSTITUTIONAL: "Institutional",
+};
+
+/**
+ * INSTITUTIONAL (school / hospital / factory canteen) is deliberately absent:
+ * nothing in transaction data separates it from HORECA — both buy in bulk on a
+ * weekday cadence — so it is set by staff and never guessed. A class the
+ * engine cannot populate honestly is a class that lies.
+ */
+export const INFERRABLE_BEHAVIOR_CLASSES = [
+  "CONSUMER",
+  "HORECA",
+  "TRADITIONAL_TRADE",
+  "MODERN_TRADE",
+  "WHOLESALER",
+] as const satisfies readonly BehaviorClass[];
+export type InferrableBehaviorClass = (typeof INFERRABLE_BEHAVIOR_CLASSES)[number];
+
+/** Every class except CONSUMER implies a business buyer. Callers should use
+ * this rather than listing the five classes inline, so adding a class later
+ * doesn't silently miss a check. */
+export function isBusinessBehaviorClass(behaviorClass: BehaviorClass): boolean {
+  return behaviorClass !== "CONSUMER";
+}
+
+/**
+ * How confident we are in a classification, and therefore which source won.
+ * A lower tier never overrides a higher one — when they disagree the higher
+ * tier stands and a review flag is raised instead.
+ */
+export const RESOLUTION_TIERS = ["VERIFIED", "ANCHORED", "INFERRED", "DEFAULT"] as const;
+export type ResolutionTier = (typeof RESOLUTION_TIERS)[number];
+
+export const RESOLUTION_TIER_LABELS: Record<ResolutionTier, string> = {
+  VERIFIED: "Verified (tax ID)",
+  ANCHORED: "Anchored (dealer record)",
+  INFERRED: "Inferred (behaviour)",
+  DEFAULT: "Unclassified",
 };
 
 // Which channels a customer buys through. CONTESTED = active across ≥2

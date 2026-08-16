@@ -68,7 +68,7 @@ function toPositional(
  * malformed split. Only ever run on SCHEMA_SQL (authored by this codebase,
  * no user input), so a plain split after that is safe.
  */
-function splitStatements(script: string): string[] {
+export function splitStatements(script: string): string[] {
   const withoutComments = script.replace(/--[^\n]*/g, "");
   return withoutComments
     .split(";")

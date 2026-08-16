@@ -606,4 +606,63 @@ CREATE INDEX IF NOT EXISTS cases_department ON cases(department_id);
 ALTER TABLE cases DROP CONSTRAINT IF EXISTS cases_category_check;
 ALTER TABLE cases ADD CONSTRAINT cases_category_check
   CHECK (category IN ('POINTS','REDEMPTION','PRODUCT','DELIVERY','ACCOUNT','OTHER','IDENTITY_REVIEW'));
+
+-- Classification v2: identity keys, resolution tiers, and transaction line
+-- items. Ordering rule for everything below: a CREATE INDEX may only appear
+-- AFTER the ALTER TABLE ADD COLUMN that creates its column. On a live database
+-- the CREATE TABLE bodies further up are silent no-ops, so an index placed
+-- beside the table definition would reference a column that does not yet
+-- exist and abort this entire transaction. scripts/verify-schema.ts enforces
+-- this statically -- run it before shipping any schema change.
+
+-- The 13-digit identity number. Only the ciphertext and the last four digits
+-- are stored: the plaintext is encrypted in the app (lib/pii.ts) so it never
+-- sits readable in a row, and the last four exist purely so staff can confirm
+-- they are looking at the right record without decrypting anything.
+-- tax_entity_type is derived from the leading digit (lib/thaiId.ts):
+-- JURISTIC = a registered company, NATURAL = a private individual.
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS tax_id_encrypted TEXT;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS tax_id_last4 TEXT;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS tax_entity_type TEXT;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS identity_verified_at TEXT;
+-- Staff-only classification. INSTITUTIONAL (school / hospital / canteen) is
+-- indistinguishable from HORECA in transaction data, so it is never inferred.
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS institutional_override INTEGER NOT NULL DEFAULT 0;
+CREATE INDEX IF NOT EXISTS customers_tax_entity_type ON customers(tax_entity_type);
+
+-- Which tier decided the class, and whether the tiers disagreed. A
+-- disagreement is never resolved silently -- the higher tier stands and this
+-- flag sends it to a human.
+ALTER TABLE customer_scores ADD COLUMN IF NOT EXISTS resolution_tier TEXT;
+ALTER TABLE customer_scores ADD COLUMN IF NOT EXISTS disagreement_flag INTEGER NOT NULL DEFAULT 0;
+-- Supporting behavioural signals, stored so the UI can show the evidence
+-- behind a classification rather than just its verdict.
+ALTER TABLE customer_scores ADD COLUMN IF NOT EXISTS weekday_share REAL;
+ALTER TABLE customer_scores ADD COLUMN IF NOT EXISTS max_pack_size REAL;
+ALTER TABLE customer_scores ADD COLUMN IF NOT EXISTS distinct_skus INTEGER;
+CREATE INDEX IF NOT EXISTS customer_scores_tier ON customer_scores(resolution_tier);
+
+-- IDENTITY_VERIFICATION consent gates storage of an identity number. A
+-- national ID is sensitive personal data under PDPA, so it gets its own
+-- purpose and is never covered by MARKETING or ANALYTICS consent.
+ALTER TABLE consents DROP CONSTRAINT IF EXISTS consents_purpose_check;
+ALTER TABLE consents ADD CONSTRAINT consents_purpose_check
+  CHECK (purpose IN ('MARKETING','ANALYTICS','PROFILING','IDENTITY_VERIFICATION'));
+
+-- Purchase line items. Without these, "business-sized" can only be guessed
+-- from baht value, which cannot separate one premium gift hamper from 20kg of
+-- cooking oil. pack_size is the unit format (kg / litres / pieces per pack)
+-- and is the strongest single HoReCa signal available.
+CREATE TABLE IF NOT EXISTS transaction_items (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  transaction_id INTEGER NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
+  product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
+  item_name TEXT NOT NULL,
+  quantity INTEGER NOT NULL DEFAULT 1,
+  unit_price REAL,
+  line_total REAL,
+  pack_size REAL
+);
+CREATE INDEX IF NOT EXISTS transaction_items_transaction ON transaction_items(transaction_id);
+CREATE INDEX IF NOT EXISTS transaction_items_product ON transaction_items(product_id);
 `;

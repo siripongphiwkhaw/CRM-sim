@@ -26,6 +26,15 @@ export interface Customer {
   referral_code: string | null;
   /** Customer id of whoever referred this member, set once at registration. */
   referred_by: number | null;
+  /** Last 4 digits only — the full number is encrypted (tax_id_encrypted,
+   * intentionally NOT exposed here) and decrypted only where a real need to
+   * read it exists. See lib/pii.ts. */
+  tax_id_last4: string | null;
+  /** Derived from the ID's leading digit — JURISTIC = registered company. */
+  tax_entity_type: "JURISTIC" | "NATURAL" | null;
+  identity_verified_at: string | null;
+  /** Staff-set INSTITUTIONAL override — never inferred. */
+  institutional_override: number;
   created_at: string;
   updated_at: string;
 }

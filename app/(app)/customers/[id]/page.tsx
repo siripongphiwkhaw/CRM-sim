@@ -24,6 +24,7 @@ import { formatCurrency, formatDate } from "@/lib/format";
 import {
   CONSENT_PURPOSES,
   BEHAVIOR_CLASS_LABELS,
+  isBusinessBehaviorClass,
   CHANNEL_AFFINITY_LABELS,
   TX_CHANNEL_LABELS,
   type ConsentStatus,
@@ -181,10 +182,8 @@ export default async function CustomerDetailPage({
                         {score.behavior_class
                           ? BEHAVIOR_CLASS_LABELS[score.behavior_class]
                           : "—"}
-                        {score.behavior_class === "HORECA" || score.behavior_class === "TRADE"
-                          ? customer.cust_type === "B2C"
-                            ? " · review reclassification"
-                            : ""
+                        {isBusinessBehaviorClass(score.behavior_class) && customer.cust_type === "B2C"
+                          ? " · review reclassification"
                           : ""}
                       </span>
                     ) : (
