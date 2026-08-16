@@ -92,6 +92,34 @@ export function getDistributor(id: number): Promise<Distributor | undefined> {
   return get<Distributor>("SELECT * FROM distributors WHERE id = ?", [id]);
 }
 
+/** The distributor(s) linked to a customer — normally 0 or 1; the schema
+ * doesn't enforce 1:1, so this returns every match and the caller (the
+ * customer-page link action) is what actually enforces it. */
+export function getDistributorsForCustomer(customerId: number): Promise<Distributor[]> {
+  return all<Distributor>("SELECT * FROM distributors WHERE customer_id = ? ORDER BY id", [customerId]);
+}
+
+/** Distributors with no linked CRM member — the pick list for linking one to
+ * a customer from the customer page. */
+export function listUnlinkedDistributors(): Promise<Distributor[]> {
+  return all<Distributor>(
+    "SELECT * FROM distributors WHERE customer_id IS NULL ORDER BY name"
+  );
+}
+
+/** Sets (or clears, with `customerId: null`) just the customer_id column —
+ * the customer-page "link a dealer" action doesn't have the rest of the
+ * distributor's fields to hand, unlike the full edit form's updateDistributor(). */
+export async function setDistributorCustomer(
+  distributorId: number,
+  customerId: number | null
+): Promise<void> {
+  await run(
+    "UPDATE distributors SET customer_id = @customer_id, updated_at = now() WHERE id = @id",
+    { id: distributorId, customer_id: customerId }
+  );
+}
+
 export interface DistributorSummary {
   total: number;
   active: number;

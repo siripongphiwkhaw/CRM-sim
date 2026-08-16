@@ -16,12 +16,21 @@ import {
   createCustomer,
   updateCustomer,
   deleteCustomer,
+  setCustomerTaxId,
+  setInstitutionalOverride,
 } from "@/db/queries/customers";
 import { linkLineUser, unlinkLineUser } from "@/db/queries/member";
+import {
+  getDistributor,
+  getDistributorsForCustomer,
+  setDistributorCustomer,
+} from "@/db/queries/distributors";
 import { createInteraction } from "@/db/queries/interactions";
 import { createTransaction } from "@/db/queries/transactions";
 import { redeemReward } from "@/db/queries/loyalty";
-import { recordConsent } from "@/db/queries/consent";
+import { recordConsent, getCurrentConsents } from "@/db/queries/consent";
+import { inspectThaiId } from "@/lib/thaiId";
+import { encryptPii, isPiiConfigured } from "@/lib/pii";
 
 function parseCustomer(formData: FormData) {
   return customerSchema.safeParse({
@@ -219,4 +228,119 @@ export async function setCustomerLineAction(
   }
   revalidatePath(`/customers/${customerId}`);
   return { success: lineUserId ? "LINE account linked." : "LINE account unlinked." };
+}
+
+const THAI_ID_ERRORS: Record<string, string> = {
+  LENGTH: "Must be exactly 13 digits.",
+  NON_NUMERIC: "Digits only (spaces and hyphens are fine).",
+  CHECKSUM: "That number doesn't pass the checksum — check for a typo.",
+  UNKNOWN_PREFIX: "Unrecognized leading digit.",
+};
+
+/**
+ * Verifies and stores a Thai tax ID / national ID (lib/thaiId.ts). A JURISTIC
+ * number (registered company) is public business data and needs no consent; a
+ * NATURAL person's number is sensitive personal data under PDPA and is only
+ * stored once IDENTITY_VERIFICATION consent is GRANTED — see lib/constants.ts.
+ * The plaintext is never returned to the client; only the masked last 4
+ * digits render anywhere downstream (Customer.tax_id_last4).
+ */
+export async function setCustomerTaxIdAction(
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  await requireSession();
+  const customerId = Number(formData.get("customer_id"));
+  if (!customerId) return { error: "Missing member id." };
+
+  if (!isPiiConfigured()) {
+    return {
+      error:
+        "Identity capture isn't configured on this server — PII_ENCRYPTION_KEY is unset. See .env.example.",
+    };
+  }
+
+  const inspection = inspectThaiId(String(formData.get("tax_id") ?? ""));
+  if (!inspection.valid || !inspection.entityType) {
+    return { error: THAI_ID_ERRORS[inspection.reason ?? ""] ?? "Invalid identity number." };
+  }
+
+  if (inspection.entityType === "NATURAL") {
+    const consents = await getCurrentConsents(customerId);
+    if (consents.IDENTITY_VERIFICATION?.status !== "GRANTED") {
+      return {
+        error:
+          'Grant "Identity verification" consent first — a personal ID number needs it before it can be stored.',
+      };
+    }
+  }
+
+  await setCustomerTaxId(customerId, {
+    ciphertext: encryptPii(inspection.normalized),
+    last4: inspection.normalized.slice(-4),
+    entityType: inspection.entityType,
+  });
+  revalidatePath(`/customers/${customerId}`);
+  return {
+    success:
+      inspection.entityType === "JURISTIC"
+        ? "Saved — identified as a registered company."
+        : "Saved — identified as a private individual.",
+  };
+}
+
+/**
+ * Links or unlinks a distributor/dealer record to this customer (Tier 2 —
+ * ANCHORED evidence for the classifier). Enforced 1:1 at the app layer, not
+ * the schema — distributors.customer_id carries no UNIQUE constraint, same
+ * app-level-guard style as hasActiveOrders().
+ */
+export async function setCustomerDealerLinkAction(
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  await requireSession();
+  const customerId = Number(formData.get("customer_id"));
+  if (!customerId) return { error: "Missing member id." };
+  const raw = String(formData.get("distributor_id") ?? "").trim();
+  const distributorId = raw ? Number(raw) : null;
+
+  if (distributorId) {
+    const distributor = await getDistributor(distributorId);
+    if (!distributor) return { error: "Distributor not found." };
+    if (distributor.customer_id != null && distributor.customer_id !== customerId) {
+      return { error: "That dealer is already linked to another member." };
+    }
+  }
+
+  // Clear whatever this customer currently points to, then set the new link
+  // (or leave it cleared, if distributorId is null — the "unlink" case).
+  for (const existing of await getDistributorsForCustomer(customerId)) {
+    if (existing.id !== distributorId) await setDistributorCustomer(existing.id, null);
+  }
+  if (distributorId) await setDistributorCustomer(distributorId, customerId);
+
+  revalidatePath(`/customers/${customerId}`);
+  revalidatePath("/channel/distributors");
+  return { success: distributorId ? "Linked to dealer." : "Dealer link cleared." };
+}
+
+/** Staff-only INSTITUTIONAL flag — see lib/classification.ts for why this is
+ * never inferred from behaviour. */
+export async function setInstitutionalOverrideAction(
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  await requireSession();
+  const customerId = Number(formData.get("customer_id"));
+  if (!customerId) return { error: "Missing member id." };
+  const value = formData.get("value") === "1";
+
+  await setInstitutionalOverride(customerId, value);
+  revalidatePath(`/customers/${customerId}`);
+  return {
+    success: value
+      ? "Marked institutional — classification will no longer be inferred from behaviour."
+      : "Institutional override cleared.",
+  };
 }

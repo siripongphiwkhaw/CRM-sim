@@ -225,6 +225,35 @@ export async function updateCustomer(
   );
 }
 
+export interface TaxIdInput {
+  /** Output of encryptPii() — never the plaintext. See lib/pii.ts. */
+  ciphertext: string;
+  last4: string;
+  entityType: "JURISTIC" | "NATURAL";
+}
+
+/** Stores a verified identity number. Caller (the server action) is
+ * responsible for validating the checksum, encrypting the plaintext, and — for
+ * a NATURAL person — confirming IDENTITY_VERIFICATION consent first; this
+ * function only writes what it's given. */
+export async function setCustomerTaxId(id: number, input: TaxIdInput): Promise<void> {
+  await run(
+    `UPDATE customers SET
+       tax_id_encrypted = @ciphertext, tax_id_last4 = @last4,
+       tax_entity_type = @entity_type, identity_verified_at = now(), updated_at = now()
+     WHERE id = @id`,
+    { id, ciphertext: input.ciphertext, last4: input.last4, entity_type: input.entityType }
+  );
+}
+
+/** Staff-set INSTITUTIONAL override — never inferred. See lib/classification.ts. */
+export async function setInstitutionalOverride(id: number, value: boolean): Promise<void> {
+  await run(
+    "UPDATE customers SET institutional_override = @value, updated_at = now() WHERE id = @id",
+    { id, value: value ? 1 : 0 }
+  );
+}
+
 /** Deletes the customer and all dependent rows atomically. */
 export async function deleteCustomer(id: number): Promise<void> {
   await batch([
