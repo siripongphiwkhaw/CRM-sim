@@ -134,17 +134,36 @@ export async function recomputeScores(): Promise<{ scored: number }> {
   );
   if (raw.length === 0) return { scored: 0 };
 
-  // Per-customer channel mix, for affinity + the SFA share the behavioral
-  // classifier needs. One grouped read, folded into a map keyed by customer.
-  const channelRows = await all<{ customer_id: number; channel: TxChannel; n: number }>(
-    `SELECT customer_id, channel, COUNT(*)::int AS n
+  // Per-customer channel mix. Two different questions need two different
+  // windows, from ONE grouped read (a FILTER'd conditional count, not two
+  // separate queries):
+  //   - channel_affinity / primary_channel read the ALL-TIME mix — "who owns
+  //     this relationship overall" deliberately doesn't reset every 90 days
+  //     (same reasoning as RFM/churn staying all-time, see below).
+  //   - the classifier's sfaShare (channelCounts passed into classifyCustomer)
+  //     must read the WINDOWED mix — it decides "is this account buying like
+  //     a trade account *right now*", and previously read the all-time mix by
+  //     mistake, so a customer whose SFA volume was all in the past could
+  //     still be pushed toward WHOLESALER/HORECA on stale channel history.
+  const channelRows = await all<{ customer_id: number; channel: TxChannel; n: number; n_window: number }>(
+    `SELECT customer_id, channel, COUNT(*)::int AS n,
+            COUNT(*) FILTER (
+              WHERE tx_date::timestamptz > now() - make_interval(days => ${CLASSIFY_WINDOW_DAYS})
+            )::int AS n_window
        FROM transactions GROUP BY customer_id, channel`
   );
   const channelByCustomer = new Map<number, Partial<Record<TxChannel, number>>>();
+  const windowChannelByCustomer = new Map<number, Partial<Record<TxChannel, number>>>();
   for (const r of channelRows) {
     const m = channelByCustomer.get(r.customer_id) ?? {};
     m[r.channel] = r.n;
     channelByCustomer.set(r.customer_id, m);
+
+    if (r.n_window > 0) {
+      const wm = windowChannelByCustomer.get(r.customer_id) ?? {};
+      wm[r.channel] = r.n_window;
+      windowChannelByCustomer.set(r.customer_id, wm);
+    }
   }
 
   // --- Classification inputs, all on the rolling window --------------------
@@ -215,6 +234,7 @@ export async function recomputeScores(): Promise<{ scored: number }> {
   const statements = raw.map((row, i) => {
     const counts = channelByCustomer.get(row.customer_id) ?? {};
     const { primaryChannel, affinity } = channelAffinityFor(counts);
+    const windowCounts = windowChannelByCustomer.get(row.customer_id) ?? {};
 
     const window = windowByCustomer.get(row.customer_id);
     const items = itemsByCustomer.get(row.customer_id);
@@ -231,7 +251,7 @@ export async function recomputeScores(): Promise<{ scored: number }> {
         dealer: dealer ? { dealerType: dealer.dealer_type, channel: dealer.channel } : null,
         frequency: window?.frequency ?? 0,
         monetary: window?.monetary ?? 0,
-        channelCounts: counts,
+        channelCounts: windowCounts,
         maxPackSize: items?.max_pack_size ?? null,
         weekdayShare: window?.weekday_share ?? null,
         institutionalOverride: Boolean(identity?.institutional_override),
