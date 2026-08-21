@@ -4,12 +4,21 @@
 :root {
   --background: #f4f7f8;
   --foreground: #14202b;
+
+  /* One stack, three consumers (--font-sans, body, .font-display). Hoisted
+     because body and .font-display each hardcoded the font list, so setting
+     only --font-sans would have left both of them without the Thai face.
+
+     Inter carries no Thai glyphs and is loaded with the "latin" subset only;
+     Noto Sans Thai is loaded with the "thai" subset only. Their unicode-ranges
+     are disjoint, so the browser picks per glyph and Latin text is untouched. */
+  --font-stack: var(--font-thai), var(--font-app), -apple-system, "Segoe UI", sans-serif;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-app);
+  --font-sans: var(--font-stack);
 
   /* Brand = teal ramp */
   --color-brand-50: #e7f6f4;
@@ -78,7 +87,19 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-app), -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-stack);
+}
+
+/* Thai stacks vowel and tone marks above the base glyph, and Tailwind's
+   text-xs / text-sm line-heights (1rem / 1.25rem) clip them. Scoped to the
+   lang attribute, which the explainer sets on its own container rather than
+   on <html> — the app shell really is English, and claiming otherwise would
+   mislead screen readers.
+
+   Do NOT add break-words / break-all here: Thai has no inter-word spaces, and
+   breaking mid-syllable separates a consonant from its combining vowel. */
+:lang(th) {
+  line-height: 1.8;
 }
 
 /* Users who opt out of motion get none — including animate-pulse/spin. */
@@ -92,6 +113,6 @@ body {
 
 /* Formerly a serif display face; in the Lightning theme headings are bold sans. */
 .font-display {
-  font-family: var(--font-app), -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-stack);
   font-weight: 700;
 }
