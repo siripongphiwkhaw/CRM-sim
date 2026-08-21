@@ -90,23 +90,39 @@ export function channelAffinityFor(
 }
 
 /* ------------------------------------------------------------------------ *
- * classifyCustomer — the three-tier resolver
+ * classifyCustomer — the evidence resolver
  * ------------------------------------------------------------------------ */
 
 /**
+ * EXECUTION ORDER (what actually runs, top to bottom):
+ *
+ *   1. institutionalOverride  staff said so. Wins over everything, never flags.
+ *   2. dealer anchor          → ANCHORED
+ *   3. JURISTIC tax ID        → VERIFIED
+ *   4. behaviour              → INFERRED, or DEFAULT when it lands on CONSUMER
+ *
+ * Note this is NOT the "Tier 1 / Tier 2" numbering used in the customer UI,
+ * which labels the tax ID "Tier 1" and the dealer link "Tier 2". The dealer
+ * anchor short-circuits FIRST. The numbering is a labelling convention only —
+ * do not describe VERIFIED as outranking ANCHORED.
+ *
  * What each tier can honestly conclude:
  *
  *   VERIFIED  a corporate tax ID proves the customer is a *registered company*.
  *             It does NOT say which trade class — a company can be a wholesaler
- *             or a one-person consultancy. So it sets evidence strength, not
- *             the class itself.
- *   ANCHORED  a dealer record states the trade class as fact.
- *   INFERRED  behaviour. Deliberately limited to CONSUMER / HORECA / WHOLESALER:
+ *             or a one-person consultancy. So it sets evidence strength, and
+ *             the class still comes from behaviour. A NATURAL (individual) ID
+ *             has no effect at all.
+ *   ANCHORED  a dealer record states the trade class as fact. Also carries the
+ *             staff INSTITUTIONAL override, for want of a "manual" tier value.
+ *   INFERRED  behaviour produced HORECA or WHOLESALER. Deliberately limited:
  *             nothing in transaction data distinguishes a corner shop from a
  *             supermarket chain, so TRADITIONAL_TRADE and MODERN_TRADE are
  *             reachable ONLY through a dealer anchor. Guessing between them
  *             would be fabrication dressed as classification.
- *   DEFAULT   no evidence at all → CONSUMER.
+ *   DEFAULT   behaviour landed on CONSUMER. This is NOT "no evidence" — a
+ *             customer with 40 orders and small baskets lands here too. The
+ *             reason codes distinguish the cases; the tier alone does not.
  *
  * INSTITUTIONAL is staff-assigned and never inferred (see constants.ts).
  */
@@ -118,9 +134,23 @@ export function channelAffinityFor(
 export const HORECA_AOV_FLOOR = 3000;
 export const WHOLESALER_AOV_FLOOR = 8000;
 
-/** Below this many scored customers, percentile ranking is meaningless and is
- * switched off entirely — floors alone decide. */
+/** Below this many customers in the peer population, percentile ranking is
+ * meaningless and is switched off entirely — floors alone decide. Note the
+ * population counts customers ACTIVE IN THE WINDOW, not all scored customers
+ * (see PeerContext.population). */
 export const MIN_POPULATION_FOR_PERCENTILE = 30;
+
+/** Rolling window the CLASSIFIER judges on, and the window bounding the
+ * line-item aggregates (max pack size, distinct SKUs) stored alongside it.
+ * RFM/churn/channel-affinity deliberately keep using all-time figures — "what
+ * they're worth" and "what they are right now" are different questions, and a
+ * closed restaurant should stop reading as HoReCa without also erasing its
+ * lifetime value.
+ *
+ * Lives here rather than beside the query that uses it so that UI explaining
+ * the classifier can cite the window without importing db/queries/* — which
+ * would pull the Postgres driver into a client bundle. */
+export const CLASSIFY_WINDOW_DAYS = 90;
 
 /** Share of a customer's orders on the SFA (trade) channel that reads as
  * "buys through the trade motion". */
@@ -152,13 +182,46 @@ export interface ClassificationInput {
   institutionalOverride?: boolean;
 }
 
+/** One piece of evidence, recorded language-neutrally.
+ *
+ * These used to be pre-baked English sentences. They are now (code, params)
+ * so the same trace can render in Thai or English, and so the numbers that
+ * actually drove the decision survive into storage — the windowed AOV is NOT
+ * recoverable from customer_scores afterwards (the stored rfm_* columns are
+ * all-time quintile *scores*, not amounts).
+ *
+ * PII invariant, previously only a comment: no variant carries a field
+ * sourced from customers.tax_id_*. JURISTIC_TAX_ID has no params at all, so
+ * an identity number cannot end up in here by construction.
+ */
+type Reason<C extends string, P> = { code: C; params: P };
+
+export type ClassificationReason =
+  | Reason<"TOO_FEW_ORDERS", { frequency: number; minFrequency: number; windowDays: number }>
+  | Reason<"AOV_BELOW_PEER_P75", { aov: number; aovP75: number }>
+  | Reason<"PEER_RANKING_OFF", { population: number; minPopulation: number; windowDays: number }>
+  | Reason<"AOV_CLEARS_WHOLESALER_FLOOR", { aov: number; floor: number }>
+  | Reason<"TRADE_CHANNEL_SHARE_HIGH", { sfaShare: number; threshold: number }>
+  | Reason<"AOV_CLEARS_HORECA_FLOOR", { aov: number; floor: number }>
+  | Reason<"BULK_PACK_FORMATS", { maxPackSize: number }>
+  | Reason<"WEEKDAY_CONCENTRATION", { weekdayShare: number }>
+  | Reason<"AOV_BELOW_ALL_FLOORS", { aov: number; horecaFloor: number; wholesalerFloor: number }>
+  | Reason<"STAFF_INSTITUTIONAL_OVERRIDE", Record<string, never>>
+  | Reason<"DEALER_ANCHOR", { dealerType: string; channel: string | null }>
+  | Reason<"ANCHOR_BEHAVIOUR_DISAGREE", { inferredClass: BehaviorClass }>
+  | Reason<"JURISTIC_TAX_ID", Record<string, never>>
+  | Reason<"JURISTIC_BUT_CONSUMER", Record<string, never>>;
+
+export type ReasonCode = ClassificationReason["code"];
+
 export interface ClassificationResult {
   behaviorClass: BehaviorClass;
   tier: import("./constants").ResolutionTier;
   /** Evidence tiers point different ways — a human should look. */
   disagreement: boolean;
-  /** Plain-language evidence, safe to show staff. Never contains an ID number. */
-  reasons: string[];
+  /** Trace of the branch that actually ran, in the order it ran. Render via
+   * lib/classificationCopy.ts — never interpolate a raw code into UI. */
+  reasons: ClassificationReason[];
 }
 
 /** Dealer record → trade class. DEALER_TYPES is only Dealer|Retailer and
@@ -178,14 +241,23 @@ function classFromDealer(dealerType: string, channel: string | null): BehaviorCl
 function inferFromBehaviour(
   input: ClassificationInput,
   peers: PeerContext
-): { behaviorClass: BehaviorClass; reasons: string[] } {
-  const reasons: string[] = [];
+): { behaviorClass: BehaviorClass; reasons: ClassificationReason[] } {
+  const reasons: ClassificationReason[] = [];
   const aov = input.frequency > 0 ? input.monetary / input.frequency : 0;
 
   if (input.frequency < BUSINESS_MIN_FREQUENCY) {
     return {
       behaviorClass: "CONSUMER",
-      reasons: [`Only ${input.frequency} order(s) in window — too few to read a pattern.`],
+      reasons: [
+        {
+          code: "TOO_FEW_ORDERS",
+          params: {
+            frequency: input.frequency,
+            minFrequency: BUSINESS_MIN_FREQUENCY,
+            windowDays: CLASSIFY_WINDOW_DAYS,
+          },
+        },
+      ],
     };
   }
 
@@ -195,14 +267,19 @@ function inferFromBehaviour(
     return {
       behaviorClass: "CONSUMER",
       reasons: [
-        `Average order ฿${Math.round(aov)} is below the peer 75th percentile (฿${Math.round(peers.aovP75 as number)}).`,
+        { code: "AOV_BELOW_PEER_P75", params: { aov, aovP75: peers.aovP75 as number } },
       ],
     };
   }
   if (!percentileApplies) {
-    reasons.push(
-      `Peer ranking off (${peers.population} scored customers, need ${MIN_POPULATION_FOR_PERCENTILE}) — absolute floors only.`
-    );
+    reasons.push({
+      code: "PEER_RANKING_OFF",
+      params: {
+        population: peers.population,
+        minPopulation: MIN_POPULATION_FOR_PERCENTILE,
+        windowDays: CLASSIFY_WINDOW_DAYS,
+      },
+    });
   }
 
   const total = Object.values(input.channelCounts).reduce((sum, n) => sum + (n ?? 0), 0);
@@ -211,26 +288,30 @@ function inferFromBehaviour(
   if (aov >= WHOLESALER_AOV_FLOOR || (input.custType === "B2B" && sfaShare >= TRADE_CHANNEL_SHARE)) {
     reasons.push(
       aov >= WHOLESALER_AOV_FLOOR
-        ? `Average order ฿${Math.round(aov)} clears the wholesaler floor (฿${WHOLESALER_AOV_FLOOR}).`
-        : `${Math.round(sfaShare * 100)}% of orders on the trade channel.`
+        ? { code: "AOV_CLEARS_WHOLESALER_FLOOR", params: { aov, floor: WHOLESALER_AOV_FLOOR } }
+        : { code: "TRADE_CHANNEL_SHARE_HIGH", params: { sfaShare, threshold: TRADE_CHANNEL_SHARE } }
     );
     return { behaviorClass: "WHOLESALER", reasons };
   }
 
   if (aov >= HORECA_AOV_FLOOR && sfaShare < TRADE_CHANNEL_SHARE) {
-    reasons.push(
-      `Average order ฿${Math.round(aov)} clears the HoReCa floor (฿${HORECA_AOV_FLOOR}) on consumer channels.`
-    );
+    reasons.push({ code: "AOV_CLEARS_HORECA_FLOOR", params: { aov, floor: HORECA_AOV_FLOOR } });
+    // Supporting colour only — neither of these can change the class. They are
+    // pushed inside the HoReCa branch that has ALREADY been taken. Any UI must
+    // present them as corroboration, never as a cause.
     if (input.maxPackSize != null && input.maxPackSize >= 5) {
-      reasons.push(`Buys bulk formats (largest pack ${input.maxPackSize}).`);
+      reasons.push({ code: "BULK_PACK_FORMATS", params: { maxPackSize: input.maxPackSize } });
     }
     if (input.weekdayShare != null && input.weekdayShare >= 0.8) {
-      reasons.push(`${Math.round(input.weekdayShare * 100)}% of orders on weekdays.`);
+      reasons.push({ code: "WEEKDAY_CONCENTRATION", params: { weekdayShare: input.weekdayShare } });
     }
     return { behaviorClass: "HORECA", reasons };
   }
 
-  reasons.push(`Average order ฿${Math.round(aov)} is below every business floor.`);
+  reasons.push({
+    code: "AOV_BELOW_ALL_FLOORS",
+    params: { aov, horecaFloor: HORECA_AOV_FLOOR, wholesalerFloor: WHOLESALER_AOV_FLOOR },
+  });
   return { behaviorClass: "CONSUMER", reasons };
 }
 
@@ -242,15 +323,21 @@ export function classifyCustomer(
   if (input.institutionalOverride) {
     return {
       behaviorClass: "INSTITUTIONAL",
+      // NOTE: recorded as ANCHORED because there is no "manual" tier value.
+      // UI must special-case this — RESOLUTION_TIER_LABELS.ANCHORED reads
+      // "Anchored (dealer record)", which is false for a staff override.
+      // Detect it via this reason code or behaviorClass === "INSTITUTIONAL".
       tier: "ANCHORED",
       disagreement: false,
-      reasons: ["Set to institutional by staff."],
+      reasons: [{ code: "STAFF_INSTITUTIONAL_OVERRIDE", params: {} }],
     };
   }
 
   const inferred = inferFromBehaviour(input, peers);
 
-  // Tier 2 — a dealer record states the class outright.
+  // A dealer record states the class outright. Note this is evaluated BEFORE
+  // the tax-ID check below — despite the "Tier 1 / Tier 2" naming used in the
+  // UI, the dealer anchor short-circuits first.
   if (input.dealer) {
     const anchored = classFromDealer(input.dealer.dealerType, input.dealer.channel);
     const disagreement = inferred.behaviorClass !== anchored;
@@ -259,19 +346,29 @@ export function classifyCustomer(
       tier: "ANCHORED",
       disagreement,
       reasons: [
-        `Linked dealer record: ${input.dealer.dealerType}${input.dealer.channel ? ` · ${input.dealer.channel}` : ""}.`,
+        {
+          code: "DEALER_ANCHOR",
+          params: { dealerType: input.dealer.dealerType, channel: input.dealer.channel },
+        },
         ...(disagreement
-          ? [`Buying behaviour reads as ${inferred.behaviorClass} instead — worth a look.`]
+          ? ([
+              {
+                code: "ANCHOR_BEHAVIOUR_DISAGREE",
+                params: { inferredClass: inferred.behaviorClass },
+              },
+            ] as ClassificationReason[])
           : []),
       ],
     };
   }
 
-  // Tier 1 — a corporate tax ID proves "registered company", not which class.
-  // So the class still comes from behaviour; the tier records that we have
-  // hard proof, and any "buys like a consumer" result is flagged rather than
-  // overwritten (a one-person company, or an employee expensing purchases,
-  // both look exactly like this).
+  // A corporate tax ID proves "registered company", not which class. So the
+  // class still comes from behaviour; the tier only records that we have hard
+  // proof of the entity, and any "buys like a consumer" result is flagged
+  // rather than overwritten (a one-person company, or an employee expensing
+  // purchases, both look exactly like this).
+  //
+  // A NATURAL (individual) ID has no branch here and no effect whatsoever.
   if (input.taxEntityType === "JURISTIC") {
     const disagreement = inferred.behaviorClass === "CONSUMER";
     return {
@@ -279,10 +376,10 @@ export function classifyCustomer(
       tier: "VERIFIED",
       disagreement,
       reasons: [
-        "Registered company (corporate tax ID on file).",
+        { code: "JURISTIC_TAX_ID", params: {} },
         ...inferred.reasons,
         ...(disagreement
-          ? ["Registered as a company but buying like a consumer — confirm the owning side."]
+          ? ([{ code: "JURISTIC_BUT_CONSUMER", params: {} }] as ClassificationReason[])
           : []),
       ],
     };

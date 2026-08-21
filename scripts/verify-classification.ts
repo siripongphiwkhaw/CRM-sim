@@ -120,7 +120,7 @@ const belowPeers = classifyCustomer(
 );
 check("clears floor but below peer p75 -> CONSUMER", belowPeers.behaviorClass, "CONSUMER");
 
-console.log("top spender  :", top.behaviorClass, "·", top.tier, "·", top.reasons[0]);
+console.log("top spender  :", top.behaviorClass, "·", top.tier, "·", top.reasons[0]?.code);
 console.log("horeca       :", horeca.behaviorClass, "·", horeca.tier);
 console.log("company-consumer:", companyConsumer.behaviorClass, "·", companyConsumer.tier, "· flag:", companyConsumer.disagreement);
 

@@ -646,6 +646,14 @@ ALTER TABLE customer_scores ADD COLUMN IF NOT EXISTS disagreement_flag INTEGER N
 ALTER TABLE customer_scores ADD COLUMN IF NOT EXISTS weekday_share REAL;
 ALTER TABLE customer_scores ADD COLUMN IF NOT EXISTS max_pack_size REAL;
 ALTER TABLE customer_scores ADD COLUMN IF NOT EXISTS distinct_skus INTEGER;
+-- The evidence trace itself: a JSON array of {code, params} recording which
+-- branch of the classifier actually ran, in order. Stored because the numbers
+-- that drove the decision are otherwise unrecoverable -- the rfm_* columns are
+-- all-time quintile SCORES (1-5), not the windowed amounts the classifier saw.
+-- TEXT rather than an array type: db/client.ts binds params as
+-- string|number|boolean|null, so an array cannot cross the driver boundary.
+-- NULL on every row until the first recompute after this column landed.
+ALTER TABLE customer_scores ADD COLUMN IF NOT EXISTS classification_reasons TEXT;
 CREATE INDEX IF NOT EXISTS customer_scores_tier ON customer_scores(resolution_tier);
 
 -- IDENTITY_VERIFICATION consent gates storage of an identity number. A

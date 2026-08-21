@@ -1,6 +1,11 @@
 import { get, all, batch } from "../client";
 import { getNbaForCustomer } from "./insights";
-import { classifyCustomer, channelAffinityFor, type PeerContext } from "@/lib/classification";
+import {
+  classifyCustomer,
+  channelAffinityFor,
+  CLASSIFY_WINDOW_DAYS,
+  type PeerContext,
+} from "@/lib/classification";
 import type {
   ChurnLevel,
   BehaviorClass,
@@ -34,6 +39,11 @@ export interface CustomerScore {
   weekday_share: number | null;
   max_pack_size: number | null;
   distinct_skus: number | null;
+  /** JSON array of {code, params} — the classifier's evidence trace. Parse
+   * with parseReasons() from lib/classificationCopy.ts, which tolerates NULL
+   * (every row, until the first recompute after the column landed) and any
+   * legacy pre-refactor value. */
+  classification_reasons: string | null;
   calculated_at: string | null;
 }
 
@@ -119,11 +129,10 @@ function churnFor(recencyDays: number, frequency: number): ChurnLevel {
   return "Low";
 }
 
-/** Rolling window the CLASSIFIER judges on. RFM/churn deliberately keep using
- * all-time figures — "what they're worth" and "what they are right now" are
- * different questions, and a closed restaurant should stop reading as HoReCa
- * without also erasing its lifetime value. */
-export const CLASSIFY_WINDOW_DAYS = 90;
+/** Re-exported so existing importers of this module keep working; the constant
+ * itself now lives in lib/classification.ts, next to the rules it governs and
+ * reachable from client components. */
+export { CLASSIFY_WINDOW_DAYS };
 
 export async function recomputeScores(): Promise<{ scored: number }> {
   const raw = await all<RawRfm>(
@@ -267,9 +276,9 @@ export async function recomputeScores(): Promise<{ scored: number }> {
               (customer_id, rfm_recency, rfm_frequency, rfm_monetary, rfm_cell, churn_score,
                nba_action, behavior_class, primary_channel, channel_affinity,
                resolution_tier, disagreement_flag, weekday_share, max_pack_size, distinct_skus,
-               calculated_at)
+               classification_reasons, calculated_at)
             VALUES (@cid, @r, @f, @m, @cell, @churn, @nba, @behavior, @primary, @affinity,
-                    @tier, @flag, @weekday, @pack, @skus, now())
+                    @tier, @flag, @weekday, @pack, @skus, @reasons, now())
             ON CONFLICT (customer_id) DO UPDATE SET
               rfm_recency = EXCLUDED.rfm_recency, rfm_frequency = EXCLUDED.rfm_frequency,
               rfm_monetary = EXCLUDED.rfm_monetary, rfm_cell = EXCLUDED.rfm_cell,
@@ -280,6 +289,7 @@ export async function recomputeScores(): Promise<{ scored: number }> {
               disagreement_flag = EXCLUDED.disagreement_flag,
               weekday_share = EXCLUDED.weekday_share, max_pack_size = EXCLUDED.max_pack_size,
               distinct_skus = EXCLUDED.distinct_skus,
+              classification_reasons = EXCLUDED.classification_reasons,
               calculated_at = EXCLUDED.calculated_at`,
       args: {
         cid: row.customer_id,
@@ -297,6 +307,7 @@ export async function recomputeScores(): Promise<{ scored: number }> {
         weekday: window?.weekday_share ?? null,
         pack: items?.max_pack_size ?? null,
         skus: items?.distinct_skus ?? null,
+        reasons: JSON.stringify(resolved.reasons),
       },
     };
   });
