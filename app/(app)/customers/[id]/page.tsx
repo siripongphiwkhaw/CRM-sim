@@ -33,6 +33,8 @@ import {
   RESOLUTION_TIER_LABELS,
   type ConsentStatus,
 } from "@/lib/constants";
+import { tierLabelFor } from "@/lib/classificationCopy";
+import { WhyThisClass } from "./WhyThisClass";
 import { TierPath } from "../TierPath";
 import { RecordTransactionForm } from "./RecordTransactionForm";
 import { RedeemForm } from "./RedeemForm";
@@ -250,7 +252,11 @@ export default async function CustomerDetailPage({
                 />
                 <DetailRow
                   label="Evidence tier"
-                  value={score.resolution_tier ? RESOLUTION_TIER_LABELS[score.resolution_tier] : "—"}
+                  // Not RESOLUTION_TIER_LABELS directly: a staff INSTITUTIONAL
+                  // override is stored against the ANCHORED tier for want of a
+                  // manual tier value, so the raw label would claim "Anchored
+                  // (dealer record)" about a customer with no dealer record.
+                  value={tierLabelFor(score.resolution_tier, score.behavior_class, "en")}
                 />
                 <DetailRow label="Last computed" value={formatDate(score.calculated_at)} />
               </dl>
@@ -258,6 +264,14 @@ export default async function CustomerDetailPage({
               <p className="text-sm text-[#607785]">
                 Not yet computed — run &quot;Recompute scores &amp; insights&quot; from AI Insights.
               </p>
+            )}
+            {score && (
+              <WhyThisClass
+                behaviorClass={score.behavior_class}
+                resolutionTier={score.resolution_tier}
+                reasonsJson={score.classification_reasons}
+                disagreementFlag={score.disagreement_flag}
+              />
             )}
           </Card>
 
