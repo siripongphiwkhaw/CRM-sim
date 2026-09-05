@@ -142,6 +142,28 @@ export async function batch(
   return batchUnguarded(statements);
 }
 
+/**
+ * Like `batch`, but hands back each statement's rows.
+ *
+ * The HTTP transaction API takes every query up front, so a batch cannot read
+ * a value and then decide what to write next. The way to make a guarded write
+ * atomic is therefore a single conditional `INSERT … SELECT … WHERE`, which
+ * inserts nothing when the guard fails — and the caller can only tell the two
+ * outcomes apart by seeing what `RETURNING` handed back. `batch` stays `void`
+ * so its existing call sites are unaffected.
+ */
+export async function batchReturning<T = unknown>(
+  statements: { sql: string; args?: QueryArgs }[]
+): Promise<T[][]> {
+  await ready();
+  const client = sqlClient();
+  const queries = statements.map((s) => {
+    const { text, values } = toPositional(s.sql, s.args ?? []);
+    return client.query(text, values);
+  });
+  return (await client.transaction(queries)) as T[][];
+}
+
 export interface RawQueryResult {
   columns: string[];
   rows: SqlValue[][];

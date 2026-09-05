@@ -1,4 +1,4 @@
-import { get, all, run } from "../client";
+import { get, all, run, batchReturning } from "../client";
 import {
   DEFAULT_TIER_RULES,
   tierForLifetime,
@@ -8,6 +8,13 @@ import {
   type TierRule,
 } from "@/lib/loyaltyEngine";
 import type { Tier, RewardType, RewardStatus } from "@/lib/constants";
+
+/**
+ * Namespace for this module's transaction-scoped advisory locks, so a lock
+ * keyed on a customer id here can never collide with one taken elsewhere on
+ * an unrelated entity that happens to share that id. See `redeemReward`.
+ */
+const ADVISORY_LOCK_LOYALTY = 1;
 
 export interface LedgerEntry {
   id: number;
@@ -282,41 +289,88 @@ export async function redeemReward(
   if (!reward) return { ok: false, error: "REWARD_NOT_FOUND" };
   if (!rewardAvailable(reward)) return { ok: false, error: "REWARD_INACTIVE" };
 
-  if (reward.per_member_limit != null) {
-    const prior = await get<{ n: number }>(
-      `SELECT COUNT(*)::int AS n FROM loyalty_ledger
-        WHERE customer_id = @cid AND entry_type = 'BURN'
-          AND ref_type = 'reward' AND ref_id = @rid`,
-      { cid: customerId, rid: rewardId }
-    );
-    if ((prior?.n ?? 0) >= reward.per_member_limit) {
-      return { ok: false, error: "REWARD_LIMIT_REACHED" };
-    }
-  }
-
+  // Read once, only to pick the reason when the burn below inserts nothing and
+  // to stamp tier_at_time. It is NOT the guard — checking here and inserting
+  // afterwards is exactly the check-then-act race this function used to have:
+  // two concurrent redeems both read the same balance, both passed, and both
+  // burned, leaving the member negative.
   const summary = await getLoyaltySummary(customerId);
-  if (summary.balance < reward.points_cost) {
+
+  // The whole guard lives inside one conditional INSERT, serialised per member
+  // by a transaction-scoped advisory lock. The lock is what makes it correct:
+  // under READ COMMITTED two concurrent INSERT…SELECT statements would each
+  // take their own snapshot and both still pass. Holding the lock means the
+  // second transaction waits for the first to commit, then re-evaluates the
+  // balance with that burn already applied. The lock releases on commit.
+  //
+  // Statements are fixed up front because the HTTP transaction API cannot
+  // branch mid-transaction — hence one self-guarding statement rather than a
+  // read followed by a decision.
+  const [, inserted] = await batchReturning<{ id: number }>([
+    {
+      sql: `SELECT pg_advisory_xact_lock(@lockkey)`,
+      // Namespaced so this never collides with an advisory lock taken on some
+      // other entity that happens to share the id.
+      args: { lockkey: ADVISORY_LOCK_LOYALTY * 1_000_000 + customerId },
+    },
+    {
+      // Both guards come from one scan of the member's ledger, exposed as typed
+      // CTE columns. Comparing against those rather than against bare
+      // parameters keeps Postgres from deducing two types for the same $n —
+      // SUM/COUNT return bigint, so an uncast comparison to an integer
+      // parameter fails with 42P08.
+      sql: `WITH ledger AS (
+              SELECT COALESCE(SUM(CASE WHEN entry_type='EARN' THEN points ELSE -points END), 0)::int AS balance,
+                     COUNT(*) FILTER (
+                       WHERE entry_type = 'BURN' AND ref_type = 'reward' AND ref_id = @rid
+                     )::int AS times_redeemed
+                FROM loyalty_ledger
+               WHERE customer_id = @cid
+            )
+            INSERT INTO loyalty_ledger
+              (customer_id, entry_type, points, tier_at_time, ref_type, ref_id, note, created_by, source)
+            SELECT @cid, 'BURN', @points, @tier, 'reward', @rid, @note, @actor, @source
+              FROM ledger
+             WHERE ledger.balance >= @points
+               AND (@limit::int IS NULL OR ledger.times_redeemed < @limit::int)
+            RETURNING id`,
+      args: {
+        cid: customerId,
+        points: reward.points_cost,
+        tier: summary.tier,
+        rid: rewardId,
+        // The CRM ledger feed renders `note` directly, so staff see the origin
+        // with no extra UI work.
+        note: source === "liff" ? `Redeemed: ${reward.name} · via LINE` : `Redeemed: ${reward.name}`,
+        actor: actorId,
+        source,
+        limit: reward.per_member_limit,
+      },
+    },
+  ]);
+
+  const entryId = inserted?.[0]?.id;
+  if (entryId == null) {
+    // Nothing inserted, so one of the two guards failed. Re-read rather than
+    // trusting `summary`, which may be stale by now.
+    if (reward.per_member_limit != null) {
+      const prior = await get<{ n: number }>(
+        `SELECT COUNT(*)::int AS n FROM loyalty_ledger
+          WHERE customer_id = @cid AND entry_type = 'BURN'
+            AND ref_type = 'reward' AND ref_id = @rid`,
+        { cid: customerId, rid: rewardId }
+      );
+      if ((prior?.n ?? 0) >= reward.per_member_limit) {
+        return { ok: false, error: "REWARD_LIMIT_REACHED" };
+      }
+    }
     return { ok: false, error: "INSUFFICIENT_POINTS" };
   }
 
-  const entryId = await run(
-    `INSERT INTO loyalty_ledger
-       (customer_id, entry_type, points, tier_at_time, ref_type, ref_id, note, created_by, source)
-     VALUES (@cid, 'BURN', @points, @tier, 'reward', @rid, @note, @actor, @source) RETURNING id`,
-    {
-      cid: customerId,
-      points: reward.points_cost,
-      tier: summary.tier,
-      rid: rewardId,
-      // The CRM ledger feed renders `note` directly, so staff see the origin
-      // with no extra UI work.
-      note: source === "liff" ? `Redeemed: ${reward.name} · via LINE` : `Redeemed: ${reward.name}`,
-      actor: actorId,
-      source,
-    }
-  );
   await recomputeCustomerCache(customerId);
-  return { ok: true, entryId, balance: summary.balance - reward.points_cost };
+  // Read back rather than returning `summary.balance - cost`: under contention
+  // the balance this redeem landed on is not the one read at the top.
+  return { ok: true, entryId, balance: await getBalance(customerId) };
 }
 
 /* ---------- Rewards catalog ---------- */
