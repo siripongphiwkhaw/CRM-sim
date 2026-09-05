@@ -130,6 +130,13 @@ export async function submitMissionAction(
  * don't award themselves points) — it's here to show the full loop end to end.
  * The customer is the session; brand/qty/price come from the form. Writes a
  * real transaction, so the earn shows in the CRM too, then the balance updates.
+ *
+ * Gated on demoAccessAllowed() for the same reason impersonateMemberAction is:
+ * a server action is an independently addressable POST endpoint, so hiding the
+ * form in the UI does not stop anyone holding its action id from posting to it.
+ * Without this the amount is self-declared and unverified, which mints points
+ * outright — ฿999,999 through this form is ~50,000 points, and because tier is
+ * derived from lifetime earned it also buys a permanent earn multiplier.
  */
 export async function liffEarnAction(
   _prev: FormState,
@@ -137,6 +144,9 @@ export async function liffEarnAction(
 ): Promise<FormState> {
   const auth = await requireMember();
   if (!auth.ok) return { error: "Your session expired. Please reopen the app." };
+  if (!(await demoAccessAllowed())) {
+    return { error: "Points are earned from verified purchases, not entered by hand." };
+  }
 
   const parsed = liffEarnSchema.safeParse({
     brand: formData.get("brand"),

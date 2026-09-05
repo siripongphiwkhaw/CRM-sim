@@ -45,9 +45,10 @@ export default async function LiffHomePage() {
     );
   }
 
-  const [member, home] = await Promise.all([
+  const [member, home, demoAllowed] = await Promise.all([
     getCustomer(auth.customerId),
     getMemberHome(auth.customerId),
+    demoAccessAllowed(),
   ]);
   // Cache says linked but the row is gone (rare) — show registration inline
   // rather than redirecting, same reason as above.
@@ -78,15 +79,21 @@ export default async function LiffHomePage() {
           />
         </div>
 
-        <div className="mt-3">
-          <SectionCard title="Add points (demo)">
-            <p className="mb-2 text-xs text-[#607785]">
-              Simulate a purchase at any brand — it writes a real transaction to
-              the CRM and your balance updates here.
-            </p>
-            <EarnDemoForm />
-          </SectionCard>
-        </div>
+        {/* Self-declared earning is a demo affordance, never a real one, so it
+            renders only where the demo picker itself is allowed. liffEarnAction
+            re-checks the same guard — this hides the card, that closes the
+            endpoint. */}
+        {demoAllowed && (
+          <div className="mt-3">
+            <SectionCard title="Add points (demo)">
+              <p className="mb-2 text-xs text-[#607785]">
+                Simulate a purchase at any brand — it writes a real transaction to
+                the CRM and your balance updates here.
+              </p>
+              <EarnDemoForm />
+            </SectionCard>
+          </div>
+        )}
 
         <div className="mt-3">
           <SectionCard title="Where you earned">
