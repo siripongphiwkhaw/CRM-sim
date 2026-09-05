@@ -146,20 +146,30 @@ function purchaseDate(): string {
 async function main(opts: Options): Promise<void> {
   faker.seed(opts.seed);
 
-  const existing = await get<{ n: number }>(
-    `SELECT COUNT(*)::int AS n FROM customers WHERE email LIKE @pattern`,
-    { pattern: `%@${VOLUME_DOMAIN}` }
-  );
-  if ((existing?.n ?? 0) > 0) {
-    console.error(
-      `Refusing to run: ${existing?.n} volume-seeded members already exist.\n` +
-        `Run with --clear first if you want to regenerate them.`
+  // --customers is a target, not a batch size, so an interrupted run can be
+  // resumed by re-issuing the same command. A few thousand sequential round
+  // trips is long enough that a run does get interrupted, and starting over
+  // from zero each time is how a seed becomes something nobody runs.
+  const existing = (
+    await get<{ n: number }>(
+      `SELECT COUNT(*)::int AS n FROM customers WHERE email LIKE @pattern`,
+      { pattern: `%@${VOLUME_DOMAIN}` }
+    )
+  )?.n ?? 0;
+
+  const remaining = opts.customers - existing;
+  if (remaining <= 0) {
+    console.log(
+      `Already at ${existing} volume-seeded members (target ${opts.customers}). ` +
+        `Nothing to do — use --clear to start over.`
     );
-    process.exitCode = 1;
     return;
   }
+  if (existing > 0) {
+    console.log(`Resuming: ${existing} already present, adding ${remaining}.`);
+  }
 
-  console.log(`Seeding ${opts.customers} members (faker seed ${opts.seed})…`);
+  console.log(`Seeding ${remaining} members (faker seed ${opts.seed})…`);
 
   const staff = await get<{ id: number }>(
     "SELECT id FROM users WHERE email = 'staff@crm.local'"
@@ -168,7 +178,11 @@ async function main(opts: Options): Promise<void> {
 
   let txTotal = 0;
 
-  for (let i = 0; i < opts.customers; i++) {
+  for (let n = 0; n < remaining; n++) {
+    // Offset by what already exists so the email index stays unique across a
+    // resumed run — faker replays the same names from a fixed seed, and the
+    // index is what keeps them distinct.
+    const i = existing + n;
     // ~18% of the book is B2B — dealers and trade accounts are the minority by
     // headcount but carry most of the revenue, which is what makes the
     // revenue-vs-member-count split on the dashboard worth looking at.
@@ -229,7 +243,7 @@ async function main(opts: Options): Promise<void> {
       txTotal++;
     }
 
-    if ((i + 1) % 50 === 0) {
+    if ((n + 1) % 25 === 0) {
       console.log(`  ${i + 1}/${opts.customers} members, ${txTotal} transactions`);
     }
   }
@@ -239,7 +253,7 @@ async function main(opts: Options): Promise<void> {
   const { scored } = await recomputeScores();
 
   console.log(
-    `Done: ${opts.customers} members, ${txTotal} transactions, ${scored} scored.`
+    `Done: +${remaining} members (${opts.customers} total), ${txTotal} transactions, ${scored} scored.`
   );
 }
 
