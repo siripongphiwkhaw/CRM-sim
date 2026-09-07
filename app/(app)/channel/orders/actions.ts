@@ -110,8 +110,8 @@ export async function scanOrderReceiptAction(
   if (!order) return { error: "Order not found." };
 
   // Free path: the browser already OCR'd the photo with Tesseract and posts
-  // the raw text — parse it server-side. AI path (key configured): the photo
-  // itself is uploaded and read by Claude vision.
+  // the raw text — parse it server-side. AI path (Azure OpenAI configured):
+  // the photo itself is uploaded and read by Azure OpenAI vision.
   const ocrText = String(formData.get("ocr_text") ?? "").trim();
   let extracted: ExtractedReceipt;
   if (ocrText) {

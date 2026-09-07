@@ -3,7 +3,7 @@ import type { ExtractedReceipt, ExtractedModifier, TaxInvoiceHeader, ReceiptTota
 /**
  * Heuristic parser for raw OCR text from in-browser Tesseract (free path —
  * no API key). Turns receipt text (Thai/English) into the same ExtractedReceipt
- * shape the Claude-vision path produces, so matching and persistence are shared.
+ * shape the Azure OpenAI vision path produces, so matching and persistence are shared.
  */
 
 /** Lines that are receipt plumbing, not purchased items. Shared by the

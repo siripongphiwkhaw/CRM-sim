@@ -1,13 +1,18 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 
 /**
- * Claude-vision receipt extraction. Reads Thai, English and mixed receipts /
- * billing documents and returns a structured line-item breakdown. Only the
- * structured result leaves this module — images are never persisted.
+ * Azure OpenAI vision receipt extraction. Reads Thai, English and mixed
+ * receipts / billing documents and returns a structured line-item breakdown.
+ * Only the structured result leaves this module — images are never persisted.
+ *
+ * Runs against an AJT-owned Azure OpenAI resource rather than a third-party
+ * API, so the image never leaves the Azure tenant/region and no
+ * externally-issued API key is held by the app. See lib/receiptImage.ts for
+ * the upload path and the zoning review for why this replaced the prior
+ * Anthropic-API-backed path.
  */
 
-const OCR_MODEL = "claude-opus-4-8";
+const API_VERSION = "2024-10-21";
 
 export type ReceiptImageMediaType =
   | "image/jpeg"
@@ -194,95 +199,119 @@ Extract:
     line_items — those belong in totals.
 
 Use null for anything not printed on the document, and an empty array for reference_numbers / modifiers when none
-are printed.`;
+are printed.
+
+Respond with a single JSON object matching the given schema. No prose, no markdown fences.`;
 
 export class OcrError extends Error {}
 
+const CONFIG_ERROR =
+  "AI OCR is not configured. Set AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY and AZURE_OPENAI_DEPLOYMENT " +
+  "in .env.local (and in your deployed app's environment settings).";
+
+function azureConfig() {
+  const endpoint = process.env.AZURE_OPENAI_ENDPOINT?.trim().replace(/\/+$/, "");
+  const apiKey = process.env.AZURE_OPENAI_API_KEY?.trim();
+  const deployment = process.env.AZURE_OPENAI_DEPLOYMENT?.trim();
+  if (!endpoint || !apiKey || !deployment) return null;
+  return { endpoint, apiKey, deployment };
+}
+
 export function isOcrConfigured(): boolean {
-  return Boolean(
-    process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN
-  );
+  return azureConfig() !== null;
+}
+
+/** Shape of the Azure OpenAI chat completions response we actually read. */
+interface AzureChatCompletion {
+  choices?: Array<{
+    message?: { content?: string | null };
+    finish_reason?: string | null;
+  }>;
 }
 
 export async function extractReceipt(
   imageBase64: string,
   mediaType: ReceiptImageMediaType
 ): Promise<ExtractedReceipt> {
-  if (!isOcrConfigured()) {
-    throw new OcrError(
-      "AI OCR is not configured. Set ANTHROPIC_API_KEY in .env.local (and in your Vercel project settings for the deployed app)."
-    );
+  const config = azureConfig();
+  if (!config) {
+    throw new OcrError(CONFIG_ERROR);
   }
+  const { endpoint, apiKey, deployment } = config;
 
-  let client: Anthropic;
-  try {
-    client = new Anthropic();
-  } catch {
-    throw new OcrError(
-      "AI OCR is not configured. Set ANTHROPIC_API_KEY in .env.local (and in your Vercel project settings for the deployed app)."
-    );
-  }
+  const url = `${endpoint}/openai/deployments/${encodeURIComponent(deployment)}/chat/completions?api-version=${API_VERSION}`;
 
-  let response: Anthropic.Message;
+  let res: Response;
   try {
-    response = await client.messages.create({
-      model: OCR_MODEL,
-      max_tokens: 8000,
-      thinking: { type: "adaptive" },
-      output_config: {
-        format: {
-          type: "json_schema",
-          schema: RECEIPT_JSON_SCHEMA as unknown as Record<string, unknown>,
-        },
+    res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "api-key": apiKey,
       },
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "image",
-              source: { type: "base64", media_type: mediaType, data: imageBase64 },
-            },
-            { type: "text", text: EXTRACTION_PROMPT },
-          ],
+      body: JSON.stringify({
+        max_tokens: 8000,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: EXTRACTION_PROMPT },
+              {
+                type: "image_url",
+                image_url: { url: `data:${mediaType};base64,${imageBase64}` },
+              },
+            ],
+          },
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "receipt_extraction",
+            strict: true,
+            schema: RECEIPT_JSON_SCHEMA,
+          },
         },
-      ],
+      }),
     });
-  } catch (error) {
-    if (error instanceof Anthropic.AuthenticationError) {
-      throw new OcrError(
-        "AI OCR is not configured. Set ANTHROPIC_API_KEY in .env.local (and in your Vercel project settings for the deployed app)."
-      );
+  } catch {
+    throw new OcrError("Could not reach the OCR service. Check the server's network connection.");
+  }
+
+  if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      throw new OcrError(CONFIG_ERROR);
     }
-    if (error instanceof Anthropic.RateLimitError) {
+    if (res.status === 429) {
       throw new OcrError("The OCR service is rate-limited right now — try again in a minute.");
     }
-    if (error instanceof Anthropic.APIConnectionError) {
-      throw new OcrError("Could not reach the OCR service. Check the server's network connection.");
+    let detail = "";
+    try {
+      const body = (await res.json()) as { error?: { message?: string } };
+      detail = body?.error?.message ?? "";
+    } catch {
+      /* body wasn't JSON — fall through with no extra detail */
     }
-    if (error instanceof Anthropic.APIError) {
-      throw new OcrError(`OCR request failed (${error.status ?? "unknown"}): ${error.message}`);
-    }
-    throw error;
+    throw new OcrError(`OCR request failed (${res.status})${detail ? `: ${detail}` : ""}`);
   }
 
-  if (response.stop_reason === "refusal") {
+  const completion = (await res.json()) as AzureChatCompletion;
+  const choice = completion.choices?.[0];
+
+  if (choice?.finish_reason === "content_filter") {
     throw new OcrError("The OCR service declined to process this image. Try a clearer photo of the receipt.");
   }
-  if (response.stop_reason === "max_tokens") {
+  if (choice?.finish_reason === "length") {
     throw new OcrError("The receipt is too long to process in one scan. Try a photo of just the item section.");
   }
 
-  const textBlock = response.content.find(
-    (b): b is Anthropic.TextBlock => b.type === "text"
-  );
-  if (!textBlock) {
+  const text = choice?.message?.content;
+  if (!text) {
     throw new OcrError("The OCR service returned no readable result. Try a clearer photo.");
   }
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(textBlock.text);
+    parsed = JSON.parse(text);
   } catch {
     throw new OcrError("Could not parse the OCR result. Try scanning again.");
   }

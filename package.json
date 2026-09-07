@@ -9,7 +9,6 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.112.3",
     "@faker-js/faker": "^10.5.0",
     "@line/liff": "^2.29.1",
     "@neondatabase/serverless": "^1.1.0",

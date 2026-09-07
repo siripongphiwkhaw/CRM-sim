@@ -32,8 +32,8 @@ export async function scanRetailReceiptAction(
     : null;
   const storeOverride = nullifyEmpty(String(formData.get("store_name") ?? ""));
 
-  // Free path: browser Tesseract text → server-side parse. AI path (key
-  // configured): the photo is uploaded and read by Claude vision.
+  // Free path: browser Tesseract text → server-side parse. AI path (Azure
+  // OpenAI configured): the photo is uploaded and read by Azure OpenAI vision.
   const ocrText = String(formData.get("ocr_text") ?? "").trim();
   let extracted: ExtractedReceipt;
   if (ocrText) {
