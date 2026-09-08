@@ -18,6 +18,7 @@ Phase 1 หรือไม่ ในเมื่อฝั่ง Loyalty ยั�
 | [0005](ADR-0005-separate-identity-resolved-from-aggregate.md) | แยก identity-resolved activity ออกจาก aggregate marketing data | Accepted |
 | [0006](ADR-0006-crm-owns-staff-generated-activity.md) | **CRM เป็นเจ้าของ staff-generated activity** — จำกัดขอบเขตของ 0002 | Accepted |
 | [0007](ADR-0007-no-staff-activity-logging-in-phase-1.md) | Phase 1 ไม่รวมการบันทึก staff activity — เลื่อนไป phase ถัดไป | Accepted |
+| [0008](ADR-0008-lead-management-is-b2b-only.md) | Lead Management เป็น B2B เท่านั้น — lead activity เกาะกับ lead ไม่ใช่ customer | Accepted |
 
 คำศัพท์ที่ใช้ในเอกสารชุดนี้: ดู [glossary](../glossary.md)
 
