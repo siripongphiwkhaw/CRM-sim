@@ -25,6 +25,7 @@ Phase 1 หรือไม่ ในเมื่อฝั่ง Loyalty ยั�
 | [0012](ADR-0012-consent-exists-in-both-crm-and-fabric.md) | CRM ถือ consent record, Fabric บังคับใช้ — กติกาชี้ขาดยังไม่ปิด | Accepted (บางส่วน) |
 
 คำศัพท์ที่ใช้ในเอกสารชุดนี้: ดู [glossary](../glossary.md)
+เรื่องที่ยังไม่มีข้อสรุป: ดู [open questions](../open-questions.md)
 
 ## สมมติฐานหลักที่ทุก ADR ตั้งอยู่บน
 
