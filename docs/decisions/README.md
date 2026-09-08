@@ -22,6 +22,7 @@ Phase 1 หรือไม่ ในเมื่อฝั่ง Loyalty ยั�
 | [0009](ADR-0009-sap-creates-b2b-customer-crm-syncs.md) | SAP สร้าง B2B customer แล้ว sync กลับมา CRM | Accepted |
 | [0010](ADR-0010-field-level-ownership-for-b2b-customers.md) | แบ่งความเป็นเจ้าของราย field — ห้าม field ใดมีคนเขียนสองฝั่ง | Accepted |
 | [0011](ADR-0011-crm-masters-the-relationship-layer.md) | **CRM เป็น master ของชั้นความสัมพันธ์** ทั้ง B2B และ B2C | Accepted |
+| [0012](ADR-0012-consent-exists-in-both-crm-and-fabric.md) | CRM ถือ consent record, Fabric บังคับใช้ — กติกาชี้ขาดยังไม่ปิด | Accepted (บางส่วน) |
 
 คำศัพท์ที่ใช้ในเอกสารชุดนี้: ดู [glossary](../glossary.md)
 
