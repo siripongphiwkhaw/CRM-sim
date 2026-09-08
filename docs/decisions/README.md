@@ -30,6 +30,7 @@ Phase 1 หรือไม่ ในเมื่อฝั่ง Loyalty ยั�
 คำศัพท์ที่ใช้ในเอกสารชุดนี้: ดู [glossary](../glossary.md)
 เรื่องที่ยังไม่มีข้อสรุป: ดู [open questions](../open-questions.md)
 สรุปข้อดีข้อเสีย: ดู [summary](../summary-pros-cons.md)
+คำถามและคำตอบทั้งหมด: ดู [interview log](../interview-log.md)
 
 ## สมมติฐานหลักที่ทุก ADR ตั้งอยู่บน
 
