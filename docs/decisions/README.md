@@ -17,6 +17,7 @@ Phase 1 หรือไม่ ในเมื่อฝั่ง Loyalty ยั�
 | [0004](ADR-0004-loyalty-reads-via-activity-contract.md) | Loyalty อ่าน activity ผ่าน canonical contract ไม่ต่อตรงกับ source | Proposed |
 | [0005](ADR-0005-separate-identity-resolved-from-aggregate.md) | แยก identity-resolved activity ออกจาก aggregate marketing data | Accepted |
 | [0006](ADR-0006-crm-owns-staff-generated-activity.md) | **CRM เป็นเจ้าของ staff-generated activity** — จำกัดขอบเขตของ 0002 | Accepted |
+| [0007](ADR-0007-no-staff-activity-logging-in-phase-1.md) | Phase 1 ไม่รวมการบันทึก staff activity — เลื่อนไป phase ถัดไป | Accepted |
 
 คำศัพท์ที่ใช้ในเอกสารชุดนี้: ดู [glossary](../glossary.md)
 
