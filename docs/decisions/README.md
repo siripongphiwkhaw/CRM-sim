@@ -27,6 +27,7 @@ Phase 1 หรือไม่ ในเมื่อฝั่ง Loyalty ยั�
 | [0014](ADR-0014-fabric-sends-profile-merge-instructions.md) | Fabric ส่งคำสั่งรวมโปรไฟล์มาในไฟล์ CRM ย้ายข้อมูลตาม | Accepted |
 | [0015](ADR-0015-single-customer-table-with-type-field.md) | เก็บ B2C/B2B ตารางเดียว แยกด้วย field ประเภท | Accepted |
 | [0016](ADR-0016-always-on-favours-additive-change.md) | **always-on → เลือกทางที่อนาคตเป็นการเพิ่มของใหม่ ไม่ใช่รื้อของเดิม** | Accepted |
+| [0017](ADR-0017-migrate-full-history.md) | migrate ข้อมูลเดิมทั้งหมดรวมประวัติย้อนหลัง | Accepted |
 
 คำศัพท์ที่ใช้ในเอกสารชุดนี้: ดู [glossary](../glossary.md)
 เรื่องที่ยังไม่มีข้อสรุป: ดู [open questions](../open-questions.md)
