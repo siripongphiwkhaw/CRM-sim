@@ -31,6 +31,7 @@ Phase 1 หรือไม่ ในเมื่อฝั่ง Loyalty ยั�
 | [0018](ADR-0018-migration-sources-sap-and-fabric-only.md) | ต้นทาง migration มีแค่ SAP (B2B) และ Fabric (B2C) | Accepted |
 | [0019](ADR-0019-activity-is-core-in-fmcg-crm.md) | สร้างโครงสร้าง Activity object ใน Phase 1 — **ตัวชี้ขาดถูกถอน ต้องทบทวน** | ต้องทบทวน |
 | [0020](ADR-0020-store-visits-originate-in-crm.md) | ไม่ integrate SFA — เยี่ยมร้าน input ใน CRM เท่านั้น | **Withdrawn** |
+| [0021](ADR-0021-cdp-covers-b2c-only.md) | CDP ครอบคลุมเฉพาะ B2C — B2B อยู่ที่ SAP ทั้งหมด (แก้เหตุผลของ 0002) | Accepted |
 
 คำศัพท์ที่ใช้ในเอกสารชุดนี้: ดู [glossary](../glossary.md)
 เรื่องที่ยังไม่มีข้อสรุป: ดู [open questions](../open-questions.md)
