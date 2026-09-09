@@ -26,6 +26,7 @@ Phase 1 หรือไม่ ในเมื่อฝั่ง Loyalty ยั�
 | [0013](ADR-0013-b2c-profiles-replicated-daily-batch.md) | รับโปรไฟล์ B2C ทั้งหมดผ่าน batch รายวัน ข้อมูล D-1 | Accepted |
 | [0014](ADR-0014-fabric-sends-profile-merge-instructions.md) | Fabric ส่งคำสั่งรวมโปรไฟล์มาในไฟล์ CRM ย้ายข้อมูลตาม | Accepted |
 | [0015](ADR-0015-single-customer-table-with-type-field.md) | เก็บ B2C/B2B ตารางเดียว แยกด้วย field ประเภท | Accepted |
+| [0016](ADR-0016-always-on-favours-additive-change.md) | **always-on → เลือกทางที่อนาคตเป็นการเพิ่มของใหม่ ไม่ใช่รื้อของเดิม** | Accepted |
 
 คำศัพท์ที่ใช้ในเอกสารชุดนี้: ดู [glossary](../glossary.md)
 เรื่องที่ยังไม่มีข้อสรุป: ดู [open questions](../open-questions.md)
@@ -40,3 +41,4 @@ Phase 1 หรือไม่ ในเมื่อฝั่ง Loyalty ยั�
 2. ธุรกิจไม่ต้องการแต้มย้อนหลังสำหรับช่วงก่อน Loyalty go-live
 3. Budget ไม่ใช่ข้อจำกัด — ข้อจำกัดจริงคือ **timeline** และ **master control**
 4. FY2028 CRM จะขึ้นเป็น B2C master และ Fabric CDP ย้ายมาเป็น JNZ CDP module
+5. CRM และ Loyalty เป็นระบบ always-on — ไม่มีช่วงว่างให้ redesign โดยไม่กระทบผู้ใช้
