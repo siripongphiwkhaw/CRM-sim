@@ -17,7 +17,7 @@ Phase 1 หรือไม่ ในเมื่อฝั่ง Loyalty ยั�
 | [0004](ADR-0004-loyalty-reads-via-activity-contract.md) | Loyalty อ่าน activity ผ่าน canonical contract ไม่ต่อตรงกับ source | Proposed |
 | [0005](ADR-0005-separate-identity-resolved-from-aggregate.md) | แยก identity-resolved activity ออกจาก aggregate marketing data | Accepted |
 | [0006](ADR-0006-crm-owns-staff-generated-activity.md) | **CRM เป็นเจ้าของ staff-generated activity** — จำกัดขอบเขตของ 0002 | Accepted |
-| [0007](ADR-0007-no-staff-activity-logging-in-phase-1.md) | Phase 1 ไม่รวมการบันทึก staff activity — เลื่อนไป phase ถัดไป | Accepted |
+| [0007](ADR-0007-no-staff-activity-logging-in-phase-1.md) | Phase 1 ไม่เปิดใช้การบันทึก staff activity — ถูกจำกัดขอบเขตโดย 0019 | Accepted |
 | [0008](ADR-0008-lead-management-is-b2b-only.md) | Lead Management เป็น B2B เท่านั้น — lead activity เกาะกับ lead ไม่ใช่ customer | Accepted |
 | [0009](ADR-0009-sap-creates-b2b-customer-crm-syncs.md) | SAP สร้าง B2B customer แล้ว sync กลับมา CRM | Accepted |
 | [0010](ADR-0010-field-level-ownership-for-b2b-customers.md) | แบ่งความเป็นเจ้าของราย field — ห้าม field ใดมีคนเขียนสองฝั่ง | Accepted |
@@ -29,7 +29,7 @@ Phase 1 หรือไม่ ในเมื่อฝั่ง Loyalty ยั�
 | [0016](ADR-0016-always-on-favours-additive-change.md) | **always-on → เลือกทางที่อนาคตเป็นการเพิ่มของใหม่ ไม่ใช่รื้อของเดิม** | Accepted |
 | [0017](ADR-0017-migrate-full-history.md) | migrate ข้อมูลเดิมทั้งหมดรวมประวัติย้อนหลัง | Accepted |
 | [0018](ADR-0018-migration-sources-sap-and-fabric-only.md) | ต้นทาง migration มีแค่ SAP (B2B) และ Fabric (B2C) | Accepted |
-| [0019](ADR-0019-activity-is-core-in-fmcg-crm.md) | **Activity เป็น core model ของ CRM ฝั่ง B2B/SFA — และไม่ต้องรอ Loyalty confirm** | Proposed |
+| [0019](ADR-0019-activity-is-core-in-fmcg-crm.md) | **สร้างโครงสร้าง Activity object ใน Phase 1 แต่ปิดไว้** — จำกัดขอบเขตของ 0007 | Accepted |
 
 คำศัพท์ที่ใช้ในเอกสารชุดนี้: ดู [glossary](../glossary.md)
 เรื่องที่ยังไม่มีข้อสรุป: ดู [open questions](../open-questions.md)
