@@ -28,6 +28,7 @@ Phase 1 หรือไม่ ในเมื่อฝั่ง Loyalty ยั�
 | [0015](ADR-0015-single-customer-table-with-type-field.md) | เก็บ B2C/B2B ตารางเดียว แยกด้วย field ประเภท | Accepted |
 | [0016](ADR-0016-always-on-favours-additive-change.md) | **always-on → เลือกทางที่อนาคตเป็นการเพิ่มของใหม่ ไม่ใช่รื้อของเดิม** | Accepted |
 | [0017](ADR-0017-migrate-full-history.md) | migrate ข้อมูลเดิมทั้งหมดรวมประวัติย้อนหลัง | Accepted |
+| [0018](ADR-0018-migration-sources-sap-and-fabric-only.md) | ต้นทาง migration มีแค่ SAP (B2B) และ Fabric (B2C) | Accepted |
 
 คำศัพท์ที่ใช้ในเอกสารชุดนี้: ดู [glossary](../glossary.md)
 เรื่องที่ยังไม่มีข้อสรุป: ดู [open questions](../open-questions.md)
