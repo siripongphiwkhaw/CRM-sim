@@ -116,7 +116,8 @@ export async function deleteCustomerAction(formData: FormData) {
     await deleteCustomer(id);
     revalidatePath("/customers");
   }
-  redirect("/customers");
+  // The list, not the segment picker — a picker is a dead end after a delete.
+  redirect("/customers?type=all");
 }
 
 export async function addInteractionAction(

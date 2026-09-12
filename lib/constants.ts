@@ -298,7 +298,7 @@ export const MODULES = [
 export type ModuleKey = (typeof MODULES)[number];
 
 export const MODULE_LABELS: Record<ModuleKey, string> = {
-  customers: "Members",
+  customers: "Customers",
   loyalty: "Loyalty",
   cases: "Cases",
   insights: "AI Insights",

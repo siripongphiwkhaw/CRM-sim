@@ -4,7 +4,7 @@ import {
   scopedCustomerIds,
   type ReadScope,
 } from "@/lib/customerScope";
-import { TIERS, BRANDS, type Tier } from "@/lib/constants";
+import { TIERS, BRANDS, CUST_TYPES, type Tier, type CustType } from "@/lib/constants";
 import { getConsentGapStats } from "./consent";
 
 export interface Overview {
@@ -87,6 +87,18 @@ export async function getBrandDistribution(scope: ReadScope): Promise<Bucket[]> 
   );
   const map = new Map(rows.map((r) => [r.label, r.count]));
   return BRANDS.map((brand) => ({ label: brand, count: map.get(brand) ?? 0 }));
+}
+
+export async function getCustTypeDistribution(
+  scope: ReadScope
+): Promise<{ cust_type: CustType; count: number }[]> {
+  // ::int because COUNT(*) is int8, which the driver returns as a string — and
+  // "1248".toLocaleString() is silently unformatted rather than an error.
+  const rows = await all<{ cust_type: CustType; count: number }>(
+    `SELECT cust_type, COUNT(*)::int AS count FROM ${customersFor(scope)} c GROUP BY cust_type`
+  );
+  const map = new Map(rows.map((r) => [r.cust_type, r.count]));
+  return CUST_TYPES.map((cust_type) => ({ cust_type, count: map.get(cust_type) ?? 0 }));
 }
 
 export interface MonthlyPurchases {

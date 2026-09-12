@@ -13,6 +13,7 @@ import { ORDER_STATUS_LABELS } from "@/lib/orderWorkflow";
 export type ObjectKind =
   | "home"
   | "customer"
+  | "b2b"
   | "product"
   | "channel"
   | "datacloud"
@@ -40,6 +41,10 @@ const OBJECT_ICONS: Record<ObjectKind, { bg: string; glyph: React.ReactNode }> =
     glyph: (
       <path d="M12 5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7zm0 8.5c3.6 0 6.5 1.8 6.5 4V19h-13v-1.5c0-2.2 2.9-4 6.5-4z" />
     ),
+  },
+  b2b: {
+    bg: "#0d7d70",
+    glyph: <path d="M5 20V8l7-3v15H5zm7 0v-9l7 2v7h-7z" />,
   },
   product: {
     bg: "#fcb95b",

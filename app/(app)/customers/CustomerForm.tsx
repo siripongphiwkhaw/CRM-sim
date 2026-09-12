@@ -188,7 +188,7 @@ export function CustomerForm({
       <div className="flex items-center gap-3">
         <SubmitButton>{customer ? "Save changes" : "Create member"}</SubmitButton>
         <Link
-          href={customer ? `/customers/${customer.id}` : "/customers"}
+          href={customer ? `/customers/${customer.id}` : "/customers?type=all"}
           className="text-sm text-[#607785] hover:text-[#14202b]"
         >
           Cancel

@@ -12,7 +12,7 @@ const ONLYONE_ITEM: RailItem = { href: "/liff-qr", label: "Only-One QR", icon: "
 
 // Shown only when the user's department grants the module (admins get all).
 const GATED_ITEMS: { module: ModuleKey; item: RailItem }[] = [
-  { module: "customers", item: { href: "/customers", label: "Members", icon: "members" } },
+  { module: "customers", item: { href: "/customers", label: "Customers", icon: "members" } },
   { module: "loyalty", item: { href: "/loyalty", label: "Loyalty", icon: "loyalty" } },
   { module: "cases", item: { href: "/cases", label: "Cases", icon: "cases" } },
   { module: "insights", item: { href: "/insights", label: "AI Insights", icon: "insights" } },
