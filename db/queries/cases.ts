@@ -1,4 +1,5 @@
 import { get, all, run } from "../client";
+import { customersFor, scopedCustomerIds, type ReadScope } from "@/lib/customerScope";
 import type { CaseCategory, CasePriority, CaseStatus } from "@/lib/constants";
 
 export interface CaseRow {
@@ -33,26 +34,32 @@ const SORT_COLUMNS: Record<string, string> = {
   created: "cs.created_at",
 };
 
-const CASE_SELECT = `
+// A case about an out-of-scope member disappears entirely (the WHERE clause in
+// caseSelect drops it); a case with no member attached still shows.
+const caseSelect = (scope: ReadScope) => `
   SELECT cs.*,
     (c.first_name || ' ' || c.last_name) AS member_name,
     c.member_code AS member_code,
     u.name AS assignee_name,
     d.name AS department_name
   FROM cases cs
-  LEFT JOIN customers c ON c.id = cs.customer_id
+  LEFT JOIN ${customersFor(scope)} c ON c.id = cs.customer_id
   LEFT JOIN users u ON u.id = cs.assigned_to
-  LEFT JOIN departments d ON d.id = cs.department_id`;
+  LEFT JOIN departments d ON d.id = cs.department_id
+  WHERE (cs.customer_id IS NULL OR c.id IS NOT NULL)`;
 
-export function listCases(opts?: {
-  status?: string;
-  priority?: string;
-  customerId?: number;
-  departmentId?: number;
-  search?: string;
-  sort?: string;
-  dir?: string;
-}): Promise<CaseWithNames[]> {
+export function listCases(
+  scope: ReadScope,
+  opts?: {
+    status?: string;
+    priority?: string;
+    customerId?: number;
+    departmentId?: number;
+    search?: string;
+    sort?: string;
+    dir?: string;
+  }
+): Promise<CaseWithNames[]> {
   const clauses: string[] = [];
   const params: (string | number)[] = [];
   if (opts?.status) {
@@ -75,14 +82,21 @@ export function listCases(opts?: {
     clauses.push("(cs.subject LIKE ? OR cs.case_number LIKE ?)");
     params.push(`%${opts.search}%`, `%${opts.search}%`);
   }
-  const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+  // caseSelect already opens WHERE (...) — extra filters are AND-appended.
+  const where = clauses.length ? `AND ${clauses.join(" AND ")}` : "";
   const column = SORT_COLUMNS[opts?.sort ?? ""] ?? "cs.created_at";
   const dir = opts?.dir === "asc" ? "ASC" : "DESC";
-  return all<CaseWithNames>(`${CASE_SELECT} ${where} ORDER BY ${column} ${dir}`, params);
+  return all<CaseWithNames>(
+    `${caseSelect(scope)} ${where} ORDER BY ${column} ${dir}`,
+    params
+  );
 }
 
-export function getCase(id: number): Promise<CaseWithNames | undefined> {
-  return get<CaseWithNames>(`${CASE_SELECT} WHERE cs.id = ?`, [id]);
+export function getCase(
+  scope: ReadScope,
+  id: number
+): Promise<CaseWithNames | undefined> {
+  return get<CaseWithNames>(`${caseSelect(scope)} AND cs.id = ?`, [id]);
 }
 
 export interface CaseInput {
@@ -138,8 +152,12 @@ export function assignCase(id: number, userId: number | null): Promise<number> {
   );
 }
 
-export function getCaseCounts(): Promise<{ status: CaseStatus; count: number }[]> {
+export function getCaseCounts(
+  scope: ReadScope
+): Promise<{ status: CaseStatus; count: number }[]> {
   return all<{ status: CaseStatus; count: number }>(
-    "SELECT status, COUNT(*) AS count FROM cases GROUP BY status"
+    `SELECT status, COUNT(*) AS count FROM cases
+     WHERE (customer_id IS NULL OR ${scopedCustomerIds(scope)})
+     GROUP BY status`
   );
 }

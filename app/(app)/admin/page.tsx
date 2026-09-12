@@ -7,6 +7,7 @@ import {
   listDepartments,
   listPicsForDepartment,
   getModulesForDepartment,
+  listUsersWithoutHomeDepartment,
 } from "@/db/queries/departments";
 import { PageHeader, Card, SectionHeader, ObjectIcon, EmptyState } from "@/app/components/ui";
 import { RoleSelect } from "./RoleSelect";
@@ -39,10 +40,11 @@ export default async function AdminPage() {
   // Defense in depth — the proxy already blocks non-admins from /admin.
   if (!(await isAdmin())) redirect("/dashboard");
 
-  const [users, consentPurposes, departments] = await Promise.all([
+  const [users, consentPurposes, departments, unscopedUsers] = await Promise.all([
     listUsers(),
-    getConsentPurposeStats(),
+    getConsentPurposeStats("ALL"), // admin-only page; admins see every member
     listDepartments(),
+    listUsersWithoutHomeDepartment(),
   ]);
   const departmentsWithPics = await Promise.all(
     departments.map(async (d) => ({
@@ -61,6 +63,18 @@ export default async function AdminPage() {
         title="Administration"
         subtitle="User roles and data governance (admin only)"
       />
+
+      {unscopedUsers.length > 0 && (
+        <div className="mb-4 rounded border border-[#fead9a] bg-[#feded8] px-3 py-2 text-sm text-[#8e030f]">
+          <strong>
+            {unscopedUsers.length} non-admin{" "}
+            {unscopedUsers.length === 1 ? "user has" : "users have"} no home
+            department
+          </strong>{" "}
+          — they can see no customers until one is assigned:{" "}
+          {unscopedUsers.map((u) => u.name).join(", ")}.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
@@ -155,6 +169,7 @@ export default async function AdminPage() {
                     departmentId={department.id}
                     granted={modules}
                     isApprover={!!department.is_approver}
+                    customerScope={department.customer_scope}
                   />
                 </div>
               ))}

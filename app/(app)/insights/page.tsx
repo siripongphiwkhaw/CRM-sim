@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listInsights } from "@/db/queries/insights";
+import { getCustomerScope } from "@/lib/customerScope";
 import { PageHeader, Card, SectionHeader, SeverityBadge, EmptyState } from "@/app/components/ui";
 import { formatDate } from "@/lib/format";
 import { INSIGHT_SEVERITIES } from "@/lib/constants";
@@ -15,7 +16,7 @@ function entityHref(type: string | null, id: number | null): string | null {
 }
 
 export default async function InsightsPage() {
-  const insights = await listInsights();
+  const insights = await listInsights(await getCustomerScope());
   const bySeverity = INSIGHT_SEVERITIES.map((sev) => ({
     severity: sev,
     items: insights.filter((i) => i.severity === sev),

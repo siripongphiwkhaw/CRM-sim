@@ -1,6 +1,7 @@
 import { get, all, batch, type QueryArgs } from "../client";
 import { getOrderItems, applyOrderTransition } from "./orders";
 import { createTransaction } from "./transactions";
+import { getDefaultLocation } from "./inventory";
 
 export type DeliveryPlanStatus = "planned" | "delivered" | "cancelled";
 
@@ -92,6 +93,8 @@ export async function markDeliveryDelivered(
   const plan = await getDeliveryPlan(id);
   if (!plan || plan.status !== "planned") return;
 
+  const loc = await getDefaultLocation();
+
   await batch([
     {
       sql: "UPDATE delivery_plans SET status = 'delivered' WHERE id = ?",
@@ -99,14 +102,18 @@ export async function markDeliveryDelivered(
     },
     {
       sql: `INSERT INTO inventory_transactions
-              (distributor_id, product_id, txn_type, quantity, reference_type, reference_id, created_by)
-            VALUES (@distributor_id, @product_id, 'stock_in', @quantity, 'delivery_plan', @plan_id, @actor)`,
+              (distributor_id, product_id, txn_type, quantity, reference_type, reference_id, created_by,
+               plant_id, storage_location_id, stock_type)
+            VALUES (@distributor_id, @product_id, 'stock_in', @quantity, 'delivery_plan', @plan_id, @actor,
+               @plant_id, @storage_location_id, 'UNRESTRICTED')`,
       args: {
         distributor_id: plan.distributor_id,
         product_id: plan.product_id,
         quantity: plan.planned_qty,
         plan_id: id,
         actor: actorUserId,
+        plant_id: loc.plant_id,
+        storage_location_id: loc.storage_location_id,
       },
     },
   ]);

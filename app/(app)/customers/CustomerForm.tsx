@@ -1,15 +1,23 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import {
   Field,
   TextInput,
+  TextArea,
   Select,
   FormError,
   SubmitButton,
 } from "@/app/components/form";
-import { BRANDS, CUST_TYPES, CHANNELS, DATA_LEVELS } from "@/lib/constants";
+import {
+  BRANDS,
+  CUST_TYPES,
+  CHANNELS,
+  DATA_LEVELS,
+  PAYMENT_TERMS,
+  PAYMENT_TERMS_LABELS,
+} from "@/lib/constants";
 import type { FormState } from "@/lib/validation";
 import type { Customer } from "@/db/queries/customers";
 
@@ -24,6 +32,7 @@ export function CustomerForm({
 }) {
   const [state, formAction] = useActionState<FormState, FormData>(action, {});
   const isNew = !customer;
+  const [custType, setCustType] = useState(customer?.cust_type ?? "B2C");
 
   return (
     <form action={formAction} className="max-w-2xl space-y-5">
@@ -47,7 +56,12 @@ export function CustomerForm({
           <TextInput id="birth_date" name="birth_date" type="date" defaultValue={customer?.birth_date ?? ""} />
         </Field>
         <Field label="Member type" htmlFor="cust_type" required>
-          <Select id="cust_type" name="cust_type" defaultValue={customer?.cust_type ?? "B2C"}>
+          <Select
+            id="cust_type"
+            name="cust_type"
+            value={custType}
+            onChange={(e) => setCustType(e.target.value as typeof custType)}
+          >
             {CUST_TYPES.map((t) => (
               <option key={t} value={t}>{t}</option>
             ))}
@@ -76,6 +90,77 @@ export function CustomerForm({
           </Select>
         </Field>
       </div>
+
+      {custType === "B2B" && (
+        <fieldset className="rounded-[14px] border border-[#dde5e8] p-4">
+          <legend className="px-1 text-xs font-semibold text-[#3c4f5e]">
+            B2B company profile
+          </legend>
+          <p className="mb-3 text-xs text-[#607785]">
+            Required for a B2B customer. The account cannot be saved until the
+            company name, billing address and payment terms are set.
+          </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Company name" htmlFor="company_name" required>
+              <TextInput
+                id="company_name"
+                name="company_name"
+                placeholder="e.g. Siam Foodservice Co., Ltd."
+                defaultValue={customer?.company_name ?? ""}
+              />
+            </Field>
+            <Field label="Tax branch code" htmlFor="company_branch_code" hint="00000 = head office">
+              <TextInput
+                id="company_branch_code"
+                name="company_branch_code"
+                placeholder="00000"
+                defaultValue={customer?.company_branch_code ?? ""}
+              />
+            </Field>
+            <Field label="Payment terms" htmlFor="payment_terms" required>
+              <Select
+                id="payment_terms"
+                name="payment_terms"
+                defaultValue={customer?.payment_terms ?? ""}
+              >
+                <option value="">— Select —</option>
+                {PAYMENT_TERMS.map((t) => (
+                  <option key={t} value={t}>{PAYMENT_TERMS_LABELS[t]}</option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Credit limit (THB)" htmlFor="credit_limit">
+              <TextInput
+                id="credit_limit"
+                name="credit_limit"
+                type="number"
+                min="0"
+                step="0.01"
+                defaultValue={customer?.credit_limit ?? 0}
+              />
+            </Field>
+            <Field label="Contact person" htmlFor="contact_person">
+              <TextInput
+                id="contact_person"
+                name="contact_person"
+                placeholder="Ordering / AP contact"
+                defaultValue={customer?.contact_person ?? ""}
+              />
+            </Field>
+            <div className="sm:col-span-2">
+              <Field label="Billing address" htmlFor="billing_address" required>
+                <TextArea
+                  id="billing_address"
+                  name="billing_address"
+                  rows={2}
+                  placeholder="Registered address for tax invoices"
+                  defaultValue={customer?.billing_address ?? ""}
+                />
+              </Field>
+            </div>
+          </div>
+        </fieldset>
+      )}
 
       {isNew ? (
         <fieldset className="rounded-[14px] border border-[#dde5e8] p-4">

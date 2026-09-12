@@ -2,6 +2,7 @@ import Link from "next/link";
 import { listSegments } from "@/db/queries/segments";
 import { listCampaigns } from "@/db/queries/campaigns";
 import { getClassificationStats } from "@/db/queries/scores";
+import { getCustomerScope } from "@/lib/customerScope";
 import { PageHeader, Card, StatTile } from "@/app/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +11,7 @@ export default async function MarketingPage() {
   const [segments, campaigns, classification] = await Promise.all([
     listSegments(),
     listCampaigns(),
-    getClassificationStats(),
+    getClassificationStats(await getCustomerScope()),
   ]);
   const running = campaigns.filter((c) => c.status === "RUNNING").length;
   const totalReach = campaigns.reduce((sum, c) => sum + c.reach, 0);

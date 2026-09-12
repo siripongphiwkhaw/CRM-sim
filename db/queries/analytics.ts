@@ -1,4 +1,9 @@
 import { get, all } from "../client";
+import {
+  customersFor,
+  scopedCustomerIds,
+  type ReadScope,
+} from "@/lib/customerScope";
 import { TIERS, BRANDS, type Tier } from "@/lib/constants";
 import { getConsentGapStats } from "./consent";
 
@@ -12,7 +17,7 @@ export interface Overview {
   brands: number;
 }
 
-export async function getOverview(): Promise<Overview> {
+export async function getOverview(scope: ReadScope): Promise<Overview> {
   const base = await get<{
     total_customers: number;
     avg_clv: number;
@@ -26,17 +31,21 @@ export async function getOverview(): Promise<Overview> {
        COALESCE(SUM(points), 0) AS total_points,
        COALESCE(SUM(clv), 0) AS total_clv,
        COUNT(DISTINCT brand) AS brands
-     FROM customers`
+     FROM ${customersFor(scope)} c`
   );
 
+  // transactions has no cust_type; restrict by the in-scope customer ids.
   const active = await get<{ n: number }>(
     `SELECT COUNT(DISTINCT customer_id) AS n FROM transactions
-     WHERE tx_date::timestamptz >= now() - interval '90 days'`
+     WHERE tx_date::timestamptz >= now() - interval '90 days'
+       AND ${scopedCustomerIds(scope)}`
   );
 
   const repeat = await get<{ buyers: number; repeat_buyers: number }>(
     `WITH pc AS (
-       SELECT customer_id, COUNT(*) AS n FROM transactions GROUP BY customer_id
+       SELECT customer_id, COUNT(*) AS n FROM transactions
+       WHERE ${scopedCustomerIds(scope)}
+       GROUP BY customer_id
      )
      SELECT
        (SELECT COUNT(*) FROM pc) AS buyers,
@@ -62,19 +71,19 @@ export interface Bucket {
   count: number;
 }
 
-export async function getTierDistribution(): Promise<
-  { tier: Tier; count: number }[]
-> {
+export async function getTierDistribution(
+  scope: ReadScope
+): Promise<{ tier: Tier; count: number }[]> {
   const rows = await all<{ tier: Tier; count: number }>(
-    "SELECT tier, COUNT(*) AS count FROM customers GROUP BY tier"
+    `SELECT tier, COUNT(*) AS count FROM ${customersFor(scope)} c GROUP BY tier`
   );
   const map = new Map(rows.map((r) => [r.tier, r.count]));
   return TIERS.map((tier) => ({ tier, count: map.get(tier) ?? 0 }));
 }
 
-export async function getBrandDistribution(): Promise<Bucket[]> {
+export async function getBrandDistribution(scope: ReadScope): Promise<Bucket[]> {
   const rows = await all<{ label: string; count: number }>(
-    "SELECT brand AS label, COUNT(*) AS count FROM customers GROUP BY brand"
+    `SELECT brand AS label, COUNT(*) AS count FROM ${customersFor(scope)} c GROUP BY brand`
   );
   const map = new Map(rows.map((r) => [r.label, r.count]));
   return BRANDS.map((brand) => ({ label: brand, count: map.get(brand) ?? 0 }));
@@ -87,19 +96,22 @@ export interface MonthlyPurchases {
 }
 
 /** Purchase revenue per month over the trailing six months (oldest first). */
-export function getMonthlyPurchases(): Promise<MonthlyPurchases[]> {
+export function getMonthlyPurchases(
+  scope: ReadScope
+): Promise<MonthlyPurchases[]> {
   return all<MonthlyPurchases>(
     `SELECT to_char(tx_date::timestamptz, 'YYYY-MM') AS month,
        COALESCE(SUM(amount_thb), 0) AS total,
        COUNT(*) AS orders
      FROM transactions
      WHERE tx_date::timestamptz >= now() - interval '6 months'
+       AND ${scopedCustomerIds(scope)}
      GROUP BY month
      ORDER BY month ASC`
   );
 }
 
 /** Members whose current MARKETING consent is not GRANTED. */
-export async function getMembersWithoutPdpa(): Promise<number> {
-  return (await getConsentGapStats()).without_marketing;
+export async function getMembersWithoutPdpa(scope: ReadScope): Promise<number> {
+  return (await getConsentGapStats(scope)).without_marketing;
 }

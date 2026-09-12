@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listCustomers } from "@/db/queries/customers";
+import { getCustomerScope } from "@/lib/customerScope";
 import {
   PageHeader,
   LinkButton,
@@ -27,7 +28,8 @@ export default async function CustomersPage({
   }>;
 }) {
   const { q, brand, tier, sort, dir } = await searchParams;
-  const customers = await listCustomers({ search: q, brand, tier, sort, dir });
+  const scope = await getCustomerScope();
+  const customers = await listCustomers(scope, { search: q, brand, tier, sort, dir });
   const params = { q, brand, tier, sort, dir };
 
   return (
@@ -69,7 +71,13 @@ export default async function CustomersPage({
       </form>
 
       {customers.length === 0 ? (
-        <EmptyState message="No members match your filters." />
+        <EmptyState
+          message={
+            scope === "NONE"
+              ? "No members match your access. Ask an admin to set your department in Setup."
+              : "No members match your filters."
+          }
+        />
       ) : (
         <div className="overflow-x-auto rounded border border-[#dde5e8] bg-white">
           <table className="min-w-full divide-y divide-[#dde5e8] text-sm">

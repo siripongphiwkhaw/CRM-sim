@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listIdentityLinks } from "@/db/queries/identityLinks";
+import { getCustomerScope } from "@/lib/customerScope";
 import { PageHeader, Card, SectionHeader, EmptyState, StatTile } from "@/app/components/ui";
 import { formatDate } from "@/lib/format";
 import { ScanButton, DecideButtons } from "./IdentityLinkControls";
@@ -13,7 +14,9 @@ const STATUS_TONE: Record<string, string> = {
 };
 
 export default async function IdentityLinksPage() {
-  const links = await listIdentityLinks();
+  // linkSelect scopes BOTH sides, so a B2C- or B2B-scoped viewer sees nothing
+  // here — a cross-type identity is a full-scope (IT / admin) concern.
+  const links = await listIdentityLinks(await getCustomerScope());
   const pending = links.filter((l) => l.status === "PENDING");
   const confirmed = links.filter((l) => l.status === "CONFIRMED");
 

@@ -1,6 +1,7 @@
 import { get, all, batch, type QueryArgs } from "../client";
 import { calcEarn, channelEligibility } from "@/lib/loyaltyEngine";
 import { getTierRules, recomputeCustomerCache } from "./loyalty";
+import { customersFor, SYSTEM_SCOPE } from "@/lib/customerScope";
 import type { TxChannel, Tier, CustType } from "@/lib/constants";
 
 export interface TransactionRow {
@@ -47,7 +48,9 @@ export async function createTransaction(
   input: CreateTransactionInput
 ): Promise<CreateTransactionResult> {
   const customer = await get<{ id: number; cust_type: CustType; tier: Tier }>(
-    "SELECT id, cust_type, tier FROM customers WHERE id = ?",
+    // Write path — the caller (staff action / API / sell-in) has already
+    // authorized this customer.
+    `SELECT id, cust_type, tier FROM ${customersFor(SYSTEM_SCOPE)} c WHERE id = ?`,
     [input.customer_id]
   );
   if (!customer) throw new Error(`Customer ${input.customer_id} not found`);

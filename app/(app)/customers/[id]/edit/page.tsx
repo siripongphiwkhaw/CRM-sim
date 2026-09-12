@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getCustomer } from "@/db/queries/customers";
+import { getCustomerScope } from "@/lib/customerScope";
 import { PageHeader } from "@/app/components/ui";
 import { CustomerForm } from "../../CustomerForm";
 import { updateCustomerAction } from "../../actions";
@@ -12,7 +13,7 @@ export default async function EditCustomerPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const customer = await getCustomer(Number(id));
+  const customer = await getCustomer(await getCustomerScope(), Number(id));
   if (!customer) notFound();
 
   return (

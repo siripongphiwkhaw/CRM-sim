@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getCase } from "@/db/queries/cases";
 import { getPendingLinkForCustomer } from "@/db/queries/identityLinks";
 import { getPendingReviewForCustomer } from "@/db/queries/classificationReviews";
+import { getCustomerScope } from "@/lib/customerScope";
 import {
   PageHeader,
   Card,
@@ -25,14 +26,15 @@ export default async function CaseDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const c = await getCase(Number(id));
+  const scope = await getCustomerScope();
+  const c = await getCase(scope, Number(id));
   if (!c) notFound();
 
   // Identity-review cases carry a Confirm/Reject decision that enforces
   // one-side-only promotion. The routed department's PICs act from here.
   const identityLink =
     c.category === "IDENTITY_REVIEW" && c.customer_id
-      ? await getPendingLinkForCustomer(c.customer_id)
+      ? await getPendingLinkForCustomer(scope, c.customer_id)
       : undefined;
 
   // Classification-review cases carry the same kind of Confirm/Reject

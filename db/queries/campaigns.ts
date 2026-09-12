@@ -2,6 +2,7 @@ import { get, all, run, batch } from "../client";
 import { getSegment, getSegmentMembers, parseSegmentRule } from "./segments";
 import { hasMarketingConsent } from "./consent";
 import { customersOwnedByOtherSide } from "./identityLinks";
+import { customersFor, type ReadScope } from "@/lib/customerScope";
 import type { CampaignChannel, CampaignStatus, CampaignType } from "@/lib/constants";
 
 /**
@@ -30,6 +31,8 @@ export interface Campaign {
   converted: number;
   excluded: number;
   launched_at: string | null;
+  /** Customer scope in force at launch (see db/schema.ts). */
+  launch_scope: string | null;
   created_by: number | null;
   created_at: string;
   updated_at: string;
@@ -111,7 +114,10 @@ export type LaunchResult =
  * Segment membership can drift afterwards; the snapshot is what reach and
  * conversion are always measured against.
  */
-export async function launchCampaign(id: number): Promise<LaunchResult> {
+export async function launchCampaign(
+  id: number,
+  scope: ReadScope
+): Promise<LaunchResult> {
   const campaign = await getCampaign(id);
   if (!campaign || !campaign.segment_id) return { ok: false, error: "NO_SEGMENT" };
   if (campaign.launched_at) return { ok: false, error: "ALREADY_LAUNCHED" };
@@ -119,7 +125,9 @@ export async function launchCampaign(id: number): Promise<LaunchResult> {
   const segment = await getSegment(campaign.segment_id);
   if (!segment) return { ok: false, error: "NO_SEGMENT" };
 
-  const members = await getSegmentMembers(parseSegmentRule(segment));
+  // Audience is filtered to the launcher's scope — a launch can never message a
+  // customer outside it, even if the segment rule would match one.
+  const members = await getSegmentMembers(parseSegmentRule(segment), scope);
 
   const [spokenFor, loyalists, otherSideOwned] = await Promise.all([
     spokenForCustomers(id),
@@ -152,9 +160,9 @@ export async function launchCampaign(id: number): Promise<LaunchResult> {
   await run(
     `UPDATE campaigns
         SET status = 'RUNNING', audience_size = @size, reach = @reach, excluded = @excluded,
-            launched_at = now(), updated_at = now()
+            launch_scope = @scope, launched_at = now(), updated_at = now()
       WHERE id = @id`,
-    { id, size: members.length, reach: targeted.length, excluded }
+    { id, size: members.length, reach: targeted.length, excluded, scope: String(scope) }
   );
   return { ok: true, audienceSize: members.length, reach: targeted.length, excluded };
 }
@@ -166,10 +174,13 @@ export interface AudienceRow {
   delivered: number;
 }
 
-export function listCampaignAudience(campaignId: number): Promise<AudienceRow[]> {
+export function listCampaignAudience(
+  scope: ReadScope,
+  campaignId: number
+): Promise<AudienceRow[]> {
   return all<AudienceRow>(
     `SELECT ca.customer_id, c.member_code, (c.first_name || ' ' || c.last_name) AS member_name, ca.delivered
-       FROM campaign_audience ca JOIN customers c ON c.id = ca.customer_id
+       FROM campaign_audience ca JOIN ${customersFor(scope)} c ON c.id = ca.customer_id
       WHERE ca.campaign_id = ?
       ORDER BY member_name`,
     [campaignId]

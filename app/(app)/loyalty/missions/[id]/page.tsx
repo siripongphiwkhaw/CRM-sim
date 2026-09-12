@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getMission, listSubmissions } from "@/db/queries/missions";
 import { getSession } from "@/lib/session";
+import { getCustomerScope } from "@/lib/customerScope";
 import { PageHeader, Card, SectionHeader, EmptyState } from "@/app/components/ui";
 import { formatDate } from "@/lib/format";
 import { MissionStatusToggle } from "../MissionStatusToggle";
@@ -20,7 +21,7 @@ export default async function MissionDetailPage({
 
   const [mission, submissions, session] = await Promise.all([
     getMission(missionId),
-    listSubmissions({ missionId }),
+    listSubmissions(await getCustomerScope(), { missionId }),
     getSession(),
   ]);
   if (!mission) notFound();

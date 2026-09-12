@@ -1,21 +1,35 @@
 "use client";
 
 import { useTransition } from "react";
-import { MODULES, MODULE_LABELS, type ModuleKey } from "@/lib/constants";
-import { toggleModuleAction, toggleApproverAction } from "./actions";
+import {
+  MODULES,
+  MODULE_LABELS,
+  CUSTOMER_SCOPES,
+  CUSTOMER_SCOPE_LABELS,
+  type ModuleKey,
+  type CustomerScope,
+} from "@/lib/constants";
+import {
+  toggleModuleAction,
+  toggleApproverAction,
+  setDepartmentScopeAction,
+} from "./actions";
 
 /**
- * Which modules this department grants its members, plus whether it may approve
- * orders. Admins are unaffected by either — they always reach everything.
+ * Which modules this department grants its members, whether it may approve
+ * orders, and which customers its members can see. Admins are unaffected by any
+ * of these — they always reach everything and see every member.
  */
 export function ModuleGrantsEditor({
   departmentId,
   granted,
   isApprover,
+  customerScope,
 }: {
   departmentId: number;
   granted: ModuleKey[];
   isApprover: boolean;
+  customerScope: CustomerScope | null;
 }) {
   const [pending, startTransition] = useTransition();
   const grantedSet = new Set(granted);
@@ -62,6 +76,29 @@ export function ModuleGrantsEditor({
           className="h-3.5 w-3.5 rounded border-[#c2d0d6] text-brand-600 focus:ring-brand-600 disabled:opacity-50"
         />
         Approver unit — members may approve or reject submitted orders
+      </label>
+
+      <label className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[#3c4f5e]">
+        <span className="font-semibold uppercase tracking-wide text-[#3c4f5e]">
+          Customer visibility
+        </span>
+        <select
+          value={customerScope ?? ""}
+          disabled={pending}
+          onChange={(e) => {
+            const next = e.target.value;
+            startTransition(() => setDepartmentScopeAction(departmentId, next));
+          }}
+          className="rounded border border-[#c2d0d6] bg-white px-2 py-1 text-xs disabled:opacity-50"
+        >
+          <option value="">All members (not restricted)</option>
+          {CUSTOMER_SCOPES.filter((s) => s !== "ALL").map((s) => (
+            <option key={s} value={s}>
+              {CUSTOMER_SCOPE_LABELS[s as CustomerScope]}
+            </option>
+          ))}
+        </select>
+        <span className="text-[#607785]">applies on the member&apos;s next page load</span>
       </label>
 
       {granted.length === 0 && (

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { listCases, getCaseCounts } from "@/db/queries/cases";
 import { listCustomers } from "@/db/queries/customers";
 import { listDepartments } from "@/db/queries/departments";
+import { getCustomerScope } from "@/lib/customerScope";
 import {
   PageHeader,
   Card,
@@ -23,10 +24,11 @@ export default async function CasesPage({
 }) {
   const { status, dept } = await searchParams;
   const departmentId = dept ? Number(dept) : undefined;
+  const scope = await getCustomerScope();
   const [cases, counts, members, departments] = await Promise.all([
-    listCases({ status: status || undefined, departmentId }),
-    getCaseCounts(),
-    listCustomers(),
+    listCases(scope, { status: status || undefined, departmentId }),
+    getCaseCounts(scope),
+    listCustomers(scope),
     listDepartments(),
   ]);
   const countMap = new Map(counts.map((c) => [c.status, c.count]));

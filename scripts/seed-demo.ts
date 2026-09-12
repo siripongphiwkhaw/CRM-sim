@@ -13,6 +13,7 @@
 
 import { all, run } from "../db/client";
 import { createCustomer, updateCustomer, getCustomer } from "../db/queries/customers";
+import { SYSTEM_SCOPE } from "../lib/customerScope";
 import { createTransaction } from "../db/queries/transactions";
 import { createReward, listRewards, getLoyaltySummary } from "../db/queries/loyalty";
 import { createMission, submitMission, reviewSubmission } from "../db/queries/missions";
@@ -161,7 +162,7 @@ async function main() {
     // Two birthdays land "today" so the birthday-rewards button always has
     // something to award whenever this seed runs; the rest are off-date.
     if (m.first === "Malee" || m.first === "Wichai") {
-      const customer = await getCustomer(id);
+      const customer = await getCustomer(SYSTEM_SCOPE, id);
       if (customer) {
         await updateCustomer(id, { ...customer, birth_date: todayAsBirthdate(1992) });
       }
@@ -190,6 +191,12 @@ async function main() {
       cust_type: "B2B",
       register_channel: "SFA",
       data_level: "Purchase & Engagement",
+      company_name: "Ratana's Kitchen Co., Ltd.",
+      company_branch_code: "00000",
+      billing_address: "88/12 Sukhumvit Soi 26, Khlong Tan, Bangkok 10110",
+      payment_terms: "NET30",
+      contact_person: "Ratana Boonmee",
+      credit_limit: 500_000,
     },
     "all"
   );
@@ -224,15 +231,15 @@ async function main() {
   await recomputeScores();
 
   console.log("Creating segments and campaigns…");
-  const goldSegmentId = await createSegment("Gold members", "custom", { tier: "Gold" }, null);
-  await createSegment("Marketing opted-in", "custom", { marketing_consent: true }, null);
-  await createSegment("High churn risk", "custom", { churn_level: "High" }, null);
+  const goldSegmentId = await createSegment("Gold members", "custom", { tier: "Gold" }, null, SYSTEM_SCOPE);
+  await createSegment("Marketing opted-in", "custom", { marketing_consent: true }, null, SYSTEM_SCOPE);
+  await createSegment("High churn risk", "custom", { churn_level: "High" }, null, SYSTEM_SCOPE);
   // Channel-classification demo segments.
-  await createSegment("HoReCa buyers", "custom", { behavior_class: "HORECA" }, null);
-  const contestedSegmentId = await createSegment("Contested customers", "custom", { channel_affinity: "CONTESTED" }, null);
+  await createSegment("HoReCa buyers", "custom", { behavior_class: "HORECA" }, null, SYSTEM_SCOPE);
+  const contestedSegmentId = await createSegment("Contested customers", "custom", { channel_affinity: "CONTESTED" }, null, SYSTEM_SCOPE);
 
   const campaignId = await createCampaign("Gold appreciation", "LINE", goldSegmentId, "retention", 30, null);
-  const launch = await launchCampaign(campaignId);
+  const launch = await launchCampaign(campaignId, SYSTEM_SCOPE);
   if (launch.ok) await recomputeConversions(campaignId);
   // Second campaign over an overlapping audience shows cross-channel exclusion:
   // members already targeted above (still in cooldown) are skipped here.
@@ -244,7 +251,7 @@ async function main() {
     30,
     null
   );
-  const launch2 = await launchCampaign(contestedCampaignId);
+  const launch2 = await launchCampaign(contestedCampaignId, SYSTEM_SCOPE);
 
   console.log("Scanning for shared-identity B2C/B2B pairs…");
   const identityScan = await runIdentityLinkScan(null);

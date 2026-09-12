@@ -1,5 +1,6 @@
 import { get, all, run } from "../client";
 import { missionAvailable } from "@/lib/loyaltyEngine";
+import { customersFor, type ReadScope } from "@/lib/customerScope";
 import { postEarn, type LedgerSource } from "./loyalty";
 import type { MissionType, MissionStatus, MissionSubmissionStatus } from "@/lib/constants";
 
@@ -110,11 +111,14 @@ export function setMissionStatus(id: number, status: MissionStatus): Promise<num
   return run("UPDATE missions SET status = ? WHERE id = ?", [status, id]);
 }
 
-export function listSubmissions(opts?: {
-  missionId?: number;
-  customerId?: number;
-  status?: MissionSubmissionStatus;
-}): Promise<MissionSubmissionRow[]> {
+export function listSubmissions(
+  scope: ReadScope,
+  opts?: {
+    missionId?: number;
+    customerId?: number;
+    status?: MissionSubmissionStatus;
+  }
+): Promise<MissionSubmissionRow[]> {
   const clauses: string[] = [];
   const params: (string | number)[] = [];
   if (opts?.missionId) {
@@ -135,7 +139,7 @@ export function listSubmissions(opts?: {
             c.member_code, (c.first_name || ' ' || c.last_name) AS member_name
        FROM mission_submissions s
        JOIN missions m ON m.id = s.mission_id
-       JOIN customers c ON c.id = s.customer_id
+       JOIN ${customersFor(scope)} c ON c.id = s.customer_id
        ${where}
       ORDER BY s.submitted_at DESC, s.id DESC`,
     params

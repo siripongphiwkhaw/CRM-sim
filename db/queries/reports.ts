@@ -1,5 +1,5 @@
 import { get, all, batch } from "../client";
-import { getOnHand } from "./inventory";
+import { getOnHand, getDefaultLocation } from "./inventory";
 import { createInsightIfAbsent } from "./insights";
 
 export interface DistributorReport {
@@ -122,6 +122,8 @@ export async function createDistributorReport(
     return { ok: false, error: "OVER_STOCK", on_hand: onHand };
   }
 
+  const loc = await getDefaultLocation();
+
   await batch([
     {
       sql: `INSERT INTO distributor_reports (distributor_id, product_id, period, sell_out_qty, forecast_qty)
@@ -136,14 +138,18 @@ export async function createDistributorReport(
     },
     {
       sql: `INSERT INTO inventory_transactions
-              (distributor_id, product_id, txn_type, quantity, reference_type, note, created_by)
-            VALUES (@distributor_id, @product_id, 'stock_out', @neg_qty, 'sell_out_report', @note, @created_by)`,
+              (distributor_id, product_id, txn_type, quantity, reference_type, note, created_by,
+               plant_id, storage_location_id, stock_type)
+            VALUES (@distributor_id, @product_id, 'stock_out', @neg_qty, 'sell_out_report', @note, @created_by,
+               @plant_id, @storage_location_id, 'UNRESTRICTED')`,
       args: {
         distributor_id: input.distributor_id,
         product_id: input.product_id,
         neg_qty: -Math.abs(input.sell_out_qty),
         note: `Sell-out report for ${input.period}`,
         created_by: input.created_by ?? null,
+        plant_id: loc.plant_id,
+        storage_location_id: loc.storage_location_id,
       },
     },
   ]);

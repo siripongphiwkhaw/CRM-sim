@@ -3,6 +3,7 @@ import { getCustomer, getCustomerByReferralCode, type Customer } from "./custome
 import { recordConsent } from "./consent";
 import { postEarn } from "./loyalty";
 import { REFERRAL_BONUS_POINTS } from "@/lib/loyaltyEngine";
+import { customersFor, SYSTEM_SCOPE } from "@/lib/customerScope";
 
 /**
  * Member-facing lookups for the Only-One LIFF app — identity resolution and
@@ -10,7 +11,11 @@ import { REFERRAL_BONUS_POINTS } from "@/lib/loyaltyEngine";
  */
 
 export function getCustomerByLineUserId(lineUserId: string): Promise<Customer | undefined> {
-  return get<Customer>("SELECT * FROM customers WHERE line_user_id = ?", [lineUserId]);
+  // Member-facing LINE auth — resolves the viewer's own record, not a staff view.
+  return get<Customer>(
+    `SELECT * FROM ${customersFor(SYSTEM_SCOPE)} c WHERE line_user_id = ?`,
+    [lineUserId]
+  );
 }
 
 export interface LineRegistration {
@@ -43,7 +48,7 @@ export async function registerLineMember(
   if (existing) return existing;
 
   const referrer = input.referralCode
-    ? await getCustomerByReferralCode(input.referralCode.trim())
+    ? await getCustomerByReferralCode(SYSTEM_SCOPE, input.referralCode.trim())
     : undefined;
 
   const next = await get<{ next: number }>(
@@ -104,7 +109,7 @@ export async function registerLineMember(
     });
   }
 
-  return (await getCustomer(id))!;
+  return (await getCustomer(SYSTEM_SCOPE, id))!;
 }
 
 /** Links a LINE account to a member. Caller handles unique violations (23505). */
@@ -135,12 +140,13 @@ export interface MemberPickerRow {
   cust_type: string;
 }
 
-/** B2C members for the dev/staff-preview picker. Only-One is B2C-only. */
+/** B2C members for the dev/staff-preview picker (gated by demoAccessAllowed).
+ * Only-One is B2C-only. */
 export function listB2cMembers(limit = 50): Promise<MemberPickerRow[]> {
   return all<MemberPickerRow>(
     `SELECT id, member_code, (first_name || ' ' || last_name) AS name,
             tier, points, cust_type
-       FROM customers
+       FROM ${customersFor(SYSTEM_SCOPE)} c
       WHERE cust_type = 'B2C'
       ORDER BY points DESC, id ASC
       LIMIT ${limit}`

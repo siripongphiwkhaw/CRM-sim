@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/liffAuth";
 import { getCustomer } from "@/db/queries/customers";
+import { SYSTEM_SCOPE } from "@/lib/customerScope";
 import { getCurrentConsents } from "@/db/queries/consent";
 import { getLoyaltySummary } from "@/db/queries/loyalty";
 import { CONSENT_PURPOSES, CONSENT_PURPOSE_LABELS } from "@/lib/constants";
@@ -24,7 +25,7 @@ export default async function LiffAccountPage() {
   if (!auth.ok) redirect("/liff");
 
   const [member, consents, summary] = await Promise.all([
-    getCustomer(auth.customerId),
+    getCustomer(SYSTEM_SCOPE, auth.customerId),
     getCurrentConsents(auth.customerId),
     getLoyaltySummary(auth.customerId),
   ]);

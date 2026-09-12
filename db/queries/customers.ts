@@ -1,6 +1,13 @@
 import { get, all, run, batch } from "../client";
 import { recordConsent } from "./consent";
-import type { Brand, Tier, DataLevel, CustType } from "@/lib/constants";
+import { customersFor, type ReadScope } from "@/lib/customerScope";
+import type {
+  Brand,
+  Tier,
+  DataLevel,
+  CustType,
+  PaymentTerms,
+} from "@/lib/constants";
 
 export interface Customer {
   id: number;
@@ -35,6 +42,15 @@ export interface Customer {
   identity_verified_at: string | null;
   /** Staff-set INSTITUTIONAL override — never inferred. */
   institutional_override: number;
+  /** B2B company profile. All NULL for a B2C member; the
+   * customers_b2b_profile_check constraint makes company_name, billing_address
+   * and payment_terms mandatory once cust_type = 'B2B'. */
+  company_name: string | null;
+  company_branch_code: string | null;
+  billing_address: string | null;
+  payment_terms: PaymentTerms | null;
+  contact_person: string | null;
+  credit_limit: number;
   created_at: string;
   updated_at: string;
 }
@@ -49,6 +65,15 @@ export interface CustomerInput {
   register_channel?: string | null;
   data_level: DataLevel;
   birth_date?: string | null;
+  // B2B company profile. Optional at the type level so B2C callers and the
+  // LINE registration path stay unchanged; the required-when-B2B rule is
+  // enforced by customerSchema (form) and the DB CHECK (system of record).
+  company_name?: string | null;
+  company_branch_code?: string | null;
+  billing_address?: string | null;
+  payment_terms?: PaymentTerms | null;
+  contact_person?: string | null;
+  credit_limit?: number | null;
 }
 
 // Sortable columns are allow-listed — the sort key comes from the URL.
@@ -62,14 +87,17 @@ const SORT_COLUMNS: Record<string, string> = {
   created: "created_at",
 };
 
-export function listCustomers(opts?: {
-  search?: string;
-  brand?: string;
-  tier?: string;
-  custType?: string;
-  sort?: string;
-  dir?: string;
-}): Promise<Customer[]> {
+export function listCustomers(
+  scope: ReadScope,
+  opts?: {
+    search?: string;
+    brand?: string;
+    tier?: string;
+    custType?: string;
+    sort?: string;
+    dir?: string;
+  }
+): Promise<Customer[]> {
   const clauses: string[] = [];
   const params: (string | number)[] = [];
 
@@ -97,42 +125,68 @@ export function listCustomers(opts?: {
   const column = SORT_COLUMNS[opts?.sort ?? ""] ?? "created_at";
   const dir = opts?.dir === "asc" ? "ASC" : "DESC";
   return all<Customer>(
-    `SELECT * FROM customers ${where} ORDER BY ${column} ${dir}`,
+    `SELECT * FROM ${customersFor(scope)} c ${where} ORDER BY ${column} ${dir}`,
     params
   );
 }
 
-export function listRecentCustomers(limit = 5): Promise<Customer[]> {
+export function listRecentCustomers(
+  scope: ReadScope,
+  limit = 5
+): Promise<Customer[]> {
   return all<Customer>(
-    "SELECT * FROM customers ORDER BY updated_at DESC LIMIT ?",
+    `SELECT * FROM ${customersFor(scope)} c ORDER BY updated_at DESC LIMIT ?`,
     [limit]
   );
 }
 
-export function getTopCustomer(): Promise<Customer | undefined> {
-  return get<Customer>("SELECT * FROM customers ORDER BY clv DESC LIMIT 1");
+export function getTopCustomer(scope: ReadScope): Promise<Customer | undefined> {
+  return get<Customer>(
+    `SELECT * FROM ${customersFor(scope)} c ORDER BY clv DESC LIMIT 1`
+  );
 }
 
-export function getCustomer(id: number): Promise<Customer | undefined> {
-  return get<Customer>("SELECT * FROM customers WHERE id = ?", [id]);
+export function getCustomer(
+  scope: ReadScope,
+  id: number
+): Promise<Customer | undefined> {
+  return get<Customer>(
+    `SELECT * FROM ${customersFor(scope)} c WHERE id = ?`,
+    [id]
+  );
 }
 
-export function getCustomerByCode(code: string): Promise<Customer | undefined> {
-  return get<Customer>("SELECT * FROM customers WHERE member_code = ?", [code]);
+export function getCustomerByCode(
+  scope: ReadScope,
+  code: string
+): Promise<Customer | undefined> {
+  return get<Customer>(
+    `SELECT * FROM ${customersFor(scope)} c WHERE member_code = ?`,
+    [code]
+  );
 }
 
-export function getCustomerByReferralCode(code: string): Promise<Customer | undefined> {
-  return get<Customer>("SELECT * FROM customers WHERE referral_code = ?", [code]);
+/** Referral-code lookup during self-registration — not a staff view, so it is
+ * always SYSTEM_SCOPE at the call site. */
+export function getCustomerByReferralCode(
+  scope: ReadScope,
+  code: string
+): Promise<Customer | undefined> {
+  return get<Customer>(
+    `SELECT * FROM ${customersFor(scope)} c WHERE referral_code = ?`,
+    [code]
+  );
 }
 
 /** Finds an existing member by phone or email (duplicate-registration guard). */
 export function findDuplicate(
+  scope: ReadScope,
   phone?: string | null,
   email?: string | null
 ): Promise<Customer | undefined> {
   if (!phone && !email) return Promise.resolve(undefined);
   return get<Customer>(
-    `SELECT * FROM customers
+    `SELECT * FROM ${customersFor(scope)} c
      WHERE (@phone::text IS NOT NULL AND phone = @phone)
         OR (@email::text IS NOT NULL AND email = @email)
      LIMIT 1`,
@@ -162,10 +216,14 @@ export async function createCustomer(
   const id = await run(
     `INSERT INTO customers
        (member_code, first_name, last_name, email, phone, brand, cust_type,
-        register_channel, data_level, birth_date, referral_code)
+        register_channel, data_level, birth_date, referral_code,
+        company_name, company_branch_code, billing_address, payment_terms,
+        contact_person, credit_limit)
      VALUES
        (@member_code, @first_name, @last_name, @email, @phone, @brand, @cust_type,
-        @register_channel, @data_level, @birth_date, @referral_code)
+        @register_channel, @data_level, @birth_date, @referral_code,
+        @company_name, @company_branch_code, @billing_address, @payment_terms,
+        @contact_person, @credit_limit)
      RETURNING id`,
     {
       member_code: memberCode,
@@ -181,6 +239,12 @@ export async function createCustomer(
       // and an empty string would fail the ::date cast in runBirthdayRewards.
       birth_date: input.birth_date || null,
       referral_code: referralCode,
+      company_name: input.company_name || null,
+      company_branch_code: input.company_branch_code || null,
+      billing_address: input.billing_address || null,
+      payment_terms: input.payment_terms || null,
+      contact_person: input.contact_person || null,
+      credit_limit: input.credit_limit ?? 0,
     }
   );
 
@@ -203,12 +267,20 @@ export async function updateCustomer(
   id: number,
   input: CustomerInput
 ): Promise<void> {
+  // The B2B columns are written on every update, not just B2B ones: a
+  // B2C→B2B flip through the edit form must land the company profile in the
+  // same statement, or the customers_b2b_profile_check constraint rejects the
+  // row as a raw Postgres error. A B2B→B2C flip clears them back to NULL.
   await run(
     `UPDATE customers SET
        first_name = @first_name, last_name = @last_name, email = @email,
        phone = @phone, brand = @brand, cust_type = @cust_type,
        register_channel = @register_channel, data_level = @data_level,
-       birth_date = @birth_date, updated_at = now()
+       birth_date = @birth_date,
+       company_name = @company_name, company_branch_code = @company_branch_code,
+       billing_address = @billing_address, payment_terms = @payment_terms,
+       contact_person = @contact_person, credit_limit = @credit_limit,
+       updated_at = now()
      WHERE id = @id`,
     {
       id,
@@ -221,6 +293,12 @@ export async function updateCustomer(
       register_channel: input.register_channel ?? null,
       data_level: input.data_level,
       birth_date: input.birth_date || null,
+      company_name: input.company_name || null,
+      company_branch_code: input.company_branch_code || null,
+      billing_address: input.billing_address || null,
+      payment_terms: input.payment_terms || null,
+      contact_person: input.contact_person || null,
+      credit_limit: input.credit_limit ?? 0,
     }
   );
 }

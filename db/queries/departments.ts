@@ -1,11 +1,14 @@
 import { get, all, run } from "../client";
-import type { ModuleKey } from "@/lib/constants";
+import type { ModuleKey, CustomerScope } from "@/lib/constants";
 
 export interface Department {
   id: number;
   name: string;
   description: string | null;
   is_approver: number;
+  /** Which customers this department's members may see. NULL = never
+   * configured, read as ALL. See lib/customerScope.ts. */
+  customer_scope: CustomerScope | null;
   created_at: string;
   updated_at: string;
 }
@@ -211,4 +214,48 @@ export async function setHomeDepartment(
     departmentId,
     userId,
   ]);
+}
+
+/* ---------- Customer visibility scope ---------- */
+
+/** The customer_scope of a user's home department. `null` when the user has no
+ * home department (a non-admin in that state resolves to NONE — see
+ * lib/customerScope.ts); a department whose scope was never set also comes back
+ * `null` here and is read as ALL. The two cases are told apart by whether a row
+ * came back at all. */
+export async function getCustomerScopeForUser(
+  userId: number
+): Promise<{ hasDepartment: boolean; scope: CustomerScope | null }> {
+  const row = await get<{ customer_scope: CustomerScope | null }>(
+    `SELECT d.customer_scope
+     FROM users u
+     JOIN departments d ON d.id = u.home_department_id
+     WHERE u.id = ?`,
+    [userId]
+  );
+  return row
+    ? { hasDepartment: true, scope: row.customer_scope }
+    : { hasDepartment: false, scope: null };
+}
+
+export async function setDepartmentCustomerScope(
+  departmentId: number,
+  scope: CustomerScope | null
+): Promise<void> {
+  await run(
+    "UPDATE departments SET customer_scope = ?, updated_at = now() WHERE id = ?",
+    [scope, departmentId]
+  );
+}
+
+/** Non-admin users with no home department. They see no customers, so Setup
+ * surfaces them in a warning. */
+export function listUsersWithoutHomeDepartment(): Promise<
+  { id: number; name: string; email: string }[]
+> {
+  return all<{ id: number; name: string; email: string }>(
+    `SELECT id, name, email FROM users
+     WHERE role <> 'admin' AND home_department_id IS NULL
+     ORDER BY name`
+  );
 }

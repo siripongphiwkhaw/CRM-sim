@@ -2,6 +2,7 @@ import { requireApiAuth, jsonError, jsonOk } from "@/lib/apiAuth";
 import { apiCaseSchema } from "@/lib/apiSchemas";
 import { firstError } from "@/lib/validation";
 import { createCase, getCase } from "@/db/queries/cases";
+import { SYSTEM_SCOPE } from "@/lib/customerScope";
 
 export async function POST(req: Request) {
   const auth = await requireApiAuth(req);
@@ -24,5 +25,5 @@ export async function POST(req: Request) {
     priority: parsed.data.priority,
     created_by: auth.userId,
   });
-  return jsonOk(await getCase(id), 201);
+  return jsonOk(await getCase(SYSTEM_SCOPE, id), 201);
 }

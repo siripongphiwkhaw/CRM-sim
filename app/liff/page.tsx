@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { requireMember, demoAccessAllowed } from "@/lib/liffAuth";
 import { LIFF_CONFIGURED } from "@/lib/liffEnv";
 import { getCustomer } from "@/db/queries/customers";
+import { SYSTEM_SCOPE } from "@/lib/customerScope";
 import { getMemberHome } from "@/db/queries/loyalty";
 import { formatDate } from "@/lib/format";
 import type { Tier } from "@/lib/constants";
@@ -46,7 +47,7 @@ export default async function LiffHomePage() {
   }
 
   const [member, home, demoAllowed] = await Promise.all([
-    getCustomer(auth.customerId),
+    getCustomer(SYSTEM_SCOPE, auth.customerId),
     getMemberHome(auth.customerId),
     demoAccessAllowed(),
   ]);

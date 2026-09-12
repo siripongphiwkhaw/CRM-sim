@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCampaign, listCampaignAudience } from "@/db/queries/campaigns";
 import { getSegment } from "@/db/queries/segments";
+import { getCustomerScope } from "@/lib/customerScope";
 import { PageHeader, Card, SectionHeader, EmptyState, StatTile } from "@/app/components/ui";
 import { formatDate } from "@/lib/format";
 import { CampaignControls } from "./CampaignControls";
@@ -22,7 +23,9 @@ export default async function CampaignDetailPage({
 
   const [segment, audience] = await Promise.all([
     campaign.segment_id ? getSegment(campaign.segment_id) : undefined,
-    campaign.launched_at ? listCampaignAudience(campaignId) : Promise.resolve([]),
+    campaign.launched_at
+      ? listCampaignAudience(await getCustomerScope(), campaignId)
+      : Promise.resolve([]),
   ]);
 
   return (

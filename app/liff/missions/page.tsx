@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/liffAuth";
 import { listMissions, listSubmissions } from "@/db/queries/missions";
+import { SYSTEM_SCOPE } from "@/lib/customerScope";
 import { missionAvailable } from "@/lib/loyaltyEngine";
 import { LiffShell, SectionCard, LiffEmpty, BottomNav } from "../components/ui";
 import { MissionSubmitForm } from "./MissionSubmitForm";
@@ -13,7 +14,7 @@ export default async function LiffMissionsPage() {
 
   const [missions, mySubmissions] = await Promise.all([
     listMissions({ status: "PUBLISHED" }),
-    listSubmissions({ customerId: auth.customerId }),
+    listSubmissions(SYSTEM_SCOPE, { customerId: auth.customerId }),
   ]);
   const available = missions.filter(missionAvailable);
   // Latest submission per mission (there can be a REJECTED history entry

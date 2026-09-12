@@ -6,6 +6,7 @@ import {
   listRecentLedger,
 } from "@/db/queries/loyalty";
 import { getSession } from "@/lib/session";
+import { getCustomerScope } from "@/lib/customerScope";
 import { PageHeader, Card, SectionHeader, EmptyState, StatTile } from "@/app/components/ui";
 import { formatDate } from "@/lib/format";
 import { RewardForm } from "./RewardForm";
@@ -19,7 +20,7 @@ export default async function LoyaltyPage() {
     getLiabilityStats(),
     getTierRules(),
     listRewards(),
-    listRecentLedger(20),
+    listRecentLedger(await getCustomerScope(), 20),
     getSession(),
   ]);
   const isAdmin = session.role === "admin";

@@ -1,4 +1,5 @@
 import { get, all, run } from "../client";
+import { customersFor, SYSTEM_SCOPE } from "@/lib/customerScope";
 import { createCase } from "./cases";
 import { getDepartmentByName } from "./departments";
 import { DEPARTMENTS_BY_CUST_TYPE } from "@/lib/constants";
@@ -64,7 +65,7 @@ export async function syncClassificationReviews(actorId: number | null): Promise
   const rows = await all<DisagreementRow>(
     `SELECT c.id AS customer_id, c.cust_type, c.first_name, c.last_name, c.member_code,
             s.behavior_class, s.resolution_tier
-       FROM customers c
+       FROM ${customersFor(SYSTEM_SCOPE)} c
        JOIN customer_scores s ON s.customer_id = c.id
       WHERE s.disagreement_flag = 1
         AND s.behavior_class IS NOT NULL AND s.resolution_tier IS NOT NULL

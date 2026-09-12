@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getDistributor } from "@/db/queries/distributors";
 import { listCustomers } from "@/db/queries/customers";
+import { getCustomerScope } from "@/lib/customerScope";
 import { PageHeader } from "@/app/components/ui";
 import { DistributorForm } from "../../DistributorForm";
 import { updateDistributorAction } from "../../actions";
@@ -15,7 +16,7 @@ export default async function EditDistributorPage({
   const { id } = await params;
   const [distributor, members] = await Promise.all([
     getDistributor(Number(id)),
-    listCustomers({ custType: "B2B" }),
+    listCustomers(await getCustomerScope(), { custType: "B2B" }),
   ]);
   if (!distributor) notFound();
   const options = members.map((m) => ({

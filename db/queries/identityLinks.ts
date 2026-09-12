@@ -1,5 +1,6 @@
 import { get, all, run } from "../client";
 import { behaviorClassFor, channelAffinityFor } from "@/lib/classification";
+import { customersFor, SYSTEM_SCOPE, type ReadScope } from "@/lib/customerScope";
 import { createCase } from "./cases";
 import { getDepartmentByName } from "./departments";
 import { DEPARTMENTS_BY_CUST_TYPE, type CustType, type TxChannel, type BehaviorClass } from "@/lib/constants";
@@ -44,28 +45,44 @@ export interface IdentityLinkWithNames extends IdentityLink {
   b_type: CustType;
 }
 
-const LINK_SELECT = `
+// An identity link spans a B2C row and a B2B row by definition. Both joins are
+// scoped, so the link is visible only to a viewer who can see BOTH sides — a
+// B2C- or B2B-scoped user sees no links at all, which is correct: reconciling a
+// cross-type identity is a full-scope (IT / admin) job.
+const linkSelect = (scope: ReadScope) => `
   SELECT l.*,
     (ca.first_name || ' ' || ca.last_name) AS a_name, ca.member_code AS a_code, ca.cust_type AS a_type,
     (cb.first_name || ' ' || cb.last_name) AS b_name, cb.member_code AS b_code, cb.cust_type AS b_type
   FROM customer_identity_links l
-  JOIN customers ca ON ca.id = l.customer_a_id
-  JOIN customers cb ON cb.id = l.customer_b_id`;
+  JOIN ${customersFor(scope)} ca ON ca.id = l.customer_a_id
+  JOIN ${customersFor(scope)} cb ON cb.id = l.customer_b_id`;
 
-export function listIdentityLinks(opts?: { status?: LinkStatus }): Promise<IdentityLinkWithNames[]> {
+export function listIdentityLinks(
+  scope: ReadScope,
+  opts?: { status?: LinkStatus }
+): Promise<IdentityLinkWithNames[]> {
   const where = opts?.status ? "WHERE l.status = ?" : "";
   const params = opts?.status ? [opts.status] : [];
-  return all<IdentityLinkWithNames>(`${LINK_SELECT} ${where} ORDER BY l.created_at DESC, l.id DESC`, params);
+  return all<IdentityLinkWithNames>(
+    `${linkSelect(scope)} ${where} ORDER BY l.created_at DESC, l.id DESC`,
+    params
+  );
 }
 
-export function getIdentityLink(id: number): Promise<IdentityLinkWithNames | undefined> {
-  return get<IdentityLinkWithNames>(`${LINK_SELECT} WHERE l.id = ?`, [id]);
+export function getIdentityLink(
+  scope: ReadScope,
+  id: number
+): Promise<IdentityLinkWithNames | undefined> {
+  return get<IdentityLinkWithNames>(`${linkSelect(scope)} WHERE l.id = ?`, [id]);
 }
 
 /** Any links touching a given customer (either side) — for Customer 360. */
-export function getLinksForCustomer(customerId: number): Promise<IdentityLinkWithNames[]> {
+export function getLinksForCustomer(
+  scope: ReadScope,
+  customerId: number
+): Promise<IdentityLinkWithNames[]> {
   return all<IdentityLinkWithNames>(
-    `${LINK_SELECT} WHERE l.customer_a_id = ? OR l.customer_b_id = ?`,
+    `${linkSelect(scope)} WHERE l.customer_a_id = ? OR l.customer_b_id = ?`,
     [customerId, customerId]
   );
 }
@@ -73,9 +90,12 @@ export function getLinksForCustomer(customerId: number): Promise<IdentityLinkWit
 /** The still-pending link a review case is about — the routed department's PICs
  * decide it from the case detail. A review case's customer_id is always one
  * side of the pair, so this resolves the link without a case_id back-ref. */
-export function getPendingLinkForCustomer(customerId: number): Promise<IdentityLinkWithNames | undefined> {
+export function getPendingLinkForCustomer(
+  scope: ReadScope,
+  customerId: number
+): Promise<IdentityLinkWithNames | undefined> {
   return get<IdentityLinkWithNames>(
-    `${LINK_SELECT} WHERE l.status = 'PENDING' AND (l.customer_a_id = ? OR l.customer_b_id = ?)
+    `${linkSelect(scope)} WHERE l.status = 'PENDING' AND (l.customer_a_id = ? OR l.customer_b_id = ?)
       ORDER BY l.id DESC LIMIT 1`,
     [customerId, customerId]
   );
@@ -112,10 +132,12 @@ interface MatchRow {
  */
 function findIdentityMatches(): Promise<MatchRow[]> {
   return all<MatchRow>(
+    // System scan over the whole book — a cross-type match by definition needs
+    // both sides.
     `SELECT a.id AS customer_a_id, b.id AS customer_b_id,
             CASE WHEN a.email IS NOT NULL AND a.email = b.email THEN 'email' ELSE 'phone' END AS matched_by
-       FROM customers a
-       JOIN customers b
+       FROM ${customersFor(SYSTEM_SCOPE)} a
+       JOIN ${customersFor(SYSTEM_SCOPE)} b
          ON a.id < b.id
         AND a.cust_type <> b.cust_type
         AND (
@@ -151,7 +173,7 @@ async function judgeIdentityLink(aId: number, bId: number): Promise<Verdict> {
     `SELECT c.cust_type,
             COALESCE(SUM(t.amount_thb), 0)::float8 AS spend,
             COUNT(t.id)::int AS qty
-       FROM customers c
+       FROM ${customersFor(SYSTEM_SCOPE)} c
        LEFT JOIN transactions t ON t.customer_id = c.id
       WHERE c.id = @a OR c.id = @b
       GROUP BY c.cust_type`,
@@ -219,7 +241,8 @@ export async function runIdentityLinkScan(actorId: number | null): Promise<{ fou
 
     const detail = await get<{ a_code: string; b_code: string; a_type: CustType; b_type: CustType }>(
       `SELECT ca.member_code AS a_code, cb.member_code AS b_code, ca.cust_type AS a_type, cb.cust_type AS b_type
-         FROM customers ca, customers cb WHERE ca.id = @a AND cb.id = @b`,
+         FROM ${customersFor(SYSTEM_SCOPE)} ca, ${customersFor(SYSTEM_SCOPE)} cb
+        WHERE ca.id = @a AND cb.id = @b`,
       { a: match.customer_a_id, b: match.customer_b_id }
     );
     const dominantCustomerId =

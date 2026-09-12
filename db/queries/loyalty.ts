@@ -7,6 +7,7 @@ import {
   BIRTHDAY_BONUS_POINTS,
   type TierRule,
 } from "@/lib/loyaltyEngine";
+import { customersFor, SYSTEM_SCOPE, type ReadScope } from "@/lib/customerScope";
 import type { Tier, RewardType, RewardStatus } from "@/lib/constants";
 
 /**
@@ -133,11 +134,14 @@ export interface RecentLedgerRow extends LedgerEntry {
   member_name: string;
 }
 
-export function listRecentLedger(limit = 20): Promise<RecentLedgerRow[]> {
+export function listRecentLedger(
+  scope: ReadScope,
+  limit = 20
+): Promise<RecentLedgerRow[]> {
   return all<RecentLedgerRow>(
     `SELECT l.*, c.member_code, (c.first_name || ' ' || c.last_name) AS member_name
      FROM loyalty_ledger l
-     JOIN customers c ON c.id = l.customer_id
+     JOIN ${customersFor(scope)} c ON c.id = l.customer_id
      ORDER BY l.occurred_at DESC, l.id DESC LIMIT ${limit}`
   );
 }
@@ -504,7 +508,9 @@ export async function getLiabilityStats(): Promise<LiabilityStats> {
  */
 export async function runBirthdayRewards(actorId: number | null): Promise<{ awarded: number }> {
   const due = await all<{ id: number }>(
-    `SELECT c.id FROM customers c
+    // Global batch job — awards to every eligible member regardless of any
+    // viewer's scope.
+    `SELECT c.id FROM ${customersFor(SYSTEM_SCOPE)} c
       WHERE c.birth_date IS NOT NULL
         AND to_char(c.birth_date::date, 'MM-DD') = to_char(now(), 'MM-DD')
         AND NOT EXISTS (

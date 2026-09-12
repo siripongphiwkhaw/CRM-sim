@@ -1,4 +1,5 @@
 import { get, all, run } from "../client";
+import { customersFor, type ReadScope } from "@/lib/customerScope";
 
 export interface Distributor {
   id: number;
@@ -39,10 +40,15 @@ export interface DistributorWithMember extends Distributor {
   member_code: string | null;
 }
 
-export function getDistributorWithMember(id: number): Promise<DistributorWithMember | undefined> {
+export function getDistributorWithMember(
+  scope: ReadScope,
+  id: number
+): Promise<DistributorWithMember | undefined> {
+  // LEFT JOIN scoped: an out-of-scope linked member shows as a blank name; the
+  // distributor row itself is unaffected.
   return get<DistributorWithMember>(
     `SELECT d.*, (c.first_name || ' ' || c.last_name) AS member_name, c.member_code
-     FROM distributors d LEFT JOIN customers c ON c.id = d.customer_id
+     FROM distributors d LEFT JOIN ${customersFor(scope)} c ON c.id = d.customer_id
      WHERE d.id = ?`,
     [id]
   );

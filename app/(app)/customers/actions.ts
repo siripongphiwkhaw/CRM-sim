@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/session";
+import { getCustomerScope } from "@/lib/customerScope";
 import {
   customerSchema,
   interactionSchema,
@@ -16,6 +17,7 @@ import {
   createCustomer,
   updateCustomer,
   deleteCustomer,
+  getCustomer,
   setCustomerTaxId,
   setInstitutionalOverride,
 } from "@/db/queries/customers";
@@ -32,6 +34,18 @@ import { recordConsent, getCurrentConsents } from "@/db/queries/consent";
 import { inspectThaiId } from "@/lib/thaiId";
 import { encryptPii, isPiiConfigured } from "@/lib/pii";
 
+/**
+ * Blocks a mutation whose target customer is outside the caller's department
+ * scope. The detail and edit pages already 404 an out-of-scope member, so this
+ * only bites a forged id posted straight at a server action.
+ */
+async function assertCustomerInScope(customerId: number): Promise<void> {
+  const scope = await getCustomerScope();
+  if (!(await getCustomer(scope, customerId))) {
+    throw new Error("Forbidden: customer is outside your access scope");
+  }
+}
+
 function parseCustomer(formData: FormData) {
   return customerSchema.safeParse({
     first_name: formData.get("first_name"),
@@ -44,6 +58,13 @@ function parseCustomer(formData: FormData) {
     data_level: formData.get("data_level"),
     consent_mode: formData.get("consent_mode") || "all",
     birth_date: formData.get("birth_date") ?? "",
+    // B2B-only — ignored by the B2C branch of customerSchema.
+    company_name: formData.get("company_name") ?? "",
+    company_branch_code: formData.get("company_branch_code") ?? "",
+    billing_address: formData.get("billing_address") ?? "",
+    payment_terms: formData.get("payment_terms") ?? "",
+    contact_person: formData.get("contact_person") ?? "",
+    credit_limit: formData.get("credit_limit") ?? 0,
   });
 }
 
@@ -54,6 +75,12 @@ export async function createCustomerAction(
   await requireSession();
   const parsed = parseCustomer(formData);
   if (!parsed.success) return { error: firstError(parsed.error) };
+
+  // A scoped user cannot create a member of the type they cannot see.
+  const scope = await getCustomerScope();
+  if (scope !== "ALL" && scope !== parsed.data.cust_type) {
+    return { error: `Your department cannot create ${parsed.data.cust_type} members.` };
+  }
 
   const { consent_mode, ...input } = parsed.data;
   const id = await createCustomer(input, consent_mode);
@@ -68,6 +95,7 @@ export async function updateCustomerAction(
   await requireSession();
   const id = Number(formData.get("id"));
   if (!id) return { error: "Missing customer id." };
+  await assertCustomerInScope(id);
 
   const parsed = parseCustomer(formData);
   if (!parsed.success) return { error: firstError(parsed.error) };
@@ -84,6 +112,7 @@ export async function deleteCustomerAction(formData: FormData) {
   await requireSession();
   const id = Number(formData.get("id"));
   if (id) {
+    await assertCustomerInScope(id);
     await deleteCustomer(id);
     revalidatePath("/customers");
   }
@@ -97,6 +126,7 @@ export async function addInteractionAction(
   await requireSession();
   const customerId = Number(formData.get("customer_id"));
   if (!customerId) return { error: "Missing customer id." };
+  await assertCustomerInScope(customerId);
 
   const parsed = interactionSchema.safeParse({
     type: formData.get("type"),
@@ -132,6 +162,7 @@ export async function recordTransactionAction(
     brand: formData.get("brand"),
   });
   if (!parsed.success) return { error: firstError(parsed.error) };
+  await assertCustomerInScope(parsed.data.customer_id);
 
   const result = await createTransaction({
     customer_id: parsed.data.customer_id,
@@ -157,6 +188,7 @@ export async function redeemRewardAction(
     reward_id: formData.get("reward_id"),
   });
   if (!parsed.success) return { error: firstError(parsed.error) };
+  await assertCustomerInScope(parsed.data.customer_id);
 
   const result = await redeemReward(
     parsed.data.customer_id,
@@ -188,6 +220,7 @@ export async function recordConsentAction(
     status: formData.get("status"),
   });
   if (!parsed.success) return { error: firstError(parsed.error) };
+  await assertCustomerInScope(parsed.data.customer_id);
 
   await recordConsent({
     customer_id: parsed.data.customer_id,
@@ -211,6 +244,7 @@ export async function setCustomerLineAction(
   await requireSession();
   const customerId = Number(formData.get("customer_id"));
   if (!customerId) return { error: "Missing member id." };
+  await assertCustomerInScope(customerId);
   const lineUserId = String(formData.get("line_user_id") ?? "").trim();
 
   try {
@@ -252,6 +286,7 @@ export async function setCustomerTaxIdAction(
   await requireSession();
   const customerId = Number(formData.get("customer_id"));
   if (!customerId) return { error: "Missing member id." };
+  await assertCustomerInScope(customerId);
 
   if (!isPiiConfigured()) {
     return {
@@ -302,6 +337,7 @@ export async function setCustomerDealerLinkAction(
   await requireSession();
   const customerId = Number(formData.get("customer_id"));
   if (!customerId) return { error: "Missing member id." };
+  await assertCustomerInScope(customerId);
   const raw = String(formData.get("distributor_id") ?? "").trim();
   const distributorId = raw ? Number(raw) : null;
 
@@ -334,6 +370,7 @@ export async function setInstitutionalOverrideAction(
   await requireSession();
   const customerId = Number(formData.get("customer_id"));
   if (!customerId) return { error: "Missing member id." };
+  await assertCustomerInScope(customerId);
   const value = formData.get("value") === "1";
 
   await setInstitutionalOverride(customerId, value);

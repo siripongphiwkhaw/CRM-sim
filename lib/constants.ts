@@ -18,6 +18,18 @@ export type Tier = (typeof TIERS)[number];
 export const CUST_TYPES = ["B2C", "B2B"] as const;
 export type CustType = (typeof CUST_TYPES)[number];
 
+// A department's customer visibility. 'ALL' (and an unset NULL scope) means the
+// department sees both sides; 'B2C' / 'B2B' restrict it. Resolved and enforced
+// in lib/customerScope.ts.
+export const CUSTOMER_SCOPES = ["B2C", "B2B", "ALL"] as const;
+export type CustomerScope = (typeof CUSTOMER_SCOPES)[number];
+
+export const CUSTOMER_SCOPE_LABELS: Record<CustomerScope, string> = {
+  B2C: "B2C members only",
+  B2B: "B2B members only",
+  ALL: "All members (B2C + B2B)",
+};
+
 /** Which seeded department(s) own review cases for a customer's declared
  * side — a B2C case routes to both departments that touch consumers; a B2B
  * case routes to the one that owns the trade book. Shared by every workflow
@@ -316,3 +328,65 @@ export const TRADE_CHANNELS = [
   "Food Service",
 ] as const;
 export type TradeChannel = (typeof TRADE_CHANNELS)[number];
+
+// ---------------------------------------------------------------------------
+// B2B master data + SAP-shaped sales / material / stock model.
+// ---------------------------------------------------------------------------
+
+// AR payment terms on a B2B customer's profile and copied onto each billing
+// document. NETn = n days from billing date; CASH = due on delivery.
+export const PAYMENT_TERMS = ["CASH", "NET7", "NET15", "NET30", "NET60", "NET90"] as const;
+export type PaymentTerms = (typeof PAYMENT_TERMS)[number];
+
+export const PAYMENT_TERMS_LABELS: Record<PaymentTerms, string> = {
+  CASH: "Cash on delivery",
+  NET7: "Net 7 days",
+  NET15: "Net 15 days",
+  NET30: "Net 30 days",
+  NET60: "Net 60 days",
+  NET90: "Net 90 days",
+};
+
+// SAP MMBE stock categories. Only UNRESTRICTED counts as sellable on-hand;
+// every existing on-hand query filters to it. The others are visible in the
+// stock overview but excluded from availability and the OVER_STOCK guard.
+export const STOCK_TYPES = ["UNRESTRICTED", "QUALITY_INSPECTION", "BLOCKED", "IN_TRANSIT"] as const;
+export type StockType = (typeof STOCK_TYPES)[number];
+
+export const STOCK_TYPE_LABELS: Record<StockType, string> = {
+  UNRESTRICTED: "Unrestricted",
+  QUALITY_INSPECTION: "Quality inspection",
+  BLOCKED: "Blocked",
+  IN_TRANSIT: "In transit",
+};
+
+// SAP MARA material type (MTART). FERT = finished good, HAWA = trading good,
+// ROH = raw material, VERP = packaging.
+export const MATERIAL_TYPES = ["FERT", "HAWA", "ROH", "VERP"] as const;
+export type MaterialType = (typeof MATERIAL_TYPES)[number];
+
+export const MATERIAL_TYPE_LABELS: Record<MaterialType, string> = {
+  FERT: "Finished good",
+  HAWA: "Trading good",
+  ROH: "Raw material",
+  VERP: "Packaging",
+};
+
+// SAP MAKT description languages (SPRAS). products.name is the default-language
+// (EN) description; this covers the additional Thai variant.
+export const MATERIAL_LANGUAGES = ["EN", "TH"] as const;
+export type MaterialLanguage = (typeof MATERIAL_LANGUAGES)[number];
+
+// Billing document lifecycle. A document opens at creation, is marked paid on
+// settlement, or cancelled if the underlying order is reversed.
+export const BILLING_STATUSES = ["open", "paid", "cancelled"] as const;
+export type BillingStatus = (typeof BILLING_STATUSES)[number];
+
+export const BILLING_STATUS_LABELS: Record<BillingStatus, string> = {
+  open: "Open",
+  paid: "Paid",
+  cancelled: "Cancelled",
+};
+
+export const BILLING_DOC_TYPES = ["INVOICE", "CREDIT_NOTE"] as const;
+export type BillingDocType = (typeof BILLING_DOC_TYPES)[number];

@@ -3,6 +3,7 @@ import { apiConsentSchema } from "@/lib/apiSchemas";
 import { firstError } from "@/lib/validation";
 import { recordConsent } from "@/db/queries/consent";
 import { getCustomer } from "@/db/queries/customers";
+import { SYSTEM_SCOPE } from "@/lib/customerScope";
 
 export async function POST(req: Request) {
   const auth = await requireApiAuth(req);
@@ -17,7 +18,7 @@ export async function POST(req: Request) {
   const parsed = apiConsentSchema.safeParse(body);
   if (!parsed.success) return jsonError(400, "VALIDATION_ERROR", firstError(parsed.error));
 
-  if (!(await getCustomer(parsed.data.customer_id))) {
+  if (!(await getCustomer(SYSTEM_SCOPE, parsed.data.customer_id))) {
     return jsonError(404, "NOT_FOUND", "Member not found.");
   }
   const id = await recordConsent({ ...parsed.data, source: "api" });

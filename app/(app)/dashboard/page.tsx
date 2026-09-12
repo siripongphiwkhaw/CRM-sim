@@ -9,6 +9,7 @@ import {
 import { listRecentInteractions } from "@/db/queries/interactions";
 import { listRecentCustomers, getTopCustomer } from "@/db/queries/customers";
 import { listDataSources } from "@/db/queries/dataSources";
+import { getCustomerScope } from "@/lib/customerScope";
 import {
   Card,
   PageHeader,
@@ -51,16 +52,17 @@ function BarList({ title, rows }: { title: string; rows: { label: string; count:
 }
 
 export default async function HomePage() {
+  const scope = await getCustomerScope();
   const [overview, tiers, brands, monthly, noPdpa, recentActivity, recentCustomers, topCustomer, sources] =
     await Promise.all([
-      getOverview(),
-      getTierDistribution(),
-      getBrandDistribution(),
-      getMonthlyPurchases(),
-      getMembersWithoutPdpa(),
-      listRecentInteractions(6),
-      listRecentCustomers(5),
-      getTopCustomer(),
+      getOverview(scope),
+      getTierDistribution(scope),
+      getBrandDistribution(scope),
+      getMonthlyPurchases(scope),
+      getMembersWithoutPdpa(scope),
+      listRecentInteractions(scope, 6),
+      listRecentCustomers(scope, 5),
+      getTopCustomer(scope),
       listDataSources(),
     ]);
 

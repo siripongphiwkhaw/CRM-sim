@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/session";
+import { getCustomerScope } from "@/lib/customerScope";
 import { segmentSchema, firstError, type FormState } from "@/lib/validation";
 import {
   createSegment,
@@ -35,7 +36,7 @@ function parseRule(formData: FormData): SegmentRule {
  * createSegment uses, so the preview never disagrees with the saved count. */
 export async function previewSegmentCountAction(formData: FormData): Promise<number> {
   await requireSession();
-  return countSegmentMembers(parseRule(formData));
+  return countSegmentMembers(parseRule(formData), await getCustomerScope());
 }
 
 export async function createSegmentAction(
@@ -51,7 +52,13 @@ export async function createSegmentAction(
   });
   if (!parsed.success) return { error: firstError(parsed.error) };
 
-  const id = await createSegment(parsed.data.name, parsed.data.segment_type, rule, session.userId ?? null);
+  const id = await createSegment(
+    parsed.data.name,
+    parsed.data.segment_type,
+    rule,
+    session.userId ?? null,
+    await getCustomerScope()
+  );
   await recordAudit("segment", id, "create", session.userId ?? null, parsed.data.name);
   revalidatePath("/marketing/segments");
   return { success: "Segment created." };
@@ -59,7 +66,7 @@ export async function createSegmentAction(
 
 export async function refreshSegmentAction(id: number) {
   await requireSession();
-  await refreshSegmentCount(id);
+  await refreshSegmentCount(id, await getCustomerScope());
   revalidatePath("/marketing/segments");
 }
 

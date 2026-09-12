@@ -20,9 +20,15 @@ import {
   addDepartmentModule,
   removeDepartmentModule,
   setDepartmentApprover,
+  setDepartmentCustomerScope,
   setHomeDepartment,
 } from "@/db/queries/departments";
-import { MODULES, type ModuleKey } from "@/lib/constants";
+import {
+  MODULES,
+  CUSTOMER_SCOPES,
+  type ModuleKey,
+  type CustomerScope,
+} from "@/lib/constants";
 
 export async function setRoleAction(userId: number, role: string) {
   await requireAdmin();
@@ -71,6 +77,23 @@ export async function toggleApproverAction(
   await requireAdmin();
   if (!departmentId) return;
   await setDepartmentApprover(departmentId, isApprover);
+  revalidatePath("/admin");
+}
+
+/**
+ * Set (or clear, with "") a department's customer visibility. Unlike module
+ * grants and the approver flag, this takes effect on the user's NEXT PAGE LOAD
+ * — customer scope is resolved per request, not cached on the session.
+ */
+export async function setDepartmentScopeAction(
+  departmentId: number,
+  scope: string
+) {
+  await requireAdmin();
+  if (!departmentId) return;
+  if (scope !== "" && !CUSTOMER_SCOPES.includes(scope as CustomerScope)) return;
+  const next = scope === "" ? null : (scope as CustomerScope);
+  await setDepartmentCustomerScope(departmentId, next);
   revalidatePath("/admin");
 }
 

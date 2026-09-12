@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/session";
+import { getCustomerScope } from "@/lib/customerScope";
 import { getCase } from "@/db/queries/cases";
 import { isPicOfDepartment } from "@/db/queries/departments";
 import {
@@ -35,13 +36,16 @@ export async function decideIdentityLinkAction(
   decision: "CONFIRMED" | "REJECTED"
 ): Promise<FormState> {
   const session = await requireSession();
+  const scope = await getCustomerScope();
 
-  const link = await getIdentityLink(linkId);
+  // Both sides scoped: a non-full-scope viewer gets "not found", which is the
+  // right answer — reconciling a cross-type identity is a full-scope job.
+  const link = await getIdentityLink(scope, linkId);
   if (!link) return { error: "Identity link not found." };
 
   let authorized = session.role === "admin";
   if (!authorized && link.case_id != null && session.userId) {
-    const routedCase = await getCase(link.case_id);
+    const routedCase = await getCase(scope, link.case_id);
     if (routedCase?.department_id != null) {
       authorized = await isPicOfDepartment(session.userId, routedCase.department_id);
     }

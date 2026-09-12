@@ -5,6 +5,7 @@ import { getCustomerTimeline } from "@/db/queries/transactions";
 import { getCurrentConsents } from "@/db/queries/consent";
 import { getNbaForCustomer } from "@/db/queries/insights";
 import { listCases } from "@/db/queries/cases";
+import { SYSTEM_SCOPE } from "@/lib/customerScope";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireApiAuth(req);
@@ -18,7 +19,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     getCustomerTimeline(member.id),
     getCurrentConsents(member.id),
     getNbaForCustomer(member.id),
-    listCases({ customerId: member.id }),
+    listCases(SYSTEM_SCOPE, { customerId: member.id }),
   ]);
   return jsonOk({ member, loyalty, consents, next_best_action: nba, timeline, cases });
 }

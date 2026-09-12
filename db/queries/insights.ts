@@ -2,6 +2,12 @@ import { get, all, run } from "../client";
 import { nextBestAction, type NbaResult } from "@/lib/nba";
 import { getConsentGapStats, hasMarketingConsent } from "./consent";
 import { getLiabilityStats, getLoyaltySummary } from "./loyalty";
+import {
+  customersFor,
+  isFullScope,
+  SYSTEM_SCOPE,
+  type ReadScope,
+} from "@/lib/customerScope";
 import type { InsightType, InsightSeverity, Tier, CustType } from "@/lib/constants";
 
 export interface Insight {
@@ -22,16 +28,30 @@ export interface InsightWithEntity extends Insight {
   entity_label: string | null;
 }
 
-export function listInsights(opts?: {
-  includeDismissed?: boolean;
-  type?: string;
-}): Promise<Insight[]> {
+export function listInsights(
+  scope: ReadScope,
+  opts?: {
+    includeDismissed?: boolean;
+    type?: string;
+  }
+): Promise<Insight[]> {
   const clauses: string[] = [];
   const params: (string | number)[] = [];
   if (!opts?.includeDismissed) clauses.push("dismissed_at IS NULL");
   if (opts?.type) {
     clauses.push("insight_type = ?");
     params.push(opts.type);
+  }
+  // ai_insights bakes member names into `title` at write time and has no
+  // cust_type of its own. A customer-entity insight is visible only when its
+  // customer is in scope; a whole-population 'global' insight only to a
+  // full-scope viewer.
+  if (!isFullScope(scope)) {
+    clauses.push(
+      `(entity_type NOT IN ('customer','global')
+        OR (entity_type = 'customer'
+            AND entity_id IN (SELECT id FROM ${customersFor(scope)} sc)))`
+    );
   }
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   const order = `ORDER BY CASE severity
@@ -123,7 +143,7 @@ export async function generateInsights(): Promise<{ created: number }> {
   // CHANNEL_CONFLICT — members transacting in both a B2C channel and SFA.
   const conflicts = await all<{ customer_id: number; name: string }>(
     `SELECT t.customer_id, (c.first_name || ' ' || c.last_name) AS name
-     FROM transactions t JOIN customers c ON c.id = t.customer_id
+     FROM transactions t JOIN ${customersFor(SYSTEM_SCOPE)} c ON c.id = t.customer_id
      GROUP BY t.customer_id, c.first_name, c.last_name
      HAVING SUM(CASE WHEN t.channel='SFA' THEN 1 ELSE 0 END) > 0
         AND SUM(CASE WHEN t.channel IN ('POS','ECOM','D2C') THEN 1 ELSE 0 END) > 0`
@@ -160,6 +180,7 @@ export async function generateInsights(): Promise<{ created: number }> {
      FROM inventory_transactions it
      JOIN distributors d ON d.id = it.distributor_id
      JOIN products p ON p.id = it.product_id
+     WHERE it.stock_type = 'UNRESTRICTED'
      GROUP BY it.distributor_id, d.name, it.product_id, p.name, p.reorder_point`
   );
   for (const s of stock) {
@@ -202,7 +223,7 @@ export async function generateInsights(): Promise<{ created: number }> {
   }
 
   // CONSENT_GAP — global.
-  const gap = await getConsentGapStats();
+  const gap = await getConsentGapStats(SYSTEM_SCOPE);
   if (gap.pct > 20) {
     await add({
       insight_type: "CONSENT_GAP",
@@ -239,7 +260,7 @@ export async function generateInsights(): Promise<{ created: number }> {
   const churn = await all<{ id: number; name: string; last_tx: string | null; churn_score: string | null }>(
     `SELECT c.id, (c.first_name || ' ' || c.last_name) AS name,
        MAX(t.tx_date) AS last_tx, s.churn_score
-     FROM customers c
+     FROM ${customersFor(SYSTEM_SCOPE)} c
      JOIN transactions t ON t.customer_id = c.id
      LEFT JOIN customer_scores s ON s.customer_id = c.id
      GROUP BY c.id, s.churn_score
@@ -284,7 +305,7 @@ export async function generateInsights(): Promise<{ created: number }> {
   const contested = await all<{ id: number; name: string; campaigns: number }>(
     `SELECT c.id, (c.first_name || ' ' || c.last_name) AS name,
             COUNT(DISTINCT ca.campaign_id)::int AS campaigns
-       FROM customers c
+       FROM ${customersFor(SYSTEM_SCOPE)} c
        JOIN customer_scores s ON s.customer_id = c.id
        JOIN campaign_audience ca ON ca.customer_id = c.id
       WHERE s.channel_affinity = 'CONTESTED'
@@ -314,7 +335,8 @@ export async function getNbaForCustomer(customerId: number): Promise<NbaResult> 
     cust_type: CustType;
     clv: number;
     created_at: string;
-  }>("SELECT id, cust_type, clv, created_at FROM customers WHERE id = ?", [customerId]);
+    // id-targeted; every caller has already scope-checked this customer.
+  }>(`SELECT id, cust_type, clv, created_at FROM ${customersFor(SYSTEM_SCOPE)} c WHERE id = ?`, [customerId]);
   if (!customer) {
     return { action: "NONE", title: "Member not found", reason: "" };
   }

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/session";
+import { getCustomerScope } from "@/lib/customerScope";
 import { getCase } from "@/db/queries/cases";
 import { isPicOfDepartment } from "@/db/queries/departments";
 import {
@@ -26,7 +27,7 @@ export async function decideClassificationReviewAction(
 
   let authorized = session.role === "admin";
   if (!authorized && review.case_id != null && session.userId) {
-    const routedCase = await getCase(review.case_id);
+    const routedCase = await getCase(await getCustomerScope(), review.case_id);
     if (routedCase?.department_id != null) {
       authorized = await isPicOfDepartment(session.userId, routedCase.department_id);
     }

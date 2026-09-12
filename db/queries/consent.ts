@@ -1,4 +1,5 @@
 import { get, all, run } from "../client";
+import { customersFor, type ReadScope } from "@/lib/customerScope";
 import { CONSENT_PURPOSES, type ConsentPurpose, type ConsentStatus } from "@/lib/constants";
 
 export interface ConsentRow {
@@ -70,8 +71,12 @@ export interface ConsentGapStats {
   pct: number; // percent WITHOUT marketing consent
 }
 
-export async function getConsentGapStats(): Promise<ConsentGapStats> {
-  const total = await get<{ n: number }>("SELECT COUNT(*) AS n FROM customers");
+export async function getConsentGapStats(
+  scope: ReadScope
+): Promise<ConsentGapStats> {
+  const total = await get<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM ${customersFor(scope)} c`
+  );
   const granted = await get<{ n: number }>(
     `SELECT COUNT(*) AS n FROM (
        SELECT c.customer_id FROM consents c
@@ -79,8 +84,9 @@ export async function getConsentGapStats(): Promise<ConsentGapStats> {
          SELECT customer_id, MAX(id) AS mid FROM consents
          WHERE purpose='MARKETING' GROUP BY customer_id
        ) latest ON c.id = latest.mid
+       JOIN ${customersFor(scope)} cust ON cust.id = c.customer_id
        WHERE c.status='GRANTED'
-     )`
+     ) g`
   );
   const totalN = total?.n ?? 0;
   const grantedN = granted?.n ?? 0;
@@ -94,10 +100,12 @@ export async function getConsentGapStats(): Promise<ConsentGapStats> {
 }
 
 /** For the admin governance panel: counts of current GRANTED per purpose. */
-export async function getConsentPurposeStats(): Promise<
-  { purpose: ConsentPurpose; granted: number; total: number }[]
-> {
-  const total = await get<{ n: number }>("SELECT COUNT(*) AS n FROM customers");
+export async function getConsentPurposeStats(
+  scope: ReadScope
+): Promise<{ purpose: ConsentPurpose; granted: number; total: number }[]> {
+  const total = await get<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM ${customersFor(scope)} c`
+  );
   const totalN = total?.n ?? 0;
   const out: { purpose: ConsentPurpose; granted: number; total: number }[] = [];
   for (const purpose of CONSENT_PURPOSES) {
@@ -108,8 +116,9 @@ export async function getConsentPurposeStats(): Promise<
            SELECT customer_id, MAX(id) AS mid FROM consents
            WHERE purpose=@p GROUP BY customer_id
          ) latest ON c.id = latest.mid
+         JOIN ${customersFor(scope)} cust ON cust.id = c.customer_id
          WHERE c.status='GRANTED'
-       )`,
+       ) g`,
       { p: purpose }
     );
     out.push({ purpose, granted: g?.n ?? 0, total: totalN });

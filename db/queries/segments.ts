@@ -1,5 +1,6 @@
 import { get, all, run } from "../client";
 import type { SqlValue } from "../client";
+import { customersFor, type ReadScope } from "@/lib/customerScope";
 import type {
   Tier,
   Brand,
@@ -45,7 +46,10 @@ export interface Segment {
   updated_at: string;
 }
 
-function segmentQuery(rule: SegmentRule): {
+function segmentQuery(
+  rule: SegmentRule,
+  scope: ReadScope
+): {
   from: string;
   where: string;
   params: Record<string, SqlValue>;
@@ -98,20 +102,28 @@ function segmentQuery(rule: SegmentRule): {
     clauses.push(rule.marketing_consent ? existsGranted : `NOT ${existsGranted}`);
   }
   return {
-    from: "FROM customers c LEFT JOIN customer_scores s ON s.customer_id = c.id",
+    from: `FROM ${customersFor(scope)} c LEFT JOIN customer_scores s ON s.customer_id = c.id`,
     where: clauses.length ? `WHERE ${clauses.join(" AND ")}` : "",
     params,
   };
 }
 
-export async function countSegmentMembers(rule: SegmentRule): Promise<number> {
-  const { from, where, params } = segmentQuery(rule);
+export async function countSegmentMembers(
+  rule: SegmentRule,
+  scope: ReadScope
+): Promise<number> {
+  const { from, where, params } = segmentQuery(rule, scope);
   const row = await get<{ n: number }>(`SELECT COUNT(*)::int AS n ${from} ${where}`, params);
   return row?.n ?? 0;
 }
 
-export function getSegmentMembers(rule: SegmentRule): Promise<{ id: number }[]> {
-  const { from, where, params } = segmentQuery(rule);
+/** The audience for a campaign launch — filtered to `scope` so a launch can
+ * never message a customer the launcher cannot see. */
+export function getSegmentMembers(
+  rule: SegmentRule,
+  scope: ReadScope
+): Promise<{ id: number }[]> {
+  const { from, where, params } = segmentQuery(rule, scope);
   return all<{ id: number }>(`SELECT c.id ${from} ${where}`, params);
 }
 
@@ -131,9 +143,10 @@ export async function createSegment(
   name: string,
   segmentType: SegmentType,
   rule: SegmentRule,
-  createdBy: number | null
+  createdBy: number | null,
+  scope: ReadScope
 ): Promise<number> {
-  const liveCount = await countSegmentMembers(rule);
+  const liveCount = await countSegmentMembers(rule, scope);
   return run(
     `INSERT INTO segments (name, segment_type, rule_json, live_count, created_by)
      VALUES (@name, @type, @rule, @count, @by) RETURNING id`,
@@ -143,10 +156,13 @@ export async function createSegment(
 
 /** Re-runs the count against current data — segment membership can drift as
  * customers earn points, churn score changes, etc. */
-export async function refreshSegmentCount(id: number): Promise<number> {
+export async function refreshSegmentCount(
+  id: number,
+  scope: ReadScope
+): Promise<number> {
   const seg = await getSegment(id);
   if (!seg) return 0;
-  const count = await countSegmentMembers(parseSegmentRule(seg));
+  const count = await countSegmentMembers(parseSegmentRule(seg), scope);
   await run("UPDATE segments SET live_count = @count, updated_at = now() WHERE id = @id", { id, count });
   return count;
 }

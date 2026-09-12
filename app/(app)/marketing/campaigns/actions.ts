@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/session";
+import { getCustomerScope } from "@/lib/customerScope";
 import { campaignSchema, firstError, type FormState } from "@/lib/validation";
 import {
   createCampaign,
@@ -41,7 +42,9 @@ export async function createCampaignAction(
 
 export async function launchCampaignAction(id: number): Promise<FormState> {
   const session = await requireSession();
-  const result = await launchCampaign(id);
+  // The launcher's scope filters the audience — a launch can never message a
+  // customer outside it.
+  const result = await launchCampaign(id, await getCustomerScope());
   if (!result.ok) {
     return {
       error:

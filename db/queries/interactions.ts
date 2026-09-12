@@ -1,4 +1,5 @@
 import { all, batch } from "../client";
+import { customersFor, type ReadScope } from "@/lib/customerScope";
 import type { InteractionType } from "@/lib/constants";
 
 export interface Interaction {
@@ -18,6 +19,7 @@ export interface InteractionWithCustomer extends Interaction {
 }
 
 export function listRecentInteractions(
+  scope: ReadScope,
   limit = 12
 ): Promise<InteractionWithCustomer[]> {
   return all<InteractionWithCustomer>(
@@ -25,7 +27,7 @@ export function listRecentInteractions(
        (c.first_name || ' ' || c.last_name) AS customer_name,
        c.member_code
      FROM interactions i
-     JOIN customers c ON c.id = i.customer_id
+     JOIN ${customersFor(scope)} c ON c.id = i.customer_id
      ORDER BY i.occurred_at DESC
      LIMIT ?`,
     [limit]

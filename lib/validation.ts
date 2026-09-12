@@ -25,21 +25,44 @@ import {
   BEHAVIOR_CLASSES,
   CHANNEL_AFFINITIES,
   CAMPAIGN_TYPES,
+  PAYMENT_TERMS,
 } from "./constants";
 
-export const customerSchema = z.object({
+// Fields shared by both customer types. cust_type is the discriminator and so
+// lives on each branch below, not here.
+const customerBaseFields = {
   first_name: z.string().min(1, "First name is required"),
   last_name: z.string().min(1, "Last name is required"),
   email: z.string().email().or(z.literal("")).optional(),
   phone: z.string().optional(),
   brand: z.enum(BRANDS),
-  cust_type: z.enum(CUST_TYPES),
   register_channel: z.string().optional(),
   data_level: z.enum(DATA_LEVELS),
   consent_mode: z.enum(["all", "no_marketing"]).default("all"),
   // YYYY-MM-DD, used only for month+day birthday matching — see runBirthdayRewards.
   birth_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD").or(z.literal("")).optional(),
-});
+};
+
+// A discriminated union rather than one flat object with optional fields:
+// firstError() only ever surfaces issues[0], and with a union Zod reports
+// issues from the MATCHED branch, so a B2B submission missing a company field
+// yields that field's own message instead of a generic union mismatch. Every
+// per-field message below must therefore stand on its own out of context.
+export const customerSchema = z.discriminatedUnion("cust_type", [
+  z.object({ ...customerBaseFields, cust_type: z.literal("B2C") }),
+  z.object({
+    ...customerBaseFields,
+    cust_type: z.literal("B2B"),
+    company_name: z.string().min(1, "Company name is required for a B2B customer"),
+    billing_address: z.string().min(1, "Billing address is required for a B2B customer"),
+    payment_terms: z.enum(PAYMENT_TERMS, {
+      message: "Select payment terms for the B2B customer",
+    }),
+    company_branch_code: z.string().optional(),
+    contact_person: z.string().optional(),
+    credit_limit: z.coerce.number().min(0, "Credit limit cannot be negative").default(0),
+  }),
+]);
 
 export const productSchema = z.object({
   sku: z.string().min(1, "SKU is required"),

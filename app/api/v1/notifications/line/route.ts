@@ -2,6 +2,7 @@ import { requireApiAuth, jsonError, jsonOk } from "@/lib/apiAuth";
 import { apiNotificationSchema } from "@/lib/apiSchemas";
 import { firstError } from "@/lib/validation";
 import { getCustomer } from "@/db/queries/customers";
+import { SYSTEM_SCOPE } from "@/lib/customerScope";
 import { hasMarketingConsent } from "@/db/queries/consent";
 import { createInteraction } from "@/db/queries/interactions";
 
@@ -23,7 +24,7 @@ export async function POST(req: Request) {
   const parsed = apiNotificationSchema.safeParse(body);
   if (!parsed.success) return jsonError(400, "VALIDATION_ERROR", firstError(parsed.error));
 
-  const member = await getCustomer(parsed.data.customer_id);
+  const member = await getCustomer(SYSTEM_SCOPE, parsed.data.customer_id);
   if (!member) return jsonError(404, "NOT_FOUND", "Member not found.");
 
   if (!(await hasMarketingConsent(parsed.data.customer_id))) {

@@ -1,4 +1,5 @@
 import { get, all, batch } from "../client";
+import { customersFor, SYSTEM_SCOPE, type ReadScope } from "@/lib/customerScope";
 import { getNbaForCustomer } from "./insights";
 import {
   classifyCustomer,
@@ -76,7 +77,9 @@ export interface ClassificationStats {
  * the same disagreement used to exist (this rollup and the now-removed
  * RECLASSIFY_SUGGESTION insight); this is the one source of truth.
  */
-export async function getClassificationStats(): Promise<ClassificationStats> {
+export async function getClassificationStats(
+  scope: ReadScope
+): Promise<ClassificationStats> {
   const row = await get<ClassificationStats>(
     `SELECT
        COUNT(*)::int AS scored,
@@ -87,7 +90,8 @@ export async function getClassificationStats(): Promise<ClassificationStats> {
           AND s.behavior_class NOT IN ('CONSUMER','HORECA','INSTITUTIONAL')
          THEN 1 ELSE 0 END), 0)::int AS trade,
        COALESCE(SUM(CASE WHEN s.disagreement_flag = 1 THEN 1 ELSE 0 END), 0)::int AS reclassify
-     FROM customer_scores s`
+     FROM customer_scores s
+     JOIN ${customersFor(scope)} c ON c.id = s.customer_id`
   );
   return row ?? { scored: 0, contested: 0, horeca: 0, trade: 0, reclassify: 0 };
 }
@@ -140,7 +144,7 @@ export async function recomputeScores(): Promise<{ scored: number }> {
             COALESCE(EXTRACT(DAY FROM (now() - MAX(t.tx_date::timestamptz)))::int, 9999) AS recency_days,
             COUNT(t.id)::int AS frequency,
             COALESCE(SUM(t.amount_thb), 0) AS monetary
-       FROM customers c
+       FROM ${customersFor(SYSTEM_SCOPE)} c
        LEFT JOIN transactions t ON t.customer_id = c.id
       GROUP BY c.id, c.cust_type`
   );
@@ -216,7 +220,7 @@ export async function recomputeScores(): Promise<{ scored: number }> {
     id: number;
     tax_entity_type: string | null;
     institutional_override: number;
-  }>(`SELECT id, tax_entity_type, institutional_override FROM customers`);
+  }>(`SELECT id, tax_entity_type, institutional_override FROM ${customersFor(SYSTEM_SCOPE)} c`);
   const identityByCustomer = new Map(identityRows.map((r) => [r.id, r]));
 
   // Tier 2 — dealer anchor.

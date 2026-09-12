@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCustomer } from "@/db/queries/customers";
+import { getCustomerScope } from "@/lib/customerScope";
 import { getLoyaltySummary, listRewards } from "@/db/queries/loyalty";
 import { getCustomerTimeline } from "@/db/queries/transactions";
 import { getCurrentConsents, listConsentHistory } from "@/db/queries/consent";
@@ -62,7 +63,10 @@ export default async function CustomerDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const customer = await getCustomer(Number(id));
+  const scope = await getCustomerScope();
+  // Out of the viewer's department scope resolves to undefined here — a 404,
+  // indistinguishable from a member that does not exist.
+  const customer = await getCustomer(scope, Number(id));
   if (!customer) notFound();
 
   const [
@@ -85,9 +89,9 @@ export default async function CustomerDetailPage({
     listConsentHistory(customer.id),
     getNbaForCustomer(customer.id),
     listRewards({ availableOnly: true }),
-    listCases({ customerId: customer.id }),
+    listCases(scope, { customerId: customer.id }),
     getCustomerScore(customer.id),
-    getLinksForCustomer(customer.id),
+    getLinksForCustomer(scope, customer.id),
     getDistributorsForCustomer(customer.id),
     listUnlinkedDistributors(),
     getPendingReviewForCustomer(customer.id),

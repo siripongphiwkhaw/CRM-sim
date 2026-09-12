@@ -202,6 +202,33 @@ async function main(opts: Options): Promise<void> {
     const firstName = faker.person.firstName();
     const lastName = faker.person.lastName();
 
+    // A B2B row now needs the company profile the DB CHECK requires.
+    const b2b =
+      custType === "B2B"
+        ? {
+            company_name: `${faker.company.name()} ${faker.helpers.arrayElement([
+              "Co., Ltd.",
+              "Trading",
+              "Foodservice",
+              "Group",
+            ])}`,
+            company_branch_code: faker.helpers.weightedArrayElement([
+              { value: "00000", weight: 8 },
+              { value: faker.string.numeric(5), weight: 2 },
+            ]),
+            billing_address: faker.location.streetAddress({ useFullAddress: true }),
+            payment_terms: faker.helpers.arrayElement([
+              "NET15",
+              "NET30",
+              "NET30",
+              "NET60",
+              "CASH",
+            ] as const),
+            contact_person: faker.person.fullName(),
+            credit_limit: faker.number.int({ min: 50_000, max: 2_000_000 }),
+          }
+        : {};
+
     const customerId = await createCustomer({
       first_name: firstName,
       last_name: lastName,
@@ -223,6 +250,7 @@ async function main(opts: Options): Promise<void> {
         .birthdate({ min: 18, max: 72, mode: "age" })
         .toISOString()
         .slice(0, 10),
+      ...b2b,
     });
 
     for (let p = 0; p < purchaseCount; p++) {

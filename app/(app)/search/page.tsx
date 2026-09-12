@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listCustomers } from "@/db/queries/customers";
+import { getCustomerScope } from "@/lib/customerScope";
 import { listProducts } from "@/db/queries/products";
 import { listDistributors } from "@/db/queries/distributors";
 import { listOrders } from "@/db/queries/orders";
@@ -15,10 +16,11 @@ export default async function SearchPage({
 }) {
   const { q } = await searchParams;
   const query = (q ?? "").trim();
+  const scope = await getCustomerScope();
 
   const [customers, products, distributors, orders] = query
     ? await Promise.all([
-        listCustomers({ search: query }),
+        listCustomers(scope, { search: query }),
         listProducts({ search: query }),
         listDistributors({ search: query }),
         listOrders(), // order numbers are matched client-side below (small dataset)

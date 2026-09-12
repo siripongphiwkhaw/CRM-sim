@@ -709,4 +709,257 @@ CREATE INDEX IF NOT EXISTS classification_reviews_status ON customer_classificat
 -- disagreement recurs — unlike identity links, this signal can flip back on.
 CREATE UNIQUE INDEX IF NOT EXISTS classification_reviews_open_customer
   ON customer_classification_reviews(customer_id) WHERE status = 'PENDING';
+
+-- ==========================================================================
+-- B2B master data, sales documents, and SAP-shaped material/stock model.
+--
+-- Everything below is appended at the tail deliberately: a CREATE INDEX or
+-- ADD CONSTRAINT may only follow the ADD COLUMN that creates its column, and
+-- on a live database every CREATE TABLE further up this file is a silent
+-- no-op. scripts/verify-schema.ts enforces that ordering statically.
+-- ==========================================================================
+
+-- Internal stocking locations. A plant (SAP WERKS) is where stock physically
+-- sits; a distributor is an external trade partner who owns stock. Both
+-- dimensions live on the ledger because they answer different questions.
+CREATE TABLE IF NOT EXISTS plants (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  plant_code TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  address TEXT,
+  created_at TEXT NOT NULL DEFAULT (now())
+);
+
+-- Storage location (SAP LGORT), unique within its plant.
+CREATE TABLE IF NOT EXISTS storage_locations (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  plant_id INTEGER NOT NULL REFERENCES plants(id) ON DELETE CASCADE,
+  sloc_code TEXT NOT NULL,
+  name TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (now()),
+  UNIQUE (plant_id, sloc_code)
+);
+
+-- Material descriptions (SAP MAKT). Additive only: products.name remains the
+-- default-language description that every existing join selects, and this
+-- table carries the per-language variants alongside it.
+CREATE TABLE IF NOT EXISTS material_descriptions (
+  product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  language TEXT NOT NULL CHECK (language IN ('EN','TH')),
+  description TEXT NOT NULL,
+  PRIMARY KEY (product_id, language)
+);
+
+-- Billing document header. The second half of the SO -> Billing chain: an
+-- order is the request, a billing document is the money owed for it.
+-- customer_id and distributor_id are both snapshots rather than derivations,
+-- for the same reason orders.customer_id is (see below) — a dealer can be
+-- unlinked from its member at any time without erasing who was invoiced.
+CREATE TABLE IF NOT EXISTS billing_documents (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  billing_number TEXT NOT NULL UNIQUE,
+  order_id INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+  customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+  distributor_id INTEGER REFERENCES distributors(id) ON DELETE SET NULL,
+  doc_type TEXT NOT NULL DEFAULT 'INVOICE' CHECK (doc_type IN ('INVOICE','CREDIT_NOTE')),
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','paid','cancelled')),
+  net_amount REAL NOT NULL DEFAULT 0,
+  tax_amount REAL NOT NULL DEFAULT 0,
+  gross_amount REAL NOT NULL DEFAULT 0,
+  payment_terms TEXT,
+  billing_date TEXT NOT NULL DEFAULT (now()),
+  due_date TEXT,
+  created_by INTEGER REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (now())
+);
+CREATE INDEX IF NOT EXISTS billing_documents_customer ON billing_documents(customer_id);
+CREATE INDEX IF NOT EXISTS billing_documents_order ON billing_documents(order_id);
+CREATE INDEX IF NOT EXISTS billing_documents_status ON billing_documents(status);
+
+-- Billing lines. Deliberately NOT transaction_items: that table is shaped for
+-- behavioural classification (pack_size) and is written by nothing, whereas
+-- these lines are an accounting record with a snapshotted price.
+CREATE TABLE IF NOT EXISTS billing_items (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  billing_id INTEGER NOT NULL REFERENCES billing_documents(id) ON DELETE CASCADE,
+  product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
+  description TEXT NOT NULL,
+  quantity INTEGER NOT NULL CHECK (quantity > 0),
+  unit_price REAL NOT NULL,
+  line_total REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS billing_items_billing ON billing_items(billing_id);
+
+-- B2B company profile, on the shared customers table. One table still serves
+-- both sides: these columns are simply NULL for a B2C member, and the
+-- conditional CHECK further down makes them mandatory only when
+-- cust_type = 'B2B'. tax_id_last4 (added earlier) joins the same required set.
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS company_name TEXT;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS company_branch_code TEXT;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS billing_address TEXT;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS payment_terms TEXT;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS contact_person TEXT;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS credit_limit REAL NOT NULL DEFAULT 0;
+CREATE INDEX IF NOT EXISTS customers_company_name ON customers(company_name);
+
+ALTER TABLE customers DROP CONSTRAINT IF EXISTS customers_payment_terms_check;
+ALTER TABLE customers ADD CONSTRAINT customers_payment_terms_check
+  CHECK (payment_terms IN ('CASH','NET7','NET15','NET30','NET60','NET90'));
+
+-- NOT VALID is load-bearing, not decoration. A validated CHECK is scanned
+-- against every existing row the instant the statement runs, and live
+-- databases already hold B2B rows created before these columns existed (see
+-- scripts/seed-volume.ts, ~18% B2B). Because this whole file runs as ONE
+-- transaction on every cold start, a failed scan would abort schema setup and
+-- ensureDatabase() would cache a rejected promise — every route 500s for the
+-- life of that server instance.
+--
+-- NOT VALID skips the back-scan but still enforces on every INSERT and on any
+-- UPDATE of an affected row: new B2B customers must be complete, legacy
+-- incomplete ones are grandfathered until someone edits them. The alternative
+-- was backfilling a synthetic company_name from the member's own first/last
+-- name, which manufactures fake master data to satisfy a constraint.
+ALTER TABLE customers DROP CONSTRAINT IF EXISTS customers_b2b_profile_check;
+ALTER TABLE customers ADD CONSTRAINT customers_b2b_profile_check
+  CHECK (
+    cust_type <> 'B2B' OR (
+      company_name IS NOT NULL AND company_name <> ''
+      AND billing_address IS NOT NULL AND billing_address <> ''
+      AND payment_terms IS NOT NULL
+    )
+  ) NOT VALID;
+
+-- Orders carry their own customer_id rather than deriving it through
+-- distributors.customer_id. That link is nullable, has no UNIQUE constraint,
+-- and is ON DELETE SET NULL — deriving would make a B2B customer's entire
+-- order history vanish the moment someone unlinks the dealer.
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_id INTEGER;
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_customer_fk;
+ALTER TABLE orders ADD CONSTRAINT orders_customer_fk
+  FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS orders_customer ON orders(customer_id);
+
+-- Idempotent by the IS NULL guard: matches nothing on later cold starts.
+UPDATE orders o SET customer_id = d.customer_id
+  FROM distributors d
+  WHERE d.id = o.distributor_id
+    AND o.customer_id IS NULL
+    AND d.customer_id IS NOT NULL;
+
+-- Material master, general data (SAP MARA). products is extended into this
+-- role rather than replaced by a parallel materials table: it is already the
+-- material master by function, and order_items, transaction_items,
+-- receipt_scan_lines, delivery_plans, inventory_transactions and billing_items
+-- all reference it. products.sku already carries MATNR's role.
+ALTER TABLE products ADD COLUMN IF NOT EXISTS material_type TEXT;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS material_group TEXT;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS base_uom TEXT NOT NULL DEFAULT 'EA';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS gross_weight REAL;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS net_weight REAL;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS weight_uom TEXT;
+CREATE INDEX IF NOT EXISTS products_material_group ON products(material_group);
+
+-- MMBE dimensions on the ledger. stock_type takes NOT NULL immediately: a
+-- column added WITH a default fills existing rows without a table rewrite, and
+-- UNRESTRICTED is the correct reading of every row written before stock types
+-- existed. plant_id/storage_location_id stay nullable and are backfilled
+-- below, so no existing row can violate the foreign keys added after them.
+ALTER TABLE inventory_transactions ADD COLUMN IF NOT EXISTS plant_id INTEGER;
+ALTER TABLE inventory_transactions ADD COLUMN IF NOT EXISTS storage_location_id INTEGER;
+ALTER TABLE inventory_transactions ADD COLUMN IF NOT EXISTS stock_type TEXT NOT NULL DEFAULT 'UNRESTRICTED';
+
+ALTER TABLE inventory_transactions DROP CONSTRAINT IF EXISTS inventory_stock_type_check;
+ALTER TABLE inventory_transactions ADD CONSTRAINT inventory_stock_type_check
+  CHECK (stock_type IN ('UNRESTRICTED','QUALITY_INSPECTION','BLOCKED','IN_TRANSIT'));
+
+-- The default location every pre-existing ledger row is backfilled onto.
+-- Seeded here rather than in db/seed.ts because seeding only runs on a first
+-- provision (empty users table), while the backfill below needs this row to
+-- exist on an already-populated database too.
+INSERT INTO plants (plant_code, name)
+  SELECT '1000', 'Primary Distribution Center'
+  WHERE NOT EXISTS (SELECT 1 FROM plants WHERE plant_code = '1000');
+
+INSERT INTO storage_locations (plant_id, sloc_code, name)
+  SELECT p.id, '0001', 'Main Warehouse'
+  FROM plants p
+  WHERE p.plant_code = '1000'
+    AND NOT EXISTS (
+      SELECT 1 FROM storage_locations s
+      WHERE s.plant_id = p.id AND s.sloc_code = '0001'
+    );
+
+UPDATE inventory_transactions
+  SET plant_id = (SELECT id FROM plants WHERE plant_code = '1000')
+  WHERE plant_id IS NULL;
+
+UPDATE inventory_transactions
+  SET storage_location_id = (
+    SELECT s.id FROM storage_locations s
+    JOIN plants p ON p.id = s.plant_id
+    WHERE p.plant_code = '1000' AND s.sloc_code = '0001'
+  )
+  WHERE storage_location_id IS NULL;
+
+ALTER TABLE inventory_transactions DROP CONSTRAINT IF EXISTS inventory_txn_plant_fk;
+ALTER TABLE inventory_transactions ADD CONSTRAINT inventory_txn_plant_fk
+  FOREIGN KEY (plant_id) REFERENCES plants(id) ON DELETE SET NULL;
+ALTER TABLE inventory_transactions DROP CONSTRAINT IF EXISTS inventory_txn_sloc_fk;
+ALTER TABLE inventory_transactions ADD CONSTRAINT inventory_txn_sloc_fk
+  FOREIGN KEY (storage_location_id) REFERENCES storage_locations(id) ON DELETE SET NULL;
+
+-- Covering index for the MMBE drill-down: material -> plant -> storage
+-- location -> stock type. MARD is presented as a query over this ledger, not
+-- stored as maintained balance columns — the ledger's whole point is that
+-- on-hand is always SUM(quantity) at read time with no drift.
+CREATE INDEX IF NOT EXISTS inventory_txn_mmbe
+  ON inventory_transactions(product_id, plant_id, storage_location_id, stock_type);
+
+-- ==========================================================================
+-- Department-scoped customer visibility.
+--
+-- A staff user's department decides which customers they can see: Digital
+-- Marketing sees B2C, Sales and Ingredient sees B2B, IT and Back Office
+-- variants see what their side sees. Admins always see everything. The
+-- resolution and enforcement live in lib/customerScope.ts; this is only the
+-- master-data column plus the seeded departments.
+--
+-- The column is NULLABLE on purpose: NULL means "never configured" and reads
+-- as ALL at resolution time. A NOT NULL DEFAULT 'ALL' could not tell an
+-- untouched row from a deliberate ALL, so the name-keyed backfill below would
+-- re-assert its verdict on every cold start and an admin could never widen a
+-- department again.
+-- ==========================================================================
+ALTER TABLE departments ADD COLUMN IF NOT EXISTS customer_scope TEXT;
+ALTER TABLE departments DROP CONSTRAINT IF EXISTS departments_customer_scope_check;
+ALTER TABLE departments ADD CONSTRAINT departments_customer_scope_check
+  CHECK (customer_scope IS NULL OR customer_scope IN ('B2C','B2B','ALL'));
+
+-- One-time backfill of the two departments this feature is actually about.
+-- Idempotent: the customer_scope IS NULL guard means an admin's later change is
+-- never overwritten.
+UPDATE departments SET customer_scope = 'B2C'
+  WHERE name = 'Digital Marketing' AND customer_scope IS NULL;
+UPDATE departments SET customer_scope = 'B2B'
+  WHERE name = 'Sales and Ingredient' AND customer_scope IS NULL;
+
+-- New departments. Em dash in the Back Office names, never '--': splitStatements
+-- (db/client.ts) strips '--' to end-of-line before splitting on ';', so a double
+-- hyphen inside a string literal would truncate the statement.
+INSERT INTO departments (name, description, customer_scope)
+  SELECT 'IT', 'Platform and data operations — sees both B2C and B2B.', 'ALL'
+  WHERE NOT EXISTS (SELECT 1 FROM departments WHERE name = 'IT');
+INSERT INTO departments (name, description, customer_scope)
+  SELECT 'Back Office — Digital Marketing',
+         'Back-office support for the consumer side — B2C only.', 'B2C'
+  WHERE NOT EXISTS (SELECT 1 FROM departments WHERE name = 'Back Office — Digital Marketing');
+INSERT INTO departments (name, description, customer_scope)
+  SELECT 'Back Office — Sales and Ingredient',
+         'Back-office support for the trade side — B2B only.', 'B2B'
+  WHERE NOT EXISTS (SELECT 1 FROM departments WHERE name = 'Back Office — Sales and Ingredient');
+
+-- The customer scope in force when a campaign was launched. Its audience
+-- snapshot is already filtered to this scope; the column records which one, so
+-- "why is this audience smaller than the segment" is answerable after the fact.
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS launch_scope TEXT;
 `;
