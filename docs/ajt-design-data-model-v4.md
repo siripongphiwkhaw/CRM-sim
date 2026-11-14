@@ -900,6 +900,7 @@ Rules the model must hold. "Clar." points at the section of AJT's clarification 
 | C15 | Brand and Business Unit use separate rule lists. Neither reads the other. | 2.2, rev. 3 | `resolve_bu()` and `resolve_sub_brand()` share no tables except the Material Group |
 | C16 | Each sub-brand sits under exactly one Business Unit: the BU its products resolve to. | Rev. 4 | `sub_brand_bu_current`; two or more BUs → `SUB_BRAND_BU_CONFLICT` exception |
 | C17 | The BU rule list is kept by the CRM team and approved by AJT. | Rev. 4 | `material_group_bu_mappings.mapping_status`, `approved_by`, trigger |
+| C18 | A Business Unit may have many Material Groups; a Material Group has one BU on any date. | Rev. 4 | `EXCLUDE` constraint per Material Group; no limit per BU |
 
 ### 9.2 Limitations
 
@@ -925,7 +926,16 @@ What the model cannot do, or does not know yet.
 ## 10. Business Unit solution design
 
 The Material Group → BU rule list is kept by the CRM team and approved by AJT
-(revision 4); for example Aminovital → H&N. AJT offered two solutions: derive BU when needed (1) or store it (2), and
+(revision 4); for example Aminovital → H&N. One BU can hold many Material Groups;
+a Material Group has one BU on any date (C18):
+
+| Material Group | Business Unit |
+|----------------|---------------|
+| Aminovital | H&N |
+| [another H&N group] | H&N |
+| MSG | [Seasoning BU] |
+
+AJT offered two solutions: derive BU when needed (1) or store it (2), and
 recommended a hybrid. This design uses:
 
 - **Products: derive (solution 1).** A product's BU is never stored. The view
@@ -1395,8 +1405,13 @@ ON CONFLICT (sub_brand_id, reason) WHERE status = 'OPEN' AND sub_brand_id IS NOT
 |--------|-------|
 | SAP Material Group (BU level) | Aminovital |
 | BU rule (CRM, AJT-approved) | Aminovital → H&N |
+| Another BU rule (same BU) | [another group] → H&N |
 | SAP deeper subgroup | [subgroup holding only AminoMOF] |
 | Sub-brand rule (CRM) | [subgroup] → AminoMOF |
 | Product | [AminoMOF material code], Material Group Aminovital |
 | Result | BU H&N; sub-brand AminoMOF; `sub_brand_bu_current`: AminoMOF → H&N |
 | SAP brand | Whatever its Material Pricing Group says; no BU above it |
+
+H&N holds more than one Material Group. AminoMOF stays under H&N even if its products
+come from two groups, as long as both groups map to H&N; it is flagged only when its
+groups map to different BUs.

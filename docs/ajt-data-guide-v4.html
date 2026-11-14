@@ -236,6 +236,7 @@ footer.foot { margin-top: 48px; padding-top: 18px; border-top: 1px solid var(--l
     <div class="example" aria-label="Worked example">
       <h3>Worked example from AJT</h3>
       <div class="exrow"><span class="exbox"><small>SAP product</small>AminoMOF item</span><span class="exarr">→</span><span class="exbox"><small>SAP Material Group</small>Aminovital</span><span class="exarr">→ BU rule (CRM, AJT-approved) →</span><span class="exbox"><small>Business Unit</small>H&amp;N</span></div>
+      <div class="exrow"><span class="exbox"><small>SAP Material Group</small>[another group]</span><span class="exarr">→ BU rule →</span><span class="exbox"><small>Business Unit</small>H&amp;N</span><span class="exarr">one BU can hold many groups</span></div>
       <div class="exrow"><span class="exbox"><small>SAP product</small>AminoMOF item</span><span class="exarr">→</span><span class="exbox"><small>Deeper SAP group</small>[AminoMOF group]</span><span class="exarr">→ sub-brand rule (CRM) →</span><span class="exbox"><small>Sub-brand</small>AminoMOF</span><span class="exarr">sits under H&amp;N</span></div>
       <div class="exrow"><span class="exbox"><small>SAP product</small>AminoMOF item</span><span class="exarr">→ Material Pricing Group →</span><span class="exbox"><small>SAP brand</small>[its SAP brand]</span><span class="exarr">nothing above it</span></div>
     </div>
@@ -340,11 +341,11 @@ const OBJ = {
   mapping: { name: "BU rule (mapping)", th: "กฎจับคู่กลุ่มวัสดุกับหน่วยธุรกิจ", own: ["CRM", "AJT"],
     what: "The CRM team’s rule list, approved by AJT, that says which Business Unit a Material Group belongs to, and from when. Example: Aminovital → H&N.",
     holds: [["Material Group and target BU", "material_group_bu_mappings"], ["Valid from and to", "valid_from, valid_to"], ["Status, approver and approval time", "mapping_status, approved_by, approved_at"]],
-    rules: ["Kept by the CRM team, approved by AJT", "Only one approved rule per group on any date", "An approved rule is never edited; a change closes it and starts a new one", "Starts as a draft until approved"],
+    rules: ["Kept by the CRM team, approved by AJT", "A BU can have many Material Groups; a group has one BU at a time", "Only one approved rule per group on any date", "An approved rule is never edited; a change closes it and starts a new one", "Starts as a draft until approved"],
     links: [["matgroup", "for group"], ["bu", "points to"]] },
   bu: { name: "Business Unit", th: "หน่วยธุรกิจ", own: ["CRM", "AJT"],
     what: "A CRM grouping of sales results, such as H&N (Health & Nutrition). It is reached only through the product’s Material Group.",
-    holds: [["BU code and name", "business_units.bu_code"]],
+    holds: [["BU code and name", "business_units.bu_code"], ["Its Material Groups (many), through BU rules", "material_group_bu_mappings"]],
     rules: ["Comes only from the approved BU rule", "Not a brand and not a channel", "Sub-brands sit under it; SAP brands do not", "A customer can buy from several BUs"],
     links: [["mapping", "set by"], ["subbrand", "groups sub-brands"], ["order", "recorded on order lines"]] }
 };
@@ -388,6 +389,7 @@ const RULES = [
   { area: "Business Unit", how: "check", text: "The BU rule list is kept by the CRM team and approved by AJT.", why: "The CRM owns the BU structure; AJT signs off each change." },
   { area: "Business Unit", how: "block", text: "Customer Group (channel) never decides BU. Brand never decides BU.", mustnot: true, why: "They describe other things." },
   { area: "Business Unit", how: "block", text: "Only one approved rule per Material Group on any date.", why: "A product can never fall into two BUs at once." },
+  { area: "Business Unit", how: "block", text: "A Business Unit can have many Material Groups; each group sits in one BU at a time.", why: "H&N holds Aminovital and other groups." },
   { area: "Business Unit", how: "block", text: "An approved rule is never edited. A change closes it and starts a new one.", why: "Past results keep the BU they had." },
   { area: "Business Unit", how: "block", text: "A product or order without a BU rule goes on the to-fix list. No BU is guessed.", why: "Wrong BUs are worse than missing ones." },
   { area: "Business Unit", how: "pending", text: "Which Material Group level is the approved one.", why: "Waiting for AJT to decide." },
