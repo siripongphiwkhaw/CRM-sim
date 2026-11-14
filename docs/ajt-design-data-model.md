@@ -10,6 +10,12 @@ deals, quotes, orders, cases, inventory, and loyalty appear only as FK stubs.
 **Status:** spec only. Nothing here is applied to `db/schema.ts`. Section 7 compares
 this model with the current repo schema.
 
+**Revision 2 (BU mapping clarification).** AJT clarified how Customer Group,
+Product, Pricing, Brand, and Business Unit relate. Section 9 lists the resulting
+conditions and limitations, section 10 is the Business Unit solution design, and
+section 11 maps AJT's acceptance criteria to the model. Columns and tables added for
+the clarification carry the `-- C` tag.
+
 ## 0. Method and legend
 
 Pages read:
@@ -28,6 +34,11 @@ Every column carries one tag in the DDL comments:
 
 - `-- O` **observed**: the field or value is shown on a screen.
 - `-- I` **inferred**: needed to make observed behaviour work (keys, audit columns, flags implied by UI text), but not shown.
+- `-- C` **clarification**: required by AJT's BU mapping clarification. The prototype has no screen for it.
+
+A comment of the form `joins table(column)` marks a **logical join**: the columns
+match by value, but there is deliberately no foreign key, so data that arrives
+before its master record is accepted and routed to an exception instead of rejected.
 
 Conventions (decided for this spec, not taken from the repo):
 
@@ -50,6 +61,7 @@ Conventions (decided for this spec, not taken from the repo):
 10. **SKU variants are described by attributes.** A product family (`FAM-AJI-MSG`) groups SKUs, and typed attributes (net weight in g, volume in ml, flavour, packaging, storage) tell them apart.
 11. **UoM conversion is per item.** Global UoMs only define quantity precision. "1 ลัง = 144 ซอง" (1 case = 144 sachets) is stored on the item, with its own barcode and gross weight.
 12. **Field-level history and PII-view logging** appear on both customers and products ("ทุกการแก้ไข และทุกครั้งที่มีคนเปิดดูข้อมูลส่วนบุคคล": every edit, and every time someone opens personal data).
+13. **Business Unit belongs to the product side, never the customer side** (AJT clarification). BU is resolved from an approved Material Group level of the product. SAP Customer Group is the customer's channel or classification. Customer and product meet only on a sales order line. The prototype shows no BU screen; the only trace is a "สมาชิกของ BU" (BU membership) column in the loyalty member list.
 
 ## 2. Customer domain
 
@@ -58,6 +70,7 @@ Conventions (decided for this spec, not taken from the repo):
 ```mermaid
 erDiagram
   customers ||--o{ customer_addresses : has
+  customers }o..o| sap_customer_groups : "channel (SAP, logical)"
   customers ||--o| customer_trade_terms : has
   customers ||--o{ customer_credit_snapshots : "SAP publishes"
   customers ||--o{ customer_trade_channels : sells_via
@@ -114,7 +127,8 @@ CREATE TABLE customers (
   name_en              TEXT,                         -- O "Somchai Phetcharat"
   tax_id_encrypted     TEXT,                         -- O masked "x-xxxx-xxxxx-37-2"; encrypt like lib/pii.ts
   tax_id_last_digits   TEXT,                         -- I needed for the mask without decrypting
-  sap_customer_code    TEXT UNIQUE,                  -- O "รหัสร้านค้า · ยังไม่มีรหัสจาก SAP"
+  sap_customer_code    TEXT UNIQUE,                  -- O "รหัสร้านค้า · ยังไม่มีรหัสจาก SAP"; customer identity key once SAP issues it
+  customer_group_code  TEXT,                         -- C SAP Customer Group = channel / classification, read-only; never a BU; joins sap_customer_groups(code)
   phone                TEXT,                         -- O company / shop phone
   email                TEXT,                         -- O
   website              TEXT,                         -- O
@@ -123,7 +137,7 @@ CREATE TABLE customers (
   occupation_id        INTEGER REFERENCES picklist_values(id),  -- O "เจ้าของกิจการ"
   industry_id          INTEGER REFERENCES picklist_values(id),  -- O set 'industries'
   industry_other_text  TEXT,                         -- O free text when "other" is picked
-  customer_group_id    INTEGER REFERENCES picklist_values(id),  -- O set 'customer-groups'
+  industry_subgroup_id INTEGER REFERENCES picklist_values(id),  -- O prototype set 'customer-groups' (factory sub-type); renamed so it is not confused with SAP Customer Group
   account_tier_id      INTEGER REFERENCES picklist_values(id),  -- O Key Account | General
   awareness_channel_id INTEGER REFERENCES picklist_values(id),  -- O "งานแสดงสินค้า / อีเวนต์"
   status               TEXT NOT NULL DEFAULT 'PENDING_DOCS'
@@ -361,6 +375,8 @@ consent is captured.
 erDiagram
   sellable_items ||--o| product_details : "kind = PRODUCT"
   sellable_items }o--o| brands : branded
+  sellable_items }o..o| sap_material_groups : "material group (logical)"
+  sap_prices }o--|| sellable_items : "material_code"
   sellable_items }o--|| product_groups : in
   sellable_items }o--|| uoms : base_uom
   sellable_items ||--o{ item_uoms : sold_in
@@ -464,12 +480,20 @@ CREATE TABLE sellable_items (
   is_active         BOOLEAN NOT NULL DEFAULT true,   -- O ใช้งาน / ไม่ใช้งาน
   source_system     TEXT NOT NULL DEFAULT 'LOCAL'
                     CHECK (source_system IN ('LOCAL','SAP','IMPORT')),  -- O "กรอกในระบบนี้" / "มาจาก SAP"
-  source_ref        TEXT,                            -- I SAP material number when synced
+  material_code     TEXT UNIQUE,                     -- C SAP material number: product and pricing key; NULL for services and CRM-only drafts
+  material_group_level TEXT,                         -- C hierarchy level as sent by SAP
+  material_group_code  TEXT,                         -- C used only to resolve BU; joins sap_material_groups(code)
   updated_by        INTEGER REFERENCES users(id),    -- O "สมหญิง ผู้ดูแลสินค้า"
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK (source_system <> 'SAP' OR material_code IS NOT NULL),           -- C SAP items always carry the key
+  CHECK (kind = 'PRODUCT' OR material_code IS NULL),                     -- C services have no SAP material (limitation L1)
+  CHECK (material_group_code IS NULL OR material_group_level IS NOT NULL)
 );
 CREATE INDEX sellable_items_group ON sellable_items(product_group_id);
+CREATE INDEX sellable_items_material_group ON sellable_items(material_group_level, material_group_code);
+-- brand_id is a marketing attribute only. It is not on the path to Business Unit (section 10).
+-- product_group_id is the CRM's own grouping (lead routing, reports). It is not the SAP Material Group.
 CREATE INDEX sellable_items_brand ON sellable_items(brand_id);
 -- "ความครบของราคา" (price coverage: มีราคาที่ใช้ได้ has a usable price / ราคาไม่ครบ some units unpriced / ยังไม่มีราคา no price)
 -- is derived from item_uoms × active price_list_rows. Not stored.
@@ -524,8 +548,8 @@ CREATE TABLE price_lists (
   name_th            TEXT NOT NULL,                  -- O
   description        TEXT,                           -- O
   currency           CHAR(3) NOT NULL,               -- O THB / USD
-  scope_type         TEXT NOT NULL CHECK (scope_type IN ('ALL','CUSTOMER_GROUP','CUSTOMER')),  -- O "ทุกคน" / "กลุ่มลูกค้า"; CUSTOMER is I
-  scope_customer_group_id INTEGER REFERENCES picklist_values(id),  -- O "ครัวกลางและรับจ้างผลิต"
+  scope_type         TEXT NOT NULL CHECK (scope_type IN ('ALL','INDUSTRY_SUBGROUP','CUSTOMER')),  -- O "ทุกคน" / "กลุ่มลูกค้า"; CUSTOMER is I
+  scope_industry_subgroup_id INTEGER REFERENCES picklist_values(id),  -- O "ครัวกลางและรับจ้างผลิต"; CRM picklist, never SAP customer_group_code (limitation L3)
   scope_customer_id  INTEGER REFERENCES customers(id),             -- I
   valid_from         DATE NOT NULL,                  -- O
   valid_to           DATE,                           -- O NULL = open-ended "1 ม.ค. 2569 →"
@@ -537,9 +561,11 @@ CREATE TABLE price_lists (
   created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (list_code, version),
   CHECK (valid_to IS NULL OR valid_to >= valid_from),
-  CHECK ((scope_type = 'CUSTOMER_GROUP') = (scope_customer_group_id IS NOT NULL)),
+  CHECK ((scope_type = 'INDUSTRY_SUBGROUP') = (scope_industry_subgroup_id IS NOT NULL)),
   CHECK ((scope_type = 'CUSTOMER') = (scope_customer_id IS NOT NULL))
 );
+-- price_lists are CRM-local lists (source "กรอกในระบบนี้"). Prices published by SAP live in
+-- sap_prices (section 10), keyed by material_code. Which one a quote uses is open question 9.
 -- Overlapping active lists are allowed but flagged ("ช่วงเวลาซ้อนกับรายการราคาที่ใช้อยู่" overlaps an active list, on PL-0012).
 
 -- Tiered: several rows for the same (item, uom) with rising min_qty.
@@ -603,6 +629,34 @@ CREATE TABLE picklist_values (
   UNIQUE (set_id, code)
 );
 
+-- SAP reference hierarchies and the BU master (AJT clarification, section 10).
+-- Created here because customers and sellable_items refer to them.
+CREATE TABLE sap_customer_groups (
+  id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  level       TEXT NOT NULL,            -- C SAP Customer Group hierarchy level
+  code        TEXT NOT NULL,            -- C channel / classification code
+  name        TEXT NOT NULL,            -- C
+  parent_id   INTEGER REFERENCES sap_customer_groups(id),  -- C
+  synced_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (level, code)
+);
+CREATE TABLE sap_material_groups (
+  id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  level       TEXT NOT NULL,            -- C SAP Material Group hierarchy level
+  code        TEXT NOT NULL,            -- C
+  name        TEXT NOT NULL,            -- C
+  parent_id   INTEGER REFERENCES sap_material_groups(id),  -- C
+  synced_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (level, code)
+);
+CREATE TABLE business_units (
+  id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  bu_code     TEXT NOT NULL UNIQUE,     -- C AJT Business Unit identifier; not a brand, not a channel
+  name_th     TEXT NOT NULL,            -- C
+  name_en     TEXT,                     -- C
+  is_active   BOOLEAN NOT NULL DEFAULT true
+);
+
 CREATE TABLE payment_terms (
   id          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   code        TEXT NOT NULL UNIQUE,     -- O 'credit-30'
@@ -663,7 +717,7 @@ Picklist sets seen inside this scope (54 exist in total):
 | Set code | Thai name | Used by |
 |----------|-----------|---------|
 | `industries` | กลุ่มอุตสาหกรรม | customers.industry_id |
-| `customer-groups` | กลุ่มลูกค้า | customers.customer_group_id, price_lists scope |
+| `customer-groups` | กลุ่มลูกค้า (factory sub-type under industry) | customers.industry_subgroup_id, price_lists scope. Not SAP Customer Group, which is `sap_customer_groups`. |
 | `account-tiers` | ระดับลูกค้า (Key Account, General) | customers.account_tier_id |
 | `channels` | ช่องทางการค้าและประเภทธุรกิจลูกค้า (hierarchical) | customer_trade_channels |
 | `awareness-channels` | ช่องทางที่รู้จักเรา | customers.awareness_channel_id |
@@ -695,7 +749,9 @@ belong to the B2C/CDP side and are not modelled here.
 | ข้อมูลลูกค้า | เบอร์โทรบริษัท / ร้านค้า, อีเมล, เว็บไซต์ | customers.phone, email, website |
 | ข้อมูลลูกค้า | รหัสร้านค้า (SAP) | customers.sap_customer_code |
 | ข้อมูลลูกค้า | วันเกิด, เพศ, อาชีพ | customers.birth_date, gender, occupation_id |
-| ข้อมูลลูกค้า | กลุ่มอุตสาหกรรม, กลุ่มลูกค้า | customers.industry_id, customer_group_id |
+| ข้อมูลลูกค้า | กลุ่มอุตสาหกรรม, กลุ่มลูกค้า | customers.industry_id, industry_subgroup_id |
+| ข้อมูลลูกค้า | รหัสร้านค้า (SAP) | customers.sap_customer_code (identity key) |
+| (no screen) | SAP Customer Group | customers.customer_group_code → sap_customer_groups |
 | ข้อมูลลูกค้า | ประเภทธุรกิจลูกค้า | customer_trade_channels (primary).business_type_id |
 | ข้อมูลลูกค้า | ช่องทางที่รู้จักเรา | customers.awareness_channel_id |
 | ที่อยู่และสาขา | สำนักงานใหญ่, รหัสสาขา, ที่อยู่, ผู้รับสินค้า | customer_addresses |
@@ -722,9 +778,12 @@ belong to the B2C/CDP side and are not modelled here.
 | Product | ราคา (read-only) | price_list_rows via active price_lists |
 | Product | คงคลัง | stock_snapshots |
 | Product | ที่มา | sellable_items.source_system |
+| (no screen) | SAP material, Material Group | sellable_items.material_code, material_group_level, material_group_code |
+| (no screen) | Business Unit | resolved by item_bu_current (section 10), never stored on the item |
 | Price list | รหัสรายการราคา, เวอร์ชัน, สกุลเงิน, ขอบเขต, ช่วงเวลา, สถานะ | price_lists.* |
 | Price list | ความพร้อมก่อนเปิดใช้ | price_lists.readiness_snapshot |
 | Price list | สิ่งที่ตั้งราคา, หน่วยขาย, จำนวนขั้นต่ำ, ราคาต่อหน่วย | price_list_rows.* |
+| (no screen) | SAP price | sap_prices (keyed by material_code) |
 
 Values computed at read time, not stored: price coverage, total paid / order
 count / average purchase cycle (from orders), open cases count, points balance
@@ -755,7 +814,10 @@ count / average purchase cycle (from orders), open cases count, points balance
 | KYC documents | none | **Missing.** |
 | source-system IDs | `line_user_id`, `referral_code` only | **Missing** generic table. |
 | distributors | separate table, optional `customer_id` | Design has no distributor entity. Dealers are B2B customers with a trade channel. Candidate to fold in. |
-| products | `products` (sku, name, brand text, category text, unit_price, reorder_point, image_url, SAP fields `material_type`, `material_group`, `base_uom` text, weights) | **Reshape** into `sellable_items`. The `brand`, `category`, and `base_uom` columns become FKs. The `unit_price` column moves to price lists. The `reorder_point` column belongs to inventory. |
+| products | `products` (sku, name, brand text, category text, unit_price, reorder_point, image_url, SAP fields `material_type`, `material_group`, `base_uom` text, weights) | **Reshape** into `sellable_items`. The `brand`, `category`, and `base_uom` columns become FKs. The `unit_price` column moves to price lists. The `reorder_point` column belongs to inventory. `sku` becomes `material_code` for SAP items, and `material_group` splits into level + code. |
+| Business Unit | none. `customers.brand` and `transactions.brand` exist but brand is not BU | **Missing:** business_units, sap_material_groups, material_group_bu_mappings, bu_mapping_exceptions. Do not reuse `brand` as BU. |
+| SAP Customer Group | none (`cust_type` is B2B/B2C, `customer_scores.behavior_class` is inferred) | **Missing:** customers.customer_group_code + sap_customer_groups. Do not derive it from `behavior_class`. |
+| sales order bridge | `orders` / `order_items` (CRM self-ordering, keyed to distributors), `billing_documents` | **Different.** The BU bridge needs SAP sales order lines with `material_code` and BU lineage. Keep `orders` for CRM ordering; add the SAP order stubs or extend `order_items` with lineage. |
 | material_descriptions (EN/TH) | separate table | Design shows only TH name + EN name. Fold into `name_en`, or keep the table if more languages are needed. |
 | services | none | **Missing** (`kind = 'SERVICE'`). |
 | UoM conversion | single `base_uom` | **Missing:** uoms + item_uoms. |
@@ -773,3 +835,325 @@ count / average purchase cycle (from orders), open cases count, points balance
 5. **Contact owner override.** The UI has "จัดการผู้ดูแล" (manage owners) on contacts, but the shown owner is inherited. Is there an override table?
 6. **Multi-currency.** A USD list exists. Does a customer have a currency, or is it chosen per quote?
 7. **Service ↔ brand.** `SV-1002` shows a brand and `SV-1001` shows "ไม่ระบุแบรนด์" (no brand), so brand is nullable for both kinds. Confirm.
+8. **Approved Material Group level.** Which SAP hierarchy level does AJT map to BU? The model keeps `material_group_level` as data, so any level works, but a product carries only one level today.
+9. **SAP price vs CRM price list.** When both an SAP price and a CRM-local price list cover the same material, which one does a quote use?
+10. **Group-scoped pricing.** Does an SAP condition table really price by Customer Group (for example a central-kitchen price)? If yes, `sap_prices` gets a `customer_group_code` condition column. If no, the prototype's group-scoped list stays CRM-local.
+11. **Service BU.** Should services ever count toward a BU? If yes, AJT must say how (section 9, L1).
+12. **SAP client scope.** Are `sap_customer_code` and `material_code` unique across all SAP clients? If not, both keys widen to `(source_system, sap_client, code)`.
+13. **Restating history.** When AJT remaps a Material Group, do past order lines keep their BU (default here) or get restated?
+
+## 9. Conditions and limitations (BU mapping clarification)
+
+### 9.1 Conditions
+
+Rules the model must hold. "Clar." points at the section of AJT's clarification document.
+
+| # | Condition | Clar. | Enforced by |
+|---|-----------|-------|-------------|
+| C1 | `sap_customer_code` is the customer identity key. | 2.1 | `customers.sap_customer_code UNIQUE` |
+| C2 | `material_code` is the product and pricing key. | 2.2, 2.3 | `sellable_items.material_code UNIQUE`; `sap_prices.material_code` FK |
+| C3 | SAP Customer Group is channel or classification only. It is never stored or read as `bu_code` and never used to derive Brand. | 2.1 | Column named `customer_group_code`; no FK or join from it to product, brand, or BU |
+| C4 | Business Unit comes only from the approved Material Group → BU mapping. Brand is not on the path. | 2.2, 2.4 | `material_group_bu_mappings`; `item_bu_current` and `resolve_bu()` read nothing else |
+| C5 | No key between the customer side and the product side. | 3 | No FK between customers / sap_customer_groups and sellable_items / sap_material_groups / business_units |
+| C6 | Customer ↔ BU exists only through sales order lines. | 4 | Report query joins header → line → lineage |
+| C7 | A customer can buy from many BUs. | 9 | BU sits on the order line, not the customer |
+| C8 | Approved mappings for one (level, code) never overlap in time. | 5.3 | `EXCLUDE USING gist` on the date range |
+| C9 | An approved mapping is never edited in place. A remap closes the old row and adds a new one. | 5.3, 6 | `guard_bu_mapping` trigger |
+| C10 | An unmapped Material Group goes to an exception queue. A BU is never guessed. | 5.3, 9 | `bu_mapping_exceptions`; resolution returns no row instead of a default |
+| C11 | A stored `bu_code` on an order line carries its lineage and must match the mapping it came from. | 5.5, 6 | Lineage columns all-or-none; composite FK `(bu_mapping_id, bu_id)` |
+| C12 | Customer Group is not part of any pricing key unless SAP sends it as a pricing condition. | 2.3 | `sap_prices` has no customer group column (open question 10) |
+
+### 9.2 Limitations
+
+What the model cannot do, or does not know yet.
+
+| # | Limitation | Effect | Way out |
+|---|-----------|--------|---------|
+| L1 | Services (`SV-xxxx`) have no SAP material and no Material Group. | Services resolve to no BU (`bu_status = NOT_APPLICABLE`) and never raise an exception. BU revenue reports exclude service lines. | AJT decides (open question 11). |
+| L2 | Products created in the CRM before SAP knows them have no `material_code`. | No SAP price, no BU (`MISSING_MATERIAL_CODE` exception) until SAP sync fills the key. | Fill `material_code` on first SAP sync; the exception closes on the next run. |
+| L3 | The prototype's group-scoped price list (`PL-SEASONING-MT`) is CRM-local and keyed by the CRM industry sub-group, not SAP Customer Group. | It is not an SAP pricing condition and cannot be sent to SAP as one. | Confirm an SAP condition table (open question 10). |
+| L4 | A customer has no "home" BU. | Customer-by-BU appears only after the customer has order lines. A new customer belongs to no BU. | A non-transactional BU ownership needs its own governed table (clar. 11). Not modelled. |
+| L5 | The approved Material Group level is not stated. | One level per product is assumed. A product mapped at two levels would need a precedence rule. | Open question 8. |
+| L6 | SAP client scope of codes is unknown. | Single-client uniqueness is assumed for both keys. | Open question 12. |
+| L7 | The BU tables are not observed in the prototype. | Field names and statuses come from the clarification, not from screens. | Validate with AJT before build. |
+| L8 | Logical joins (customer group, material group, order material) have no FK. | Typos in incoming codes are accepted and only caught by the exception queue. | Monitor open exceptions; they are the data-quality signal. |
+| L9 | The mapping is effective-dated by calendar date only. | Two remaps on the same day cannot both be approved. | Acceptable for organizational changes; use `DRAFT` for same-day corrections. |
+
+## 10. Business Unit solution design
+
+AJT offered two solutions: derive BU when needed (1) or store it (2), and
+recommended a hybrid. This design uses:
+
+- **Products: derive (solution 1).** A product's BU is never stored. The view
+  `item_bu_current` resolves it on read. The product master is a few hundred rows,
+  so the join is cheap, and a remap shows up immediately.
+- **Order lines: store with lineage (solution 2).** Each line keeps `bu_id`, the
+  `bu_mapping_id` it came from, the date used, and when it was resolved. History does
+  not move when AJT remaps a group. Reprocessing is an explicit step.
+
+```mermaid
+erDiagram
+  customers ||--o{ sales_order_headers : "sap_customer_code"
+  sales_order_headers ||--o{ sales_order_lines : contains
+  sales_order_lines }o..o| sellable_items : "material_code (logical)"
+  sellable_items }o..o| sap_material_groups : "level + code (logical)"
+  sap_material_groups ||--o{ material_group_bu_mappings : "mapped by"
+  material_group_bu_mappings }o--|| business_units : "to"
+  sales_order_lines }o--o| material_group_bu_mappings : "lineage"
+  sales_order_lines }o--o| business_units : "resolved BU"
+  sap_prices }o--|| sellable_items : "material_code"
+  customers }o..o| sap_customer_groups : "channel only"
+```
+
+Customer Group sits on the customer side only. The only path from a customer to a
+BU runs through order lines.
+
+### 10.1 DDL
+
+```sql
+CREATE EXTENSION IF NOT EXISTS btree_gist;  -- for the no-overlap constraint
+
+-- Governed Material Group -> BU mapping. Effective-dated; valid_to is inclusive.
+CREATE TABLE material_group_bu_mappings (
+  id                   INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  material_group_level TEXT NOT NULL,              -- C
+  material_group_code  TEXT NOT NULL,              -- C
+  business_unit_id     INTEGER NOT NULL REFERENCES business_units(id),  -- C
+  valid_from           DATE NOT NULL,              -- C
+  valid_to             DATE,                       -- C NULL = open-ended
+  mapping_status       TEXT NOT NULL DEFAULT 'DRAFT'
+                       CHECK (mapping_status IN ('DRAFT','APPROVED','RETIRED')),  -- C
+  approved_by          INTEGER REFERENCES users(id),  -- C
+  approved_at          TIMESTAMPTZ,                -- C
+  note                 TEXT,                       -- I reason for the remap
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+  FOREIGN KEY (material_group_level, material_group_code) REFERENCES sap_material_groups(level, code),
+  UNIQUE (material_group_level, material_group_code, valid_from),
+  UNIQUE (id, business_unit_id),                   -- target of the order-line lineage FK
+  CHECK (valid_to IS NULL OR valid_to >= valid_from),
+  CHECK (mapping_status <> 'APPROVED' OR (approved_by IS NOT NULL AND approved_at IS NOT NULL)),
+  EXCLUDE USING gist (material_group_level WITH =, material_group_code WITH =,
+    daterange(valid_from, valid_to, '[]') WITH &&) WHERE (mapping_status = 'APPROVED')
+);
+
+-- C9: an approved mapping is history. Close it with valid_to and add a new row.
+CREATE FUNCTION guard_bu_mapping() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    IF OLD.mapping_status <> 'DRAFT' THEN
+      RAISE EXCEPTION 'mapping % is %, only drafts can be deleted', OLD.id, OLD.mapping_status;
+    END IF;
+    RETURN OLD;
+  END IF;
+  IF OLD.mapping_status <> 'DRAFT' AND
+     (NEW.business_unit_id, NEW.material_group_level, NEW.material_group_code, NEW.valid_from)
+       IS DISTINCT FROM
+     (OLD.business_unit_id, OLD.material_group_level, OLD.material_group_code, OLD.valid_from) THEN
+    RAISE EXCEPTION 'mapping % is %, close it with valid_to and add a new row', OLD.id, OLD.mapping_status;
+  END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER material_group_bu_mappings_guard
+  BEFORE UPDATE OR DELETE ON material_group_bu_mappings
+  FOR EACH ROW EXECUTE FUNCTION guard_bu_mapping();
+
+-- SAP prices. Linked by material_code only. Condition columns exist only if SAP sends them.
+CREATE TABLE sap_prices (
+  id                   INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  material_code        TEXT NOT NULL REFERENCES sellable_items(material_code),  -- C pricing key
+  condition_type       TEXT,                       -- C only if SAP sends it
+  sales_org            TEXT,                       -- C only if SAP sends it
+  distribution_channel TEXT,                       -- C only if SAP sends it
+  uom_id               INTEGER REFERENCES uoms(id),-- I SAP sales unit
+  price_per            NUMERIC(14,3) NOT NULL DEFAULT 1 CHECK (price_per > 0),  -- I SAP pricing unit
+  amount               NUMERIC(14,2) NOT NULL CHECK (amount >= 0),  -- C
+  currency             CHAR(3) NOT NULL,           -- C
+  valid_from           DATE NOT NULL,              -- C
+  valid_to             DATE,                       -- C
+  sap_condition_record TEXT,                       -- I traceability back to SAP
+  synced_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK (valid_to IS NULL OR valid_to >= valid_from),
+  UNIQUE NULLS NOT DISTINCT (material_code, condition_type, sales_org, distribution_channel, uom_id, currency, valid_from)
+);
+
+-- SAP sales order bridge (stubs: only the columns the BU path needs).
+CREATE TABLE sales_order_headers (
+  id                   INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  sap_order_no         TEXT NOT NULL UNIQUE,       -- C business key
+  sap_customer_code    TEXT NOT NULL,              -- C as sent by SAP; joins customers(sap_customer_code)
+  customer_id          INTEGER REFERENCES customers(id),  -- I resolved at import; NULL until the customer exists
+  order_date           DATE NOT NULL,              -- C date used to pick the mapping
+  currency             CHAR(3),                    -- I
+  synced_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX sales_order_headers_customer ON sales_order_headers(customer_id);
+
+CREATE TABLE sales_order_lines (
+  id                   INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  header_id            INTEGER NOT NULL REFERENCES sales_order_headers(id) ON DELETE CASCADE,
+  line_no              TEXT NOT NULL,              -- C business key = header.sap_order_no + line_no
+  material_code        TEXT NOT NULL,              -- C as sent by SAP; joins sellable_items(material_code)
+  sellable_item_id     INTEGER REFERENCES sellable_items(id),  -- I resolved at import; NULL = unknown material
+  quantity             NUMERIC(14,3),              -- C
+  net_amount           NUMERIC(14,2),              -- C
+  -- Materialized BU with lineage (solution 2). All four are set together or not at all.
+  bu_id                INTEGER REFERENCES business_units(id),  -- C
+  bu_mapping_id        INTEGER,                    -- C mapping row that produced bu_id
+  bu_as_of_date        DATE,                       -- C date the mapping was evaluated for (= order_date)
+  bu_resolved_at       TIMESTAMPTZ,                -- C
+  bu_resolution_source TEXT CHECK (bu_resolution_source = 'MATERIAL_GROUP_MAPPING'),  -- C never customer-side data
+  UNIQUE (header_id, line_no),
+  FOREIGN KEY (bu_mapping_id, bu_id) REFERENCES material_group_bu_mappings(id, business_unit_id),
+  CHECK (num_nulls(bu_id, bu_mapping_id, bu_as_of_date, bu_resolved_at, bu_resolution_source) IN (0, 5))
+);
+CREATE INDEX sales_order_lines_material ON sales_order_lines(material_code);
+CREATE INDEX sales_order_lines_bu ON sales_order_lines(bu_id);
+
+-- Exception queue (C10). One open row per subject and reason.
+CREATE TABLE bu_mapping_exceptions (
+  id                   INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  sellable_item_id     INTEGER REFERENCES sellable_items(id) ON DELETE CASCADE,  -- C product-level exception
+  sales_order_line_id  INTEGER REFERENCES sales_order_lines(id) ON DELETE CASCADE,  -- C line-level exception
+  reason               TEXT NOT NULL CHECK (reason IN (
+                         'MISSING_MATERIAL_CODE','MISSING_MATERIAL_GROUP',
+                         'UNMAPPED_MATERIAL_GROUP','UNKNOWN_MATERIAL')),  -- C
+  material_code        TEXT,                       -- C snapshot at detection
+  material_group_level TEXT,                       -- C
+  material_group_code  TEXT,                       -- C
+  as_of_date           DATE NOT NULL,              -- C date that was checked
+  status               TEXT NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN','RESOLVED','IGNORED')),  -- C
+  detected_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  resolved_at          TIMESTAMPTZ,
+  resolved_by          INTEGER REFERENCES users(id),
+  CHECK (num_nonnulls(sellable_item_id, sales_order_line_id) = 1)
+);
+CREATE UNIQUE INDEX bu_exceptions_open_item ON bu_mapping_exceptions(sellable_item_id, reason)
+  WHERE status = 'OPEN' AND sellable_item_id IS NOT NULL;
+CREATE UNIQUE INDEX bu_exceptions_open_line ON bu_mapping_exceptions(sales_order_line_id, reason)
+  WHERE status = 'OPEN' AND sales_order_line_id IS NOT NULL;
+```
+
+`sales_order_headers.sap_customer_code` and `sales_order_lines.material_code` are
+logical joins: an order from SAP is never rejected because the customer or product
+arrived later. Import resolves `customer_id` and `sellable_item_id` when it can.
+
+### 10.2 Resolution logic
+
+```sql
+-- The only BU resolver (C4). Returns no row when nothing approved covers the date (C10).
+CREATE FUNCTION resolve_bu(p_level TEXT, p_code TEXT, p_as_of DATE)
+RETURNS TABLE (mapping_id INTEGER, business_unit_id INTEGER)
+LANGUAGE sql STABLE AS $$
+  SELECT m.id, m.business_unit_id
+  FROM material_group_bu_mappings m
+  WHERE m.mapping_status = 'APPROVED'
+    AND m.material_group_level = p_level
+    AND m.material_group_code  = p_code
+    AND daterange(m.valid_from, m.valid_to, '[]') @> p_as_of
+$$;
+
+-- Product BU today (solution 1). bu_status explains every NULL bu_code.
+CREATE VIEW item_bu_current AS
+SELECT i.id AS item_id, i.item_code, i.material_code,
+       i.material_group_level, i.material_group_code,
+       r.mapping_id, bu.bu_code,
+       CASE
+         WHEN i.kind = 'SERVICE'           THEN 'NOT_APPLICABLE'
+         WHEN i.material_code IS NULL      THEN 'MISSING_MATERIAL_CODE'
+         WHEN i.material_group_code IS NULL THEN 'MISSING_MATERIAL_GROUP'
+         WHEN r.mapping_id IS NULL         THEN 'UNMAPPED_MATERIAL_GROUP'
+         ELSE 'RESOLVED'
+       END AS bu_status
+FROM sellable_items i
+LEFT JOIN LATERAL resolve_bu(i.material_group_level, i.material_group_code, current_date) r ON true
+LEFT JOIN business_units bu ON bu.id = r.business_unit_id;
+
+-- Order-line import, step 1: link the product by material_code.
+UPDATE sales_order_lines l
+SET sellable_item_id = i.id
+FROM sellable_items i
+WHERE i.material_code = l.material_code AND l.sellable_item_id IS NULL;
+
+-- Step 2: store BU with lineage, using the mapping valid on the order date (solution 2).
+UPDATE sales_order_lines l
+SET bu_id = r.business_unit_id, bu_mapping_id = r.mapping_id,
+    bu_as_of_date = h.order_date, bu_resolved_at = now(),
+    bu_resolution_source = 'MATERIAL_GROUP_MAPPING'
+FROM sales_order_headers h, sellable_items i,
+     LATERAL resolve_bu(i.material_group_level, i.material_group_code, h.order_date) r
+WHERE h.id = l.header_id AND i.id = l.sellable_item_id AND l.bu_id IS NULL;
+
+-- Step 3: raise exceptions for lines that could not be resolved.
+INSERT INTO bu_mapping_exceptions
+  (sales_order_line_id, reason, material_code, material_group_level, material_group_code, as_of_date)
+SELECT l.id,
+       CASE WHEN i.id IS NULL THEN 'UNKNOWN_MATERIAL'
+            WHEN i.material_group_code IS NULL THEN 'MISSING_MATERIAL_GROUP'
+            ELSE 'UNMAPPED_MATERIAL_GROUP' END,
+       l.material_code, i.material_group_level, i.material_group_code, h.order_date
+FROM sales_order_lines l
+JOIN sales_order_headers h ON h.id = l.header_id
+LEFT JOIN sellable_items i ON i.id = l.sellable_item_id
+WHERE l.bu_id IS NULL AND (i.id IS NULL OR i.kind = 'PRODUCT')
+ON CONFLICT (sales_order_line_id, reason) WHERE status = 'OPEN' AND sales_order_line_id IS NOT NULL DO NOTHING;
+
+-- Product import: raise product-level exceptions (services are skipped, L1).
+INSERT INTO bu_mapping_exceptions
+  (sellable_item_id, reason, material_code, material_group_level, material_group_code, as_of_date)
+SELECT item_id, bu_status, material_code, material_group_level, material_group_code, current_date
+FROM item_bu_current
+WHERE bu_status IN ('MISSING_MATERIAL_CODE','MISSING_MATERIAL_GROUP','UNMAPPED_MATERIAL_GROUP')
+ON CONFLICT (sellable_item_id, reason) WHERE status = 'OPEN' AND sellable_item_id IS NOT NULL DO NOTHING;
+
+-- Report: revenue by customer and BU (C6, C7). Customer Group is a separate dimension.
+SELECT c.sap_customer_code, c.customer_group_code, bu.bu_code, sum(l.net_amount) AS net_amount
+FROM customers c
+JOIN sales_order_headers h ON h.customer_id = c.id
+JOIN sales_order_lines l   ON l.header_id = h.id
+JOIN business_units bu     ON bu.id = l.bu_id
+GROUP BY 1, 2, 3;
+
+-- Reprocessing check after a remap: stored lineage vs what the mapping says now
+-- for the same order date. Rows here are restatement candidates (open question 13).
+SELECT l.id, h.sap_order_no, l.line_no, h.order_date, l.bu_mapping_id AS stored_mapping, r.mapping_id AS current_mapping
+FROM sales_order_lines l
+JOIN sales_order_headers h ON h.id = l.header_id
+JOIN sellable_items i ON i.id = l.sellable_item_id
+LEFT JOIN LATERAL resolve_bu(i.material_group_level, i.material_group_code, h.order_date) r ON true
+WHERE l.bu_id IS NOT NULL AND r.mapping_id IS DISTINCT FROM l.bu_mapping_id;
+```
+
+### 10.3 Operating rules
+
+1. **Customer import** fills `sap_customer_code` and `customer_group_code` from SAP. It never writes a BU anywhere.
+2. **Product import** matches on `material_code`, fills the Material Group level and code, then runs the product-level exception insert. Brand is imported as an attribute only.
+3. **Mapping maintenance:** a new or changed mapping starts as `DRAFT`. Approval sets `approved_by` and `approved_at`. A remap sets `valid_to` on the old row and approves a new row from the next day. The trigger blocks any other edit to approved rows.
+4. **Order-line import** runs steps 1–3 above in one transaction. Lines that resolve later (after a missing mapping is approved) are picked up by the next run because step 2 only touches `bu_id IS NULL`.
+5. **Closing exceptions:** after the cause is fixed, the next run resolves the line or product; a job marks matching open exceptions `RESOLVED`.
+6. **Remaps and history:** stored line BU is not changed by a remap. The reprocessing check lists affected lines. Restating them is a deliberate action: clear the five lineage columns, rerun step 2, and log it in `change_log`.
+
+### 10.4 Backfill for existing data
+
+1. Load `sap_material_groups` and `business_units`, then the first approved mappings (`valid_from` = earliest order date to cover).
+2. Fill `sellable_items.material_code` and Material Group from SAP for every product; run the product exception insert. Open exceptions are the cleanup list.
+3. Load historical order headers and lines, then run steps 1–3. Check that open line exceptions are explained before switching BU reports on.
+
+## 11. Acceptance criteria (clar. 9) → model
+
+| Criterion | Met by |
+|-----------|--------|
+| Customer table has no customer-side product BU field | `customers` has `customer_group_code` only; no `bu_code` |
+| Customer Group stored as channel / classification | `customers.customer_group_code` → `sap_customer_groups` |
+| Product unique by `material_code` | `sellable_items.material_code UNIQUE` (single SAP client, L6) |
+| Pricing links to product by `material_code` | `sap_prices.material_code` FK |
+| Material Group → BU mapping independently governed | `material_group_bu_mappings` with status, approval, dates, trigger |
+| Brand optional and independent of BU | `brand_id` nullable; not read by `resolve_bu` |
+| Recognized Material Group resolves to one BU for a date | `EXCLUDE` constraint + `resolve_bu()` |
+| Unknown Material Group goes to an exception, not an invented BU | `bu_mapping_exceptions`; resolver returns no row |
+| Customer import does not derive BU from Customer Group | Operating rule 1; no column to write it to |
+| Order-line import resolves product by `material_code` | Step 1 |
+| A customer can have lines in several BUs | BU on the line (C7) |
+| Channel reports use Customer Group | Report query groups by `customer_group_code` separately |
+| BU reports use the mapping | `item_bu_current`, line lineage |
+| Customer-by-BU uses transaction lines | Report query |
+| Historical reports use the mapping valid at the transaction date | `bu_as_of_date` = order date; lineage kept across remaps |
