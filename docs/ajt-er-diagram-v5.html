@@ -25,6 +25,11 @@
   --tint-bu: #fbe6ea;
   --d-brand: #8a5a00;
   --tint-brand: #f8efd9;
+  --o-sap: #1f57a8; --o-sap-t: #e3ecf8;
+  --o-crm: #157a5c; --o-crm-t: #e0f2ea;
+  --o-cond: #8a5300; --o-cond-t: #f8ecd7;
+  --o-ext: #6a3fc8; --o-ext-t: #efe9fb;
+  --o-sys: #5a6778; --o-sys-t: #e9edf2;
   --obs: #0b7a6e;
   --inf: #b0560a;
   --font-display: "IBM Plex Sans", "IBM Plex Sans Thai", system-ui, sans-serif;
@@ -36,7 +41,7 @@
     --bg: #0e131a; --grid: #18202a; --surface: #151c25; --fg: #e5ebf2; --muted: #95a3b5;
     --line: #2c3746; --edge: #5f6d80; --hot: #6ea2ff;
     --d-customer: #3cc9b4; --d-product: #f0a24a; --d-shared: #ab8cff;
-    --tint-customer: #12302c; --tint-product: #352514; --tint-shared: #251d3d; --d-bu: #f2768c; --tint-bu: #3a1720; --d-brand: #e6b44f; --tint-brand: #33280f;
+    --tint-customer: #12302c; --tint-product: #352514; --tint-shared: #251d3d; --d-bu: #f2768c; --tint-bu: #3a1720; --d-brand: #e6b44f; --tint-brand: #33280f; --o-sap: #8db5f2; --o-sap-t: #1c2a40; --o-crm: #63cfa8; --o-crm-t: #14302a; --o-cond: #eab463; --o-cond-t: #33270f; --o-ext: #b39bff; --o-ext-t: #261f3d; --o-sys: #a2afbf; --o-sys-t: #222b36;
     --obs: #3cc9b4; --inf: #f0a24a; color-scheme: dark;
   }
 }
@@ -44,7 +49,7 @@
   --bg: #0e131a; --grid: #18202a; --surface: #151c25; --fg: #e5ebf2; --muted: #95a3b5;
   --line: #2c3746; --edge: #5f6d80; --hot: #6ea2ff;
   --d-customer: #3cc9b4; --d-product: #f0a24a; --d-shared: #ab8cff;
-  --tint-customer: #12302c; --tint-product: #352514; --tint-shared: #251d3d; --d-bu: #f2768c; --tint-bu: #3a1720; --d-brand: #e6b44f; --tint-brand: #33280f;
+  --tint-customer: #12302c; --tint-product: #352514; --tint-shared: #251d3d; --d-bu: #f2768c; --tint-bu: #3a1720; --d-brand: #e6b44f; --tint-brand: #33280f; --o-sap: #8db5f2; --o-sap-t: #1c2a40; --o-crm: #63cfa8; --o-crm-t: #14302a; --o-cond: #eab463; --o-cond-t: #33270f; --o-ext: #b39bff; --o-ext-t: #261f3d; --o-sys: #a2afbf; --o-sys-t: #222b36;
   --obs: #3cc9b4; --inf: #f0a24a; color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -125,7 +130,7 @@ svg.edges { position: absolute; left: 0; top: 0; z-index: 0; pointer-events: non
 .card-h .meta { margin-left: auto; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .card ul { list-style: none; margin: 0; padding: 3px 0; }
 .card li {
-  display: grid; grid-template-columns: 22px minmax(0, 1fr) auto 10px; align-items: center; gap: 6px;
+  display: grid; grid-template-columns: 22px minmax(0, 1fr) auto 46px 10px; align-items: center; gap: 6px;
   padding: 2px 10px; font-family: var(--font-mono); font-size: 11.5px; line-height: 1.45;
 }
 .card li .k { font-size: 9.5px; font-weight: 600; letter-spacing: 0.04em; color: var(--muted); }
@@ -152,6 +157,17 @@ svg.edges { position: absolute; left: 0; top: 0; z-index: 0; pointer-events: non
 
 .e path, .e line, .e circle { stroke: var(--edge); stroke-width: 1.3; fill: none; }
 .e circle { fill: var(--surface); }
+.e text { font: 700 11px var(--font-mono); fill: var(--muted); stroke: var(--bg); stroke-width: 4px; paint-order: stroke; }
+.e.hot text { fill: var(--hot); }
+.legend .e text { fill: var(--fg); font-size: 12px; stroke-width: 0; }
+.og { font: 600 9.5px var(--font-mono); letter-spacing: 0.02em; text-align: center; border-radius: 3px; padding: 1px 0; }
+.og.SAP, .flag.SAP { color: var(--o-sap); background: var(--o-sap-t); }
+.og.CRM, .flag.CRM { color: var(--o-crm); background: var(--o-crm-t); }
+.og.COND, .flag.COND { color: var(--o-cond); background: var(--o-cond-t); }
+.og.EXT, .flag.EXT { color: var(--o-ext); background: var(--o-ext-t); }
+.og.SYS, .flag.SYS { color: var(--o-sys); background: var(--o-sys-t); }
+.legend .og { display: inline-block; min-width: 40px; padding: 1px 4px; }
+.card-lbl { font: 700 11px var(--font-mono); color: var(--muted); }
 .e.opt > path.ln { stroke-dasharray: 5 4; }
 .e.lk > path.ln { stroke-dasharray: 1.5 4; stroke-linecap: round; stroke-width: 1.6; }
 .has-sel .e { opacity: 0.12; }
@@ -181,6 +197,7 @@ aside.panel {
 .flag.O { color: var(--obs); }
 .flag.I { color: var(--inf); }
 .flag.C { color: var(--d-bu); }
+.col .ds b { color: var(--fg); font-weight: 600; }
 .linkbtn { border: 0; background: none; padding: 0; color: var(--hot); cursor: pointer; font-family: var(--font-mono); font-size: 12px; text-align: left; }
 .linkbtn:hover { text-decoration: underline; }
 .reflist { display: flex; flex-direction: column; gap: 5px; }
@@ -226,13 +243,15 @@ aside.panel {
     <div class="viewnote">
       <span id="viewtext"></span>
       <span class="legend" aria-label="Legend">
-        <span><svg width="34" height="12"><g class="e"><line x1="0" y1="6" x2="34" y2="6"/><line x1="6" y1="0" x2="6" y2="12"/><line x1="0" y1="0" x2="0" y2="12"/></g></svg>one</span>
-        <span><svg width="34" height="12"><g class="e"><line x1="0" y1="6" x2="34" y2="6"/><path d="M0 0 L12 6 L0 12"/><line x1="16" y1="0" x2="16" y2="12"/></g></svg>many</span>
+        <span><svg width="64" height="16"><g class="e"><text x="6" y="9" text-anchor="middle">1</text><line x1="14" y1="11" x2="50" y2="11"/><text x="58" y="9" text-anchor="middle">N</text></g></svg>one-to-many</span>
+        <span><svg width="64" height="16"><g class="e"><text x="6" y="9" text-anchor="middle">1</text><line x1="14" y1="11" x2="50" y2="11"/><text x="58" y="9" text-anchor="middle">1</text></g></svg>one-to-one</span>
+        <span><span class="card-lbl">0..1</span> may be empty</span>
         <span><svg width="34" height="12"><g class="e opt"><path class="ln" d="M0 6 H34"/></g></svg>optional FK</span>
         <span><i class="dot O" style="display:inline-block"></i>seen on screen</span>
         <span><i class="dot I" style="display:inline-block"></i>inferred</span>
         <span><i class="dot C" style="display:inline-block"></i>AJT clarification</span>
         <span><svg width="34" height="12"><g class="e lk"><path class="ln" d="M0 6 H34"/></g></svg>logical join, no FK</span>
+        <span>Origin: <span class="og SAP">SAP</span> <span class="og CRM">CRM</span> <span class="og COND">SAP/CRM</span> <span class="og EXT">SOURCE</span> <span class="og SYS">AUTO</span></span>
       </span>
     </div>
     <div class="sizer" id="sizer">
@@ -308,6 +327,74 @@ const VIEWS = {
     ]
   }
 };
+const ORIGIN_LABEL = { SAP: "SAP", CRM: "CRM", COND: "SAP/CRM", EXT: "SOURCE", SYS: "AUTO" };
+const ORIGIN_NAME = { SAP: "From SAP", CRM: "Created in the CRM", COND: "SAP or CRM, by condition", EXT: "From another source system", SYS: "Filled automatically" };
+const ORIGIN_DEFAULT_NOTE = {
+  SAP: "Comes from SAP; read-only in the CRM.",
+  CRM: "Entered or created by CRM users.",
+  EXT: "Comes from another source system; read-only in the CRM.",
+  SYS: "Filled automatically by the CRM or the database; nobody types it.",
+  COND: "Depends on where the record comes from."
+};
+const SAP_OR_CRM = "From SAP when the product comes from SAP (source_system = SAP); entered in the CRM for services and CRM drafts.";
+const ORIGIN_TABLE = {
+  sap_customer_groups: "SAP", sap_material_groups: "SAP", sap_prices: "SAP", sales_order_headers: "SAP", sales_order_lines: "SAP",
+  customer_credit_snapshots: "SAP", customer_business_units: "SAP", stock_snapshots: "SAP",
+  item_interest_tags: ["EXT", "From the CDP (interest tags are edited there)."],
+  customer_source_ids: ["EXT", "From the source system that registered the customer, e.g. ChocoCRM."],
+  memberships: ["EXT", "From the loyalty system."],
+  change_log: "SYS", pii_access_log: "SYS", bu_exceptions: ["SYS", "Raised by CRM import jobs; staff only change status."], persons: "SYS",
+  brands: ["COND", "Phase 1: CRM admins add, edit and deactivate, by hand or Excel. Phase 2: loaded from the CDP."],
+  business_units: ["COND", "Phase 1: CRM admins maintain the list. Phase 2: loaded from the CDP."],
+  brand_bu_assignments: ["CRM", "CRM admin drafts the rule; AJT approves before it counts."],
+  channel_bu_rules: ["CRM", "CRM admin drafts the rule (Customer Group 1 → channel BU); AJT approves."]
+};
+const ORIGIN_COL = {
+  "customers.sap_customer_code": ["SAP", "Issued by SAP. Empty until SAP creates the customer; then it is the identity key."],
+  "customers.customer_group_code": ["SAP", "SAP Customer Group 1, read-only. Decides the two channel BUs (Modern Food, Food Industrial)."],
+  "customers.tax_id_last_digits": ["SYS", "Cut from the tax ID when it is saved."],
+  "customers.lifecycle_stage": ["SYS", "Worked out by a CRM job from purchases."],
+  "customers.lifecycle_reason": ["SYS", "Worked out by a CRM job from purchases."],
+  "customers.origin": ["SYS", "Set when the record is created (manual, lead, import, CDP, loyalty, receipt)."],
+  "contacts.last_imported_at": ["SYS", "Set by the import."],
+  "sellable_items.material_code": ["SAP", "SAP material number. Required when the product comes from SAP; empty for services and CRM drafts."],
+  "sellable_items.material_group_level": ["SAP", "Sent by SAP with the product."],
+  "sellable_items.material_group_code": ["SAP", "Sent by SAP with the product. Not used for BU in Phase 1."],
+  "sellable_items.material_pricing_group_code": ["SAP", "Option A: SAP sends the brand (Material Pricing Group) with the product."],
+  "sellable_items.sub_brand_id": ["CRM", "Option B: a CRM admin sets it by hand or Excel. Required when the SAP brand splits into sub-brands, else flagged."],
+  "sellable_items.brand_id": ["CRM", "Manual brand. Only for items without an SAP pricing group (services, drafts)."],
+  "sellable_items.item_code": ["CRM", "Issued by the CRM code rule (suggested, editable); never changes once issued."],
+  "sellable_items.name_th": ["COND", SAP_OR_CRM], "sellable_items.name_en": ["COND", SAP_OR_CRM],
+  "sellable_items.kind": ["COND", SAP_OR_CRM], "sellable_items.base_uom_id": ["COND", SAP_OR_CRM],
+  "sellable_items.is_active": ["COND", SAP_OR_CRM],
+  "sellable_items.source_system": ["SYS", "Set by the import: SAP, LOCAL or IMPORT."],
+  "sellable_items.updated_by": ["SYS", "Set to the user who saved the change."],
+  "product_details.gtin": ["COND", SAP_OR_CRM], "product_details.shelf_life_days": ["COND", SAP_OR_CRM],
+  "item_uoms.factor_to_base": ["COND", SAP_OR_CRM], "item_uoms.barcode": ["COND", SAP_OR_CRM], "item_uoms.gross_weight_kg": ["COND", SAP_OR_CRM],
+  "brands.sap_pricing_group_code": ["CRM", "Typed by the admin to match the SAP Material Pricing Group of a top brand."],
+  "brands.requires_sub_brand": ["CRM", "Set by the admin when products of this SAP brand must get a sub-brand."],
+  "brands.source_system": ["SYS", "Set by how the brand arrived: CRM, Excel or CDP."],
+  "business_units.bu_type": ["CRM", "Set by the admin: CHANNEL (Modern Food, Food Industrial) or BRAND."],
+  "brand_bu_assignments.approved_by": ["CRM", "Set when the AJT approver approves."],
+  "channel_bu_rules.approved_by": ["CRM", "Set when the AJT approver approves."],
+  "sales_order_headers.customer_id": ["SYS", "Matched by the CRM from sap_customer_code; empty until the customer exists."],
+  "sales_order_lines.sellable_item_id": ["SYS", "Matched by the CRM from material_code; empty means unknown product (to-fix list)."],
+  "payment_terms.sap_code": ["CRM", "Typed to match the SAP payment term code."],
+  "price_lists.source_system": ["SYS", "Set by how the list arrived."], "price_list_rows.source_system": ["SYS", "Set by how the row arrived."],
+  "bu_exceptions.status": ["CRM", "Staff set RESOLVED or IGNORED."], "bu_exceptions.resolved_by": ["CRM", "Set to the staff member who closed it."]
+};
+const AUTO_COLS = /^(created_at|updated_at|synced_at|detected_at|linked_at|assigned_at|uploaded_at|activated_at|captured_at|occurred_at|accessed_at|resolved_at|approved_at|bu_resolved_at)$/;
+function originOf(t, c) {
+  if (ORIGIN_COL[t + "." + c.n]) return ORIGIN_COL[t + "." + c.n];
+  if (t === "sales_order_lines" && c.n.startsWith("bu_")) return ["SYS", "Stamped by the CRM at import: channel first, then the product’s brand."];
+  if (c.pk && c.n === "id") return ["SYS", "Generated by the database."];
+  if (AUTO_COLS.test(c.n) && !(t in ORIGIN_TABLE && ["SAP","EXT"].includes([].concat(ORIGIN_TABLE[t])[0]) && c.n !== "synced_at")) return ["SYS", "Set automatically when the row is written."];
+  const d = ORIGIN_TABLE[t];
+  if (Array.isArray(d)) return d;
+  const cat = d || "CRM";
+  return [cat, ORIGIN_DEFAULT_NOTE[cat]];
+}
+
 const STUBS = new Set(["teams", "users", "leads", "memberships", "warehouses", "stock_snapshots"]);
 
 const homeView = {};
@@ -359,6 +446,7 @@ function card(t, inView) {
     const title = [c.note, c.enum ? "values: " + c.enum.join(", ") : ""].filter(Boolean).join("\n");
     return `<li class="${c.pk ? "pk" : ""}" data-c="${c.n}" title="${esc(title)}"><span class="k">${k}</span>` +
       `<span class="cn">${esc(c.n)}${ext}</span><span class="ct">${esc(c.t)}</span>` +
+      `<span class="og ${originOf(t, c)[0]}" title="${esc(ORIGIN_NAME[originOf(t, c)[0]])}">${ORIGIN_LABEL[originOf(t, c)[0]]}</span>` +
       `<span class="dot ${c.tag || ""}"></span></li>`;
   }).join("");
   const hidden = def.cols.length - cols.length;
@@ -410,7 +498,9 @@ function drawEdges() {
     const one = (c.pk && !c.cpk) || c.uq;
     const childEnd = one ? bar(sx, ch.y, sd, 7) + bar(sx, ch.y, sd, 12) : crow(sx, ch.y, sd);
     const parentEnd = bar(ex, pa.y, ed, 7) + (c.nn ? bar(ex, pa.y, ed, 12) : circ(ex, pa.y, ed, 15));
-    parts.push(`<g class="e${c.nn ? "" : " opt"}" data-a="${t}" data-b="${ref.t}" data-c="${c.n}"><path class="ln" d="${d}"/>${childEnd}${parentEnd}</g>`);
+    const lbl = (x, y, dir, txt) => `<text x="${x + dir * 28}" y="${y - 9}" text-anchor="middle">${txt}</text>`;
+    const labels = lbl(sx, ch.y, sd, one ? "1" : "N") + lbl(ex, pa.y, ed, c.nn ? "1" : "0..1");
+    parts.push(`<g class="e${c.nn ? "" : " opt"}" data-a="${t}" data-b="${ref.t}" data-c="${c.n}"><path class="ln" d="${d}"/>${childEnd}${parentEnd}${labels}</g>`);
   }
   svg.innerHTML = parts.join("");
   sizeStage();
@@ -472,7 +562,7 @@ function renderPanel() {
   const p = $("panel"), t = state.sel;
   if (!t) {
     p.className = "panel";
-    p.innerHTML = `<p class="empty"><b>Select a table</b> to see every column with its type, keys, allowed values and the Thai screen label it came from.</p>
+    p.innerHTML = `<p class="empty"><b>Select a table</b> to see every column: where it comes from (SAP, created in the CRM, or filled automatically) and under what condition, plus its type, keys, allowed values and the Thai screen label.</p>
       <p class="empty">Lines run from a foreign key to the key it points at. A key that points outside the current view shows as <span style="font-family:var(--font-mono)">→ table</span> under the column name.</p>
       <p class="empty">Source: docs/ajt-design-data-model-v5.md (revision 5: Phase 1 decisions; line BU = channel first, then brand; brand under one BU; customer BU = channel only). Prototype crawled 14 Nov 2026. Rebuild with scripts/er/gen_er.py and er_template_v5.html.</p>`;
     return;
@@ -484,9 +574,12 @@ function renderPanel() {
     `<button class="close" type="button" id="pclose">Close</button><h2>${t}</h2>` +
     `<div class="badges"><span class="pill dom">${STUBS.has(t) ? "stub, outside scope" : VIEWS[homeView[t]].label}</span>` +
     `<span class="pill">${def.cols.length} columns</span><span class="pill">${by.length} incoming links</span></div>` +
+    `<div class="badges">${Object.entries(def.cols.reduce((m, c) => { const o = originOf(t, c)[0]; m[o] = (m[o] || 0) + 1; return m; }, {})).map(([o, n]) => `<span class="flag ${o}">${ORIGIN_NAME[o]}: ${n}</span>`).join("")}</div>` +
     (def.note ? `<p class="note">${esc(def.note)}</p>` : "") +
     `<h3>Columns</h3><div class="cols">` + def.cols.map(c => {
+      const og = originOf(t, c);
       const flags = [
+        `<span class="flag ${og[0]}">${ORIGIN_NAME[og[0]]}</span>`,
         c.pk ? `<span class="flag pk">PK</span>` : "",
         c.fk ? `<span class="flag">FK${c.fkCols ? " (" + c.fkCols.map(esc).join(", ") + ")" : ""} → <button class="linkbtn" data-go="${c.fk.t}">${esc(c.fk.t)}</button>.${esc(c.fk.c)}</span>` : "",
         c.lk ? `<span class="flag">joins ⇢ <button class="linkbtn" data-go="${c.lk.t}">${esc(c.lk.t)}</button>.${esc(c.lk.c)} (no FK)</span>` : "",
@@ -496,7 +589,7 @@ function renderPanel() {
       ].join("");
       const en = c.enum ? `<div class="ds">Allowed: ${c.enum.map(esc).join(" · ")}</div>` : "";
       return `<div class="col"><span class="nm">${esc(c.n)}</span><span class="ty">${esc(c.t)}</span>` +
-        `<div class="fl">${flags}</div>${c.note ? `<div class="ds">${esc(c.note)}</div>` : ""}${en}</div>`;
+        `<div class="fl">${flags}</div><div class="ds"><b>Comes from:</b> ${esc(og[1])}</div>${c.note ? `<div class="ds">${esc(c.note)}</div>` : ""}${en}</div>`;
     }).join("") + `</div>` +
     `<h3>Referenced by</h3>` + (by.length
       ? `<div class="reflist">${by.map(r => `<button class="linkbtn" data-go="${r.t}">${r.t}.${r.c}${r.lk ? " (logical)" : ""}</button>`).join("")}</div>`
