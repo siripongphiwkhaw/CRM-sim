@@ -1487,8 +1487,8 @@ WHERE h.id = l.header_id AND h.order_source = 'MARKETPLACE'
 
 1. **Channels:** Lazada, Shopee and TikTok are seeded. A new marketplace is a new `sales_channels` row; B2B channels stay SAP Customer Groups.
 2. **SKU list:** loaded from each marketplace's SKU export (like sheet 1) and grown automatically from orders. Matching runs after every load.
-3. **Admin mapping:** SKUs on the to-fix list are mapped by an admin by hand or Excel (`match_source = ADMIN`), including product, unit, variant and pack quantity. Admin rows are never overwritten by the automatic match.
-4. **Variants:** KOL, promo, clearance and bundle SKUs count toward the same product. Reports can split by `variant_type`.
+3. **Admin mapping:** SKUs on the to-fix list are mapped by an admin by hand or Excel (`match_source = ADMIN`), including product, unit, variant, and pack quantity. Admin rows are never overwritten by the automatic match.
+4. **Variants:** KOL, promo, clearance, and bundle SKUs count toward the same product. Reports can split by `variant_type`.
 5. **Money:** B2C revenue is the paid amount. Unit figures are paid ÷ base units, for analysis only.
 6. **BU:** every B2C line takes the BU of the product's brand (C18).
 
