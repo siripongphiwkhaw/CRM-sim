@@ -167,6 +167,24 @@ aside.panel { background: var(--surface); border: 1px solid var(--line); border-
 .sug .who { font-size: 14px; color: var(--muted); }
 .sug .who strong { color: var(--body); font-weight: 600; display: block; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; }
 
+/* B2C fields */
+.feeds { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 28px; }
+.feed { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 16px 18px; min-width: 0; }
+.feed h3 { margin: 0 0 2px; font-size: 16px; color: var(--ink); }
+.feed .src { font-size: 13.5px; color: var(--muted); margin: 0 0 10px; }
+.feed dl { margin: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.feed dt { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.feed dt .opt { font-weight: 400; color: var(--muted); }
+.feed dd { margin: 0; font-family: var(--mono); font-size: 12.5px; color: var(--body); overflow-wrap: anywhere; }
+.ftable { margin: 22px 0 8px; }
+.ftable h3 { font-size: 16px; color: var(--ink); margin: 0 0 8px; }
+.ftable h3 code { font-family: var(--mono); font-size: 13px; color: var(--muted); font-weight: 400; margin-left: 6px; }
+table.ftbl { table-layout: fixed; min-width: 760px; }
+.ftbl td code { overflow-wrap: anywhere; }
+.gloss td.ex { font-family: var(--mono); font-size: 13px; overflow-wrap: anywhere; }
+.story { border-left: 3px solid var(--sap); background: var(--surface); padding: 12px 16px; border-radius: 0 10px 10px 0; margin-bottom: 22px; font-size: 15px; }
+@media (max-width: 900px) { .feeds { grid-template-columns: minmax(0, 1fr); } }
+
 /* glossary */
 .gloss-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
 table.gloss { width: 100%; border-collapse: collapse; font-size: 15px; min-width: 620px; }
@@ -203,7 +221,7 @@ footer.foot { margin-top: 48px; padding-top: 18px; border-top: 1px solid var(--l
       <span>Technical spec: docs/ajt-design-data-model-v6.md</span>
     </div>
     <nav class="toc" aria-label="Sections">
-      <a href="#map">Map</a><a href="#rules">Rules</a><a href="#gaps">Open gaps</a><a href="#suggestions">Suggestions</a><a href="#glossary">Glossary</a>
+      <a href="#map">Map</a><a href="#rules">Rules</a><a href="#gaps">Open gaps</a><a href="#suggestions">Suggestions</a><a href="#b2cfields">B2C fields</a><a href="#glossary">Glossary</a>
     </nav>
   </div>
 </header>
@@ -264,6 +282,14 @@ footer.foot { margin-top: 48px; padding-top: 18px; border-top: 1px solid var(--l
     <h2 id="sug-h">Suggestions</h2>
     <p class="sublead">Clean-up steps in the order we suggest, with who should own each one.</p>
     <div class="sugs" id="suglist"></div>
+  </section>
+
+  <section class="block" id="b2cfields" aria-labelledby="b2c-h">
+    <h2 id="b2c-h">B2C fields, with an example</h2>
+    <p class="sublead">What each source sends, and every B2C field the CRM keeps. One sale runs through all of it.</p>
+    <div class="story"><b>The example:</b> a TikTok buyer orders 2 × AminoMOF promo 1+1 (<code>TH_HYB_AJT-8850250014805_C2</code>) and pays 398 THB. The CRM counts 4 units of AminoMOF, 99.50 THB paid per unit, BU H&amp;N. Brand codes such as AMINOMOF are examples; the real codes come from the CRM brand list.</div>
+    <div class="feeds" id="feeds"></div>
+    <div id="ftables"></div>
   </section>
 
   <section class="block" id="glossary" aria-labelledby="gl-h">
@@ -562,7 +588,16 @@ function renderRules() {
   }).join("");
 }
 
+const B2CF = {"feeds": [{"name": "B2C product feed", "src": "CDP", "when": "Once a day, and when a B2C SKU changes", "rows": [["B2C SKU", "Yes", "TH_HYB_AJT-8850250014805", "b2c_products.b2c_sku"], ["Product name", "Yes", "อะมิโน มอฟ 25 กรัม 5 ซอง/กล่อง x 1 กล่อง", "b2c_products.name_th"], ["Brand code (CRM brand list)", "Yes", "AMINOMOF", "b2c_products.brand_code"], ["Status", "No", "ACTIVE", "b2c_products.status"]]}, {"name": "Channel SKU export", "src": "D2C web shop, Shopee, Lazada, TikTok", "when": "When listings change (one file per channel)", "rows": [["Channel", "Yes", "TIKTOK", "b2c_channel_listings.channel_id"], ["SKU as listed", "Yes", "TH_HYB_AJT-8850250014805_C2", "b2c_channel_listings.channel_sku"], ["Name as listed", "No", "AminoMOF 25g 5 ซอง x1 (promo)", "b2c_channel_listings.listed_name"]]}, {"name": "B2C order feed", "src": "D2C web shop, Shopee, Lazada, TikTok", "when": "Daily, or as orders close", "rows": [["Channel", "Yes", "TIKTOK", "sales_order_headers.channel_id"], ["Order number", "Yes", "TT-5781234567", "sales_order_headers.external_order_no"], ["Order date", "Yes", "2026-10-01", "sales_order_headers.order_date"], ["Line number", "Yes", "1", "sales_order_lines.line_no"], ["SKU as listed", "Yes", "TH_HYB_AJT-8850250014805_C2", "sales_order_lines.channel_sku"], ["Quantity (SKUs sold)", "Yes", "2", "sales_order_lines.quantity"], ["Amount paid", "Yes", "398.00", "sales_order_lines.net_amount"], ["Discount", "No", "40.00", "sales_order_lines.discount_amount"], ["Loyalty member ID", "No", "empty (buyer unknown)", "sales_order_headers.customer_id"]]}], "tables": [{"t": "sales_channels", "plain": "Sales channel", "rows": [["code", "Channel code; only these four in Phase 1", "Fixed list", "Yes", "TIKTOK (also D2C, SHOPEE, LAZADA)"], ["name", "Name shown on screen", "Fixed list", "Yes", "TikTok"], ["kind", "Own web shop or marketplace", "Fixed list", "Yes", "MARKETPLACE (D2C for the web shop)"], ["customer_profile", "Always B2C", "Automatic", "Yes", "B2C"], ["is_active", "Channel in use", "CRM admin", "Yes", "true"]]}, {"t": "b2c_products", "plain": "B2C SKU", "rows": [["b2c_sku", "B2C SKU code; not a B2B code", "CDP (or first seen in a channel)", "Yes", "TH_HYB_AJT-8850250014805_C2"], ["name_th", "Product name", "CDP", "No", "อะมิโน มอฟ 25 กรัม 5 ซอง (โปร 1 แถม 1)"], ["brand_code", "Brand code as sent", "CDP", "Yes, for a BU", "empty: a variant takes its base SKU's AMINOMOF"], ["brand_id", "Brand found from brand_code", "Automatic", "No", "AminoMOF (from the base SKU)"], ["base_product_id", "Base SKU of a special SKU", "Automatic, from the suffix", "Special SKUs only", "TH_HYB_AJT-8850250014805"], ["variant_type", "STANDARD, KOL, PROMO, CLEARANCE, BUNDLE or OTHER", "Automatic, from the suffix", "Yes", "PROMO"], ["pack_qty", "Base units per SKU sold", "Automatic; admin confirms promos", "Yes", "2"], ["source_system", "Where the row came from: CDP, CHANNEL or ADMIN", "Automatic", "Yes", "CHANNEL"], ["status", "ACTIVE or INACTIVE", "CRM admin", "Yes", "ACTIVE"], ["first_seen_at / last_seen_at", "First and latest time the SKU was seen", "Automatic", "Yes", "2026-09-15 08:00 / 2026-10-01 09:15"]]}, {"t": "b2c_channel_listings", "plain": "Channel listing", "rows": [["channel_id", "Channel of the listing", "Channel SKU export", "Yes", "TIKTOK"], ["channel_sku", "SKU as listed in that channel", "Channel SKU export", "Yes", "TH_HYB_AJT-8850250014805_C2 (Lazada legacy: 110010050)"], ["listed_name", "Name as listed", "Channel SKU export", "No", "AminoMOF 25g 5 ซอง x1 (promo)"], ["b2c_product_id", "B2C SKU this listing sells", "Automatic, or CRM admin for legacy codes", "No; empty = to-fix list", "TH_HYB_AJT-8850250014805_C2"], ["match_source", "SAME_SKU (automatic), ADMIN or NONE", "Automatic", "Yes", "SAME_SKU (ADMIN for 110010050)"], ["status", "ACTIVE or INACTIVE", "CRM admin", "Yes", "ACTIVE"], ["first_seen_at / last_seen_at", "First and latest time the listing was seen", "Automatic", "Yes", "2026-09-15 08:00 / 2026-10-01 09:15"]]}, {"t": "sales_order_headers", "plain": "B2C order (header)", "rows": [["order_source", "SAP_B2B or B2C_CHANNEL", "Automatic", "Yes", "B2C_CHANNEL"], ["channel_id", "Channel of the order", "Order feed", "Yes", "TIKTOK"], ["external_order_no", "Order number in that channel", "Order feed", "Yes", "TT-5781234567"], ["order_date", "Order date; sets the BU date", "Order feed", "Yes", "2026-10-01"], ["customer_id", "Customer, only when the buyer is a known loyalty member", "Automatic", "No", "empty"], ["sap_order_no, sap_customer_code, customer_group_code", "B2B only", "—", "Always empty", "empty"]]}, {"t": "sales_order_lines", "plain": "B2C order line", "rows": [["line_no", "Line in the order", "Order feed", "Yes", "1"], ["channel_sku", "SKU as sent by the channel", "Order feed", "Yes", "TH_HYB_AJT-8850250014805_C2"], ["b2c_listing_id", "Channel listing for the SKU", "Automatic", "No; empty = to-fix list", "TikTok listing of …_C2"], ["b2c_product_id", "B2C SKU sold", "Automatic, from the listing", "No; empty = to-fix list", "TH_HYB_AJT-8850250014805_C2"], ["quantity", "Number of SKUs sold", "Order feed", "Yes", "2"], ["net_amount", "Amount the buyer paid (no unit price)", "Order feed", "Yes", "398.00"], ["discount_amount", "Discount, if the channel sends it", "Order feed", "No", "40.00"], ["bu_id", "Business Unit used", "Automatic, from the brand", "Set at import", "H&N"], ["bu_source", "What decided the BU; always BRAND for B2C", "Automatic", "Set at import", "BRAND"], ["bu_rule_id", "Brand → BU rule used", "Automatic", "Set at import", "AminoMOF → H&N rule"], ["bu_brand_id", "Brand used", "Automatic", "Set at import", "AminoMOF"], ["bu_as_of_date / bu_resolved_at", "Date the rule was read for / time it was saved", "Automatic", "Set at import", "2026-10-01 / 2026-10-01 23:05"], ["material_code, sellable_item_id, bu_customer_group_code", "B2B only", "—", "Always empty", "empty"]]}, {"t": "bu_exceptions", "plain": "To-fix list (B2C rows)", "rows": [["b2c_listing_id + reason UNKNOWN_CHANNEL_SKU", "Listing that links to no B2C SKU", "Automatic", "—", "Lazada 110010050"], ["b2c_product_id + reason B2C_NO_BRAND", "B2C SKU with no brand code, own or base", "Automatic", "—", "TH_HYB_AJT-8850250000150_C"], ["b2c_product_id + reason B2C_UNKNOWN_BRAND", "Brand code not in the CRM brand list", "Automatic", "—", "TH_HYB_AJT-8850250016038_4 / QUICKMEAL"], ["detail", "Text for the admin", "Automatic", "No", "LAZADA / 110010050"], ["status, resolved_by, resolved_at", "OPEN, RESOLVED or IGNORED, and who closed it", "CRM admin", "Yes", "RESOLVED by the e-commerce admin"]]}], "calc": [["base_units", "quantity × pack_qty", "2 × 2 = 4 units of AminoMOF", "b2c_line_quantities"], ["paid_per_unit", "net_amount ÷ base_units (analysis only, not a price)", "398.00 ÷ 4 = 99.50 THB", "b2c_line_quantities"], ["sku_check", "Same when the SKU is listed under its own code in all four channels", "TH_HYB_AJT-8850250014089 → Same; …_C2 → Different", "b2c_channel_matrix"]]};
+function renderB2C() {
+  $("feeds").innerHTML = B2CF.feeds.map(f => `<div class="feed"><h3>${esc(f.name)}</h3><p class="src">From ${esc(f.src)} · ${esc(f.when)}</p><dl>${f.rows.map(([n, req, ex]) => `<div><dt>${esc(n)}${req === "No" ? ` <span class="opt">(optional)</span>` : ""}</dt><dd>${esc(ex)}</dd></div>`).join("")}</dl></div>`).join("");
+  const head = `<colgroup><col style="width:22%"><col style="width:28%"><col style="width:18%"><col style="width:12%"><col style="width:20%"></colgroup><tr><th>Field</th><th>What it means</th><th>Filled by</th><th>Required</th><th>Example</th></tr>`;
+  $("ftables").innerHTML = B2CF.tables.map(t => `<div class="ftable"><h3>${esc(t.plain)}<code>${esc(t.t)}</code></h3><div class="gloss-wrap"><table class="gloss ftbl">${head}${t.rows.map(([f, m, by, r, ex]) => `<tr><td><code>${esc(f)}</code></td><td>${esc(m)}</td><td>${esc(by)}</td><td>${esc(r)}</td><td class="ex">${esc(ex)}</td></tr>`).join("")}</table></div></div>`).join("") +
+    `<div class="ftable"><h3>Worked out by the CRM, not stored</h3><div class="gloss-wrap"><table class="gloss ftbl"><colgroup><col style="width:22%"><col style="width:36%"><col style="width:24%"><col style="width:18%"></colgroup><tr><th>Value</th><th>Rule</th><th>Example</th><th>Where</th></tr>${B2CF.calc.map(([v, r, ex, w]) => `<tr><td><code>${esc(v)}</code></td><td>${esc(r)}</td><td class="ex">${esc(ex)}</td><td><code>${esc(w)}</code></td></tr>`).join("")}</table></div></div>`;
+}
+
 function renderRest() {
+  renderB2C();
   $("gaplist").innerHTML = GAPS.map(g => `<div class="gap"><b>${esc(g.t)}</b><span>${esc(g.e)}</span><span class="fix">Way out: ${esc(g.f)}</span></div>`).join("");
   $("suglist").innerHTML = SUGS.map(s => `<div class="sug"><span class="when ${s.when}">${s.when}</span><div><b>${esc(s.t)}</b><span class="why">${esc(s.why)}</span></div><div class="who"><strong>Owner</strong>${esc(s.who)}</div></div>`).join("");
   $("gloss").innerHTML = `<tr><th>Plain name</th><th>On screen (Thai)</th><th>IT name</th></tr>` +

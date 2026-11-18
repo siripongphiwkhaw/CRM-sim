@@ -1548,3 +1548,142 @@ FROM r WHERE l.id = r.line_id;
 A TikTok order for two `_C2` AminoMOF SKUs paid 398 THB counts as 4 units of AminoMOF
 (2 × pack 2), 99.50 THB paid per unit, in the BU of the brand the CDP sends (for
 example H&N).
+
+### 12.5 B2C fields and examples
+
+One example runs through every table: a TikTok order for two AminoMOF promo SKUs
+(`TH_HYB_AJT-8850250014805_C2`), 398 THB paid. Brand codes such as `AMINOMOF` are
+examples; the real codes are the CRM brand list (open question 17).
+
+**What each source sends**
+
+*B2C product feed* — from CDP; Once a day, and when a B2C SKU changes.
+
+| Field | Required | Example | Lands in |
+|-------|----------|---------|----------|
+| B2C SKU | Yes | `TH_HYB_AJT-8850250014805` | `b2c_products.b2c_sku` |
+| Product name | Yes | `อะมิโน มอฟ 25 กรัม 5 ซอง/กล่อง x 1 กล่อง` | `b2c_products.name_th` |
+| Brand code (CRM brand list) | Yes | `AMINOMOF` | `b2c_products.brand_code` |
+| Status | No | `ACTIVE` | `b2c_products.status` |
+
+*Channel SKU export* — from D2C web shop, Shopee, Lazada, TikTok; When listings change (one file per channel).
+
+| Field | Required | Example | Lands in |
+|-------|----------|---------|----------|
+| Channel | Yes | `TIKTOK` | `b2c_channel_listings.channel_id` |
+| SKU as listed | Yes | `TH_HYB_AJT-8850250014805_C2` | `b2c_channel_listings.channel_sku` |
+| Name as listed | No | `AminoMOF 25g 5 ซอง x1 (promo)` | `b2c_channel_listings.listed_name` |
+
+*B2C order feed* — from D2C web shop, Shopee, Lazada, TikTok; Daily, or as orders close.
+
+| Field | Required | Example | Lands in |
+|-------|----------|---------|----------|
+| Channel | Yes | `TIKTOK` | `sales_order_headers.channel_id` |
+| Order number | Yes | `TT-5781234567` | `sales_order_headers.external_order_no` |
+| Order date | Yes | `2026-10-01` | `sales_order_headers.order_date` |
+| Line number | Yes | `1` | `sales_order_lines.line_no` |
+| SKU as listed | Yes | `TH_HYB_AJT-8850250014805_C2` | `sales_order_lines.channel_sku` |
+| Quantity (SKUs sold) | Yes | `2` | `sales_order_lines.quantity` |
+| Amount paid | Yes | `398.00` | `sales_order_lines.net_amount` |
+| Discount | No | `40.00` | `sales_order_lines.discount_amount` |
+| Loyalty member ID | No | `empty (buyer unknown)` | `sales_order_headers.customer_id` |
+
+**Fields in the CRM**
+
+*Sales channel* (`sales_channels`)
+
+| Field | Meaning | Filled by | Required | Example |
+|-------|---------|-----------|----------|---------|
+| `code` | Channel code; only these four in Phase 1 | Fixed list | Yes | TIKTOK (also D2C, SHOPEE, LAZADA) |
+| `name` | Name shown on screen | Fixed list | Yes | TikTok |
+| `kind` | Own web shop or marketplace | Fixed list | Yes | MARKETPLACE (D2C for the web shop) |
+| `customer_profile` | Always B2C | Automatic | Yes | B2C |
+| `is_active` | Channel in use | CRM admin | Yes | true |
+
+*B2C SKU* (`b2c_products`)
+
+| Field | Meaning | Filled by | Required | Example |
+|-------|---------|-----------|----------|---------|
+| `b2c_sku` | B2C SKU code; not a B2B code | CDP (or first seen in a channel) | Yes | TH_HYB_AJT-8850250014805_C2 |
+| `name_th` | Product name | CDP | No | อะมิโน มอฟ 25 กรัม 5 ซอง (โปร 1 แถม 1) |
+| `brand_code` | Brand code as sent | CDP | Yes, for a BU | empty: a variant takes its base SKU's AMINOMOF |
+| `brand_id` | Brand found from brand_code | Automatic | No | AminoMOF (from the base SKU) |
+| `base_product_id` | Base SKU of a special SKU | Automatic, from the suffix | Special SKUs only | TH_HYB_AJT-8850250014805 |
+| `variant_type` | STANDARD, KOL, PROMO, CLEARANCE, BUNDLE or OTHER | Automatic, from the suffix | Yes | PROMO |
+| `pack_qty` | Base units per SKU sold | Automatic; admin confirms promos | Yes | 2 |
+| `source_system` | Where the row came from: CDP, CHANNEL or ADMIN | Automatic | Yes | CHANNEL |
+| `status` | ACTIVE or INACTIVE | CRM admin | Yes | ACTIVE |
+| `first_seen_at / last_seen_at` | First and latest time the SKU was seen | Automatic | Yes | 2026-09-15 08:00 / 2026-10-01 09:15 |
+
+*Channel listing* (`b2c_channel_listings`)
+
+| Field | Meaning | Filled by | Required | Example |
+|-------|---------|-----------|----------|---------|
+| `channel_id` | Channel of the listing | Channel SKU export | Yes | TIKTOK |
+| `channel_sku` | SKU as listed in that channel | Channel SKU export | Yes | TH_HYB_AJT-8850250014805_C2 (Lazada legacy: 110010050) |
+| `listed_name` | Name as listed | Channel SKU export | No | AminoMOF 25g 5 ซอง x1 (promo) |
+| `b2c_product_id` | B2C SKU this listing sells | Automatic, or CRM admin for legacy codes | No; empty = to-fix list | TH_HYB_AJT-8850250014805_C2 |
+| `match_source` | SAME_SKU (automatic), ADMIN or NONE | Automatic | Yes | SAME_SKU (ADMIN for 110010050) |
+| `status` | ACTIVE or INACTIVE | CRM admin | Yes | ACTIVE |
+| `first_seen_at / last_seen_at` | First and latest time the listing was seen | Automatic | Yes | 2026-09-15 08:00 / 2026-10-01 09:15 |
+
+*B2C order (header)* (`sales_order_headers`)
+
+| Field | Meaning | Filled by | Required | Example |
+|-------|---------|-----------|----------|---------|
+| `order_source` | SAP_B2B or B2C_CHANNEL | Automatic | Yes | B2C_CHANNEL |
+| `channel_id` | Channel of the order | Order feed | Yes | TIKTOK |
+| `external_order_no` | Order number in that channel | Order feed | Yes | TT-5781234567 |
+| `order_date` | Order date; sets the BU date | Order feed | Yes | 2026-10-01 |
+| `customer_id` | Customer, only when the buyer is a known loyalty member | Automatic | No | empty |
+| `sap_order_no, sap_customer_code, customer_group_code` | B2B only | — | Always empty | empty |
+
+*B2C order line* (`sales_order_lines`)
+
+| Field | Meaning | Filled by | Required | Example |
+|-------|---------|-----------|----------|---------|
+| `line_no` | Line in the order | Order feed | Yes | 1 |
+| `channel_sku` | SKU as sent by the channel | Order feed | Yes | TH_HYB_AJT-8850250014805_C2 |
+| `b2c_listing_id` | Channel listing for the SKU | Automatic | No; empty = to-fix list | TikTok listing of …_C2 |
+| `b2c_product_id` | B2C SKU sold | Automatic, from the listing | No; empty = to-fix list | TH_HYB_AJT-8850250014805_C2 |
+| `quantity` | Number of SKUs sold | Order feed | Yes | 2 |
+| `net_amount` | Amount the buyer paid (no unit price) | Order feed | Yes | 398.00 |
+| `discount_amount` | Discount, if the channel sends it | Order feed | No | 40.00 |
+| `bu_id` | Business Unit used | Automatic, from the brand | Set at import | H&N |
+| `bu_source` | What decided the BU; always BRAND for B2C | Automatic | Set at import | BRAND |
+| `bu_rule_id` | Brand → BU rule used | Automatic | Set at import | AminoMOF → H&N rule |
+| `bu_brand_id` | Brand used | Automatic | Set at import | AminoMOF |
+| `bu_as_of_date / bu_resolved_at` | Date the rule was read for / time it was saved | Automatic | Set at import | 2026-10-01 / 2026-10-01 23:05 |
+| `material_code, sellable_item_id, bu_customer_group_code` | B2B only | — | Always empty | empty |
+
+*To-fix list (B2C rows)* (`bu_exceptions`)
+
+| Field | Meaning | Filled by | Required | Example |
+|-------|---------|-----------|----------|---------|
+| `b2c_listing_id + reason UNKNOWN_CHANNEL_SKU` | Listing that links to no B2C SKU | Automatic | — | Lazada 110010050 |
+| `b2c_product_id + reason B2C_NO_BRAND` | B2C SKU with no brand code, own or base | Automatic | — | TH_HYB_AJT-8850250000150_C |
+| `b2c_product_id + reason B2C_UNKNOWN_BRAND` | Brand code not in the CRM brand list | Automatic | — | TH_HYB_AJT-8850250016038_4 / QUICKMEAL |
+| `detail` | Text for the admin | Automatic | No | LAZADA / 110010050 |
+| `status, resolved_by, resolved_at` | OPEN, RESOLVED or IGNORED, and who closed it | CRM admin | Yes | RESOLVED by the e-commerce admin |
+
+**Calculated, not stored**
+
+| Value | Rule | Example | Where |
+|-------|------|---------|-------|
+| `base_units` | quantity × pack_qty | 2 × 2 = 4 units of AminoMOF | `b2c_line_quantities` |
+| `paid_per_unit` | net_amount ÷ base_units (analysis only, not a price) | 398.00 ÷ 4 = 99.50 THB | `b2c_line_quantities` |
+| `sku_check` | Same when the SKU is listed under its own code in all four channels | TH_HYB_AJT-8850250014089 → Same; …_C2 → Different | `b2c_channel_matrix` |
+
+The same order as stored rows:
+
+```text
+sales_channels        id=4  code=TIKTOK  kind=MARKETPLACE
+b2c_products          id=11 b2c_sku=TH_HYB_AJT-8850250014805     brand_code=AMINOMOF variant=STANDARD pack=1 source=CDP
+b2c_products          id=23 b2c_sku=TH_HYB_AJT-8850250014805_C2  brand_code=NULL base=11 variant=PROMO pack=2 source=CHANNEL
+b2c_channel_listings  id=40 channel=4 channel_sku=TH_HYB_AJT-8850250014805_C2 b2c_product_id=23 match_source=SAME_SKU
+sales_order_headers   id=1  order_source=B2C_CHANNEL channel=4 external_order_no=TT-5781234567 order_date=2026-10-01 customer_id=NULL
+sales_order_lines     id=1  header=1 line_no=1 channel_sku=TH_HYB_AJT-8850250014805_C2 listing=40 b2c_product_id=23
+                            quantity=2 net_amount=398.00 discount_amount=40.00
+                            bu=H&N bu_source=BRAND bu_brand=AminoMOF bu_as_of_date=2026-10-01
+b2c_line_quantities   base_units=4 paid_per_unit=99.50
+```
