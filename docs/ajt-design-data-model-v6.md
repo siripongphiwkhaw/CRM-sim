@@ -1491,6 +1491,32 @@ FROM sales_order_lines l
 JOIN sales_order_headers h ON h.id = l.header_id AND h.order_source = 'B2C_CHANNEL'
 JOIN sales_channels ch ON ch.id = h.channel_id
 JOIN b2c_products p ON p.id = l.b2c_product_id;
+
+-- One row per B2C sales line with its full mapping path:
+-- channel SKU -> listing -> B2C SKU -> base SKU -> brand -> BU, plus units and paid amount.
+CREATE VIEW b2c_sales_mapping AS
+SELECT h.order_date, ch.code AS channel, h.external_order_no, l.line_no,
+       l.channel_sku, cl.match_source,
+       p.b2c_sku, p.variant_type, p.pack_qty,
+       COALESCE(base.b2c_sku, p.b2c_sku) AS base_sku,
+       pb.brand_code, br.name_th AS brand_name, bu.bu_code,
+       l.quantity AS skus_sold, l.quantity * p.pack_qty AS base_units,
+       l.net_amount AS paid,
+       round(l.net_amount / NULLIF(l.quantity * p.pack_qty, 0), 2) AS paid_per_unit,
+       CASE WHEN l.b2c_product_id IS NULL THEN 'UNKNOWN_CHANNEL_SKU'
+            WHEN pb.brand_code IS NULL THEN 'B2C_NO_BRAND'
+            WHEN pb.brand_id IS NULL THEN 'B2C_UNKNOWN_BRAND'
+            WHEN l.bu_id IS NULL THEN 'NO_BU'
+            ELSE 'MAPPED' END AS mapping_status
+FROM sales_order_lines l
+JOIN sales_order_headers h ON h.id = l.header_id AND h.order_source = 'B2C_CHANNEL'
+JOIN sales_channels ch ON ch.id = h.channel_id
+LEFT JOIN b2c_channel_listings cl ON cl.id = l.b2c_listing_id
+LEFT JOIN b2c_products p ON p.id = l.b2c_product_id
+LEFT JOIN b2c_products base ON base.id = p.base_product_id
+LEFT JOIN b2c_product_brand pb ON pb.b2c_product_id = p.id
+LEFT JOIN brands br ON br.id = pb.brand_id
+LEFT JOIN business_units bu ON bu.id = l.bu_id;
 ```
 
 ### 12.2 B2C order import
