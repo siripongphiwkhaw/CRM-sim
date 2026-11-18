@@ -215,7 +215,7 @@ footer.foot { margin-top: 48px; padding-top: 18px; border-top: 1px solid var(--l
       <div class="key"><b>Customers and products are kept apart.</b><span>They meet only on a sales line, where a customer buys a product.</span></div>
       <div class="key"><b>Every sales line gets its own BU.</b><span>One order can hold several brands, so BU is never set for the whole order.</span></div>
       <div class="key"><b>Channel first, then brand.</b><span>Modern Food Service and Food Industrial customers → channel BU. Everyone else, and every consumer → the BU of the product’s brand.</span></div>
-      <div class="key"><b>B2C has its own SKU list, without a unit price.</b><span>B2C SKUs are not B2B codes and are never matched to them. Each Lazada, Shopee or TikTok listing points to one B2C SKU; the CDP sends its brand, and the brand gives the BU. A B2C line carries what the buyer paid.</span></div>
+      <div class="key"><b>B2C has its own SKU list, without a unit price.</b><span>B2C SKUs are not B2B codes and are never matched to them. Four channels in Phase 1: D2C (our web shop), Shopee, Lazada, TikTok. Each listing points to one B2C SKU; the CDP sends its brand, and the brand gives the BU. A B2C line carries what the buyer paid.</span></div>
     </div>
   </section>
 
@@ -242,7 +242,7 @@ footer.foot { margin-top: 48px; padding-top: 18px; border-top: 1px solid var(--l
       <div class="exrow"><span class="exbox"><small>Food-service customer</small>Rosdee · Birdy</span><span class="exarr">→ channel rule →</span><span class="exbox"><small>Line BUs</small>Modern Food · Modern Food</span><span class="exarr">channel wins over brand</span></div>
       <div class="exrow"><span class="exbox"><small>Consumer receipt</small>Birdy</span><span class="exarr">→ no channel → brand →</span><span class="exbox"><small>Line BU</small>Birdy</span></div>
       <div class="exrow"><span class="exbox"><small>TikTok order</small>2 × TH_HYB_AJT-8850250014805_C2</span><span class="exarr">→ B2C SKU AminoMOF promo, pack 2 → brand (CDP) →</span><span class="exbox"><small>B2C line</small>4 boxes · 398 THB paid · H&amp;N</span></div>
-      <div class="exrow"><span class="exbox"><small>Same SKU in 3 channels</small>Lazada · Shopee · TikTok</span><span class="exarr">→</span><span class="exbox"><small>One B2C SKU</small>aminoVITAL Jelly Shot Red</span><span class="exarr">B2C sales add up across channels</span></div>
+      <div class="exrow"><span class="exbox"><small>Same SKU in 4 channels</small>D2C · Shopee · Lazada · TikTok</span><span class="exarr">→</span><span class="exbox"><small>One B2C SKU</small>aminoVITAL Jelly Shot Red</span><span class="exarr">B2C sales add up across channels</span></div>
       <div class="exrow"><span class="exbox"><small>Customer visibility</small>Food-service customer</span><span class="exarr">→ SAP sends</span><span class="exbox"><small>Customer BU</small>Modern Food</span><span class="exarr">a shop has no BU: every B2B user sees it</span></div>
     </div>
   </section>
@@ -298,12 +298,12 @@ const OBJ = {
     rules: ["Consent is kept per person, per purpose and channel", "Consent history is never overwritten; the latest entry counts"],
     links: [["contact", "is also"], ["customer", "is also (as consumer)"]] },
   channel: { name: "Sales channel (B2C)", th: "ช่องทางขายออนไลน์", own: ["CRM"],
-    what: "A marketplace where consumers buy: Lazada, Shopee, TikTok. A CRM admin adds new ones.",
+    what: "Where consumers buy online. Phase 1 has four: D2C (AJT’s own web shop), Shopee, Lazada and TikTok.",
     holds: [["Channel code and name", "sales_channels"]],
-    rules: ["B2C only; B2B channels stay SAP Customer Groups", "Never sets a channel BU: B2C lines always take the brand BU"],
+    rules: ["Only these four in Phase 1; another shop is a change request", "All four use the same B2C SKU codes", "B2C only; B2B channels stay SAP Customer Groups", "Never sets a channel BU: B2C lines always take the brand BU"],
     links: [["listing", "lists SKUs"], ["order", "B2C orders"]] },
   listing: { name: "Channel listing", th: "รหัสสินค้าในแต่ละช่องทาง", own: ["CRM"],
-    what: "A SKU as listed on one marketplace, e.g. TH_HYB_AJT-8850250014089 on Shopee. Loaded from each marketplace’s SKU export, or added when an order shows a new SKU.",
+    what: "A SKU as listed in one channel, e.g. TH_HYB_AJT-8850250014089 on Shopee. Loaded from each channel’s SKU export (web shop or marketplace), or added when an order shows a new SKU.",
     holds: [["Channel, SKU, and the name as listed", "channel_id, channel_sku, listed_name"], ["The B2C SKU it stands for", "b2c_product_id"], ["How it was linked", "match_source"]],
     rules: ["Unique within its channel; the same SKU can appear in every channel", "Links itself when its SKU is a B2C SKU", "Legacy codes (e.g. Lazada 110010050) are mapped by an admin, by hand or Excel", "Unlinked listings wait on the to-fix list"],
     links: [["channel", "listed in"], ["b2cproduct", "stands for"], ["order", "sold on B2C lines"]] },
@@ -315,7 +315,7 @@ const OBJ = {
   order: { name: "Sales order line", th: "รายการในคำสั่งซื้อ", own: ["SAP"],
     what: "One product on one order or receipt, B2B from SAP or B2C from a marketplace. Each line gets its own Business Unit.",
     holds: [["Order number, line number, order date", "sap_order_no, line_no, order_date"], ["Customer Group 1 on the order", "customer_group_code"], ["Material code, quantity, net amount", "material_code, quantity, net_amount"], ["BU saved at import, and what decided it (channel or brand)", "bu_id, bu_source, bu_rule_id"]],
-    rules: ["Channel first: Modern Food Service or Food Industrial customer → that channel BU", "Otherwise: the product’s brand → its BU", "Consumer receipts and marketplace orders have no channel, so they always use the brand", "B2C lines carry the amount paid; there is no B2C unit price", "The order header’s Customer Group is never the BU of the whole order", "Past lines keep the BU saved at import"],
+    rules: ["Channel first: Modern Food Service or Food Industrial customer → that channel BU", "Otherwise: the product’s brand → its BU", "Consumer receipts and B2C orders (D2C, Shopee, Lazada, TikTok) have no Customer Group, so they always use the brand", "B2C lines carry the amount paid; there is no B2C unit price", "The order header’s Customer Group is never the BU of the whole order", "Past lines keep the BU saved at import"],
     links: [["customer", "placed by"], ["product", "B2B: product"], ["b2cproduct", "B2C: SKU sold"], ["channel", "B2C: from marketplace"], ["bu", "saves the BU used"]] },
   product: { name: "Product or service", th: "สินค้า / บริการ", own: ["SAP", "CRM"],
     what: "Anything we sell. Products come from SAP with a material code; services are set up in the CRM.",
@@ -413,7 +413,8 @@ const RULES = [
   { area: "Waiting on AJT", how: "pending", text: "Customer Group 1 sets Modern Food and Food Industrial.", why: "Differs from AJT’s clarification; needs written sign-off." },
   { area: "Waiting on AJT", how: "pending", text: "Brand is the route to every other BU.", why: "Differs from AJT’s clarification; needs written sign-off." },
   { area: "Waiting on AJT", how: "pending", text: "The two-row channel rule counts as Phase 1 master data, not a change request.", why: "Vendor to confirm." },
-  { area: "B2C channels", how: "block", text: "A marketplace SKU is unique within its channel; the same SKU text can appear in every channel.", why: "Sheet 1 of the example: one SKU in Lazada, Shopee and TikTok." },
+  { area: "B2C channels", how: "block", text: "Phase 1 B2C has four channels only: D2C, Shopee, Lazada and TikTok.", why: "Phase 1 scope; a new channel is a change request." },
+  { area: "B2C channels", how: "block", text: "A listing SKU is unique within its channel; the same SKU text can appear in every channel.", why: "Sheet 1 of the example: one SKU in Lazada, Shopee and TikTok; D2C uses the same codes." },
   { area: "B2C channels", how: "block", text: "Every listing points to one B2C SKU. B2C SKUs are never linked to B2B products.", why: "B2B and B2C use different SKU codes." },
   { area: "B2C channels", how: "check", text: "A listing links itself when its SKU is a B2C SKU; legacy codes are mapped by an admin.", why: "Unlinked listings wait on the to-fix list." },
   { area: "B2C channels", how: "check", text: "Each B2C SKU gets its brand from the CDP; no brand or an unknown brand goes on the to-fix list.", why: "The brand gives every B2C line its BU." },
@@ -428,7 +429,7 @@ const GAPS = [
   { t: "B2C SKUs need a brand from the CDP", e: "A B2C SKU without a known brand code gets no BU.", f: "Agree the brand field and codes with the CDP team." },
   { t: "No B2B–B2C product view", e: "B2C and B2B use different codes, so a product’s total across B2B and B2C is not in the CRM.", f: "Compare by brand, which both sides carry." },
   { t: "Suffixes are a convention", e: "A new suffix is read as OTHER with pack quantity 1.", f: "Confirm the suffix list with the e-commerce team." },
-  { t: "Marketplace buyers are often anonymous", e: "Many B2C orders have no customer, only a channel.", f: "Link a buyer only when the loyalty member is known." },
+  { t: "B2C buyers are often anonymous, mostly on marketplaces", e: "Many B2C orders have no customer, only a channel.", f: "Link a buyer only when the loyalty member is known." },
   { t: "Brand-BU teams can’t filter to their own customers", e: "Shops have no BU, so every B2B user sees them.", f: "Option C (customer BU from purchases) as a Phase 2 change request." },
   { t: "Brand totals leave out food-service and industrial sales", e: "Those lines go to Modern Food or Food Industrial instead.", f: "Run brand reports on the line’s brand when you need every channel." },
   { t: "New products of a split brand wait for an admin", e: "No sub-brand means no BU, and the product is flagged.", f: "Weekly to-fix review; Excel template for sub-brands." },
@@ -440,7 +441,7 @@ const GAPS = [
 const SUGS = [
   { when: "now", t: "Agree the brand field with the CDP", why: "Every B2C SKU takes its BU from the brand code the CDP sends; codes must match the CRM brand list.", who: "CDP team and CRM master-data admin" },
   { when: "now", t: "Map the legacy Lazada codes", why: "Codes such as 110010050 do not link themselves; an admin maps each to its B2C SKU once.", who: "E-commerce team" },
-  { when: "now", t: "Agree which system sends marketplace orders", why: "Marketplace API, an aggregator or the CDP; and whether discount and shipping come separately from the paid amount.", who: "E-commerce and IT" },
+  { when: "now", t: "Agree which system sends B2C orders", why: "For each of the four channels: the D2C web shop, marketplace APIs, an aggregator or the CDP; and whether discount and shipping come separately from the paid amount.", who: "E-commerce and IT" },
   { when: "next", t: "Confirm the SKU suffix list", why: "_KOL, _C2, _C, _4 and _PACK are read today; new ones land as OTHER.", who: "E-commerce team" },
   { when: "now", t: "Get AJT’s written sign-off on the two exceptions", why: "Customer Group 1 for the two channel BUs, and brand as the route to every other BU, both differ from AJT’s clarification.", who: "AJT management" },
   { when: "now", t: "Confirm with the vendor that the channel rule is Phase 1", why: "It is a two-row master-data list; the vendor priced a customer-level mapping table as a change request.", who: "Project manager" },

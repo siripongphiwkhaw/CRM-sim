@@ -41,7 +41,7 @@ Sections 8–11 are rewritten and section 12 is removed. Revision 4 is kept in
 need AJT sign-off (section 9.2).
 
 **Revision 6 (B2C channel SKUs).** AJT's example file `Example_SKU_by_Channel.xlsx`
-shows B2C marketplace SKUs for Lazada, Shopee and TikTok. Most products use the same
+shows B2C marketplace SKUs for Lazada, Shopee and TikTok; Phase 1 B2C covers these three plus AJT's own web shop (D2C), which uses the same SKU codes. Most products use the same
 SKU (`TH_HYB_AJT-` + 13-digit EAN) in every channel; some use a legacy SAP code or a
 suffix (`_KOL`, `_C2` promo, `_C` clearance, `_4` bundle). B2C and B2B use different SKU codes, so
 B2C SKUs form their own catalog and are never matched to B2B products. B2C orders use
@@ -98,7 +98,7 @@ Conventions (decided for this spec, not taken from the repo):
 13. **Business Unit belongs to the product side, never the customer side** (AJT clarification; revision 5 adds two channel BUs from Customer Group 1, see 15). BU is resolved from an approved Material Group level of the product. SAP Customer Group is the customer's channel or classification. Customer and product meet only on a sales order line. The prototype shows no BU screen; the only trace is a "สมาชิกของ BU" (BU membership) column in the loyalty member list.
 14. **Brand and sub-brand follow separate routes** (revision 4, superseded by 15 for BU). The SAP brand is the Material Pricing Group and has nothing above it. The CRM sub-brand comes from a CRM rule on a Material Group level below the BU level, and sits under the Business Unit its products map to: AminoMOF (Material Group Aminovital) sits under H&N. The prototype's brand list mixes both kinds (`BIRDY`, `BIRDY-ROBUSTA`, `ROSDEE-MENU`).
 15. **Two kinds of Business Unit** (revision 5). Channel BUs (Modern Food, Food Industrial) follow the customer's SAP Customer Group 1. Brand BUs (Seasoning, Birdy, YumYum, H&N…) follow the product's brand. Every sales document can mix brands, so BU is set on each line, never on the document (section 10).
-16. **B2C has its own SKU catalog** (revision 6). B2C and B2B use different SKU codes, so marketplace SKUs live in a separate B2C catalog, never linked or reconciled to B2B products. Most B2C SKUs are the same in every channel; variants (KOL, promo, clearance, bundle) point to their base B2C SKU with a pack quantity. The brand comes from the B2C source and gives the BU. B2C money is the paid amount, never a price list (section 12).
+16. **B2C has its own SKU catalog** (revision 6). B2C and B2B use different SKU codes, so the SKUs of the four B2C channels (D2C, Shopee, Lazada, TikTok) live in a separate B2C catalog, never linked or reconciled to B2B products. Most B2C SKUs are the same in every channel; variants (KOL, promo, clearance, bundle) point to their base B2C SKU with a pack quantity. The brand comes from the B2C source and gives the BU. B2C money is the paid amount, never a price list (section 12).
 
 ## 2. Customer domain
 
@@ -839,8 +839,8 @@ belong to the B2C/CDP side and are not modelled here.
 | Price list | สิ่งที่ตั้งราคา, หน่วยขาย, จำนวนขั้นต่ำ, ราคาต่อหน่วย | price_list_rows.* |
 | (no screen) | SAP price | sap_prices (keyed by material_code) |
 | (no screen) | B2C SKU (catalog) | b2c_products (section 12) |
-| (no screen) | Marketplace listing (Lazada, Shopee, TikTok) | b2c_channel_listings (section 12) |
-| (no screen) | B2C order, paid amount | sales_order_headers (order_source = MARKETPLACE), sales_order_lines.net_amount |
+| (no screen) | Channel listing (D2C, Shopee, Lazada, TikTok) | b2c_channel_listings (section 12) |
+| (no screen) | B2C order, paid amount | sales_order_headers (order_source = B2C_CHANNEL), sales_order_lines.net_amount |
 
 Values computed at read time, not stored: price coverage, total paid / order
 count / average purchase cycle (from orders), open cases count, points balance
@@ -902,9 +902,9 @@ count / average purchase cycle (from orders), open cases count, points balance
 14. **SAP client scope.** Are `sap_customer_code` and `material_code` unique across SAP clients?
 15. **Phase 2 from CDP.** When brands and BUs come from the CDP, do CDP codes replace the codes CRM admins typed in Phase 1? Agree the codes now so nothing has to be re-keyed.
 16. **Customer BU for brand BUs.** Brand-BU staff cannot filter to "their" customers in Phase 1 (L1). Is option C (customer BU from actual purchases, a change request) wanted for Phase 2?
-17. **Brand in the B2C feed.** Does the CDP (or the marketplace export) send a brand code for every B2C SKU, and does it use the same codes as the CRM brand list?
+17. **Brand in the B2C feed.** Does the CDP (or the channel export) send a brand code for every B2C SKU, and does it use the same codes as the CRM brand list?
 18. **Promo pack quantity.** `_C2` is read as "1+1 = 2 units". Do all `_C<n>` suffixes mean n units, and who confirms new suffixes?
-19. **Marketplace order feed.** Which system sends B2C orders (marketplace API, an aggregator, the CDP), and does it send discount and shipping separately from the paid amount?
+19. **B2C order feed.** Which system sends B2C orders for each of the four channels (the D2C web shop, marketplace APIs, an aggregator, the CDP), and does it send discount and shipping separately from the paid amount?
 20. **B2C customer link.** Marketplace orders often hide the buyer. Is a B2C order linked to a consumer only when the loyalty member is known, or never?
 
 ## 9. Conditions and limitations (revision 5)
@@ -929,11 +929,12 @@ on the vendor's three questions.
 | C11 | Brand → BU and channel → BU rules are dated and never edited once approved. | Clar. 5.3 | `guard_bu_rule` trigger on both rule tables |
 | C12 | Customer Group never decides a product's brand, and brand never decides a customer's BU. | Clar. 2.1 | No column or join between them |
 | C13 | Customer Group is not part of any pricing key unless SAP sends it as a pricing condition. | Clar. 2.3 | `sap_prices` has no customer group column |
-| C14 | A marketplace listing is unique within its channel; the same SKU text may repeat across channels. | Rev. 6 | `b2c_channel_listings UNIQUE (channel_id, channel_sku)` |
+| C14 | A channel listing is unique within its channel; the same SKU text may repeat across channels. | Rev. 6 | `b2c_channel_listings UNIQUE (channel_id, channel_sku)` |
 | C15 | B2C SKUs are a separate catalog. They are never matched, compared or reconciled with B2B products. | Rev. 6 | `b2c_products` has no link to `sellable_items`; a sales line holds one or the other, never both |
 | C16 | Variants (KOL, promo, clearance, bundle) point to their base B2C SKU, with a tag and a pack quantity. | Rev. 6, Q2 | `b2c_products.base_product_id`, `variant_type`, `pack_qty` |
 | C17 | A B2C line carries the amount actually paid; there is no B2C unit price or price list. | Rev. 6, Q3 | `sales_order_lines.net_amount`; no price column for B2C |
 | C18 | A B2C SKU's brand comes from the B2C source (CDP) and gives the BU; a B2C order has no Customer Group. | Rev. 6 | `b2c_products.brand_code`; `resolve_b2c_line_bu()`; `CHECK` on headers |
+| C19 | Phase 1 B2C covers four channels only: D2C (AJT's own web shop), Shopee, Lazada and TikTok, all using the same B2C SKU codes. | Rev. 6 | `sales_channels.code CHECK`; seeded rows |
 
 ### 9.2 Deviations from AJT's clarification (need AJT sign-off)
 
@@ -957,7 +958,8 @@ on the vendor's three questions.
 | L9 | The B2C brand depends on the feed. | A B2C SKU with no or an unknown brand code gets no BU and goes to the to-fix list. | Agree the brand field and codes with the CDP (open question 17). |
 | L10 | Suffix meaning is a convention, not data. | A new suffix lands as `OTHER` with pack quantity 1. | Confirm suffixes (open question 18). |
 | L11 | Legacy codes on a listing (e.g. Lazada `110010050`) match no B2C SKU automatically. | They wait on the to-fix list until an admin maps them. | Admin maps by hand or Excel. |
-| L12 | Marketplace buyers are often anonymous. | Many B2C orders have no customer; customer-level B2C reports cover only known members. | Open question 20. |
+| L12 | B2C buyers are often anonymous, mostly on marketplaces. | Many B2C orders have no customer; customer-level B2C reports cover only known members. | Open question 20. |
+| L13 | Only four B2C channels. | Another shop (e.g. a LINE shop) cannot be loaded until the channel list is widened. | Change request: add the channel code. |
 
 ## 10. Business Unit solution design (revision 5)
 
@@ -1081,13 +1083,15 @@ CREATE TABLE sap_prices (
 -- B2C and B2B use different SKU codes; nothing here links to sellable_items.
 CREATE TABLE sales_channels (
   id                INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  code              TEXT NOT NULL UNIQUE,          -- C LAZADA, SHOPEE, TIKTOK
+  code              TEXT NOT NULL UNIQUE CHECK (code IN ('D2C','SHOPEE','LAZADA','TIKTOK')),  -- C Phase 1 scope: these 4 channels only
   name              TEXT NOT NULL,                 -- C
-  kind              TEXT NOT NULL DEFAULT 'MARKETPLACE' CHECK (kind IN ('MARKETPLACE','LINE_SHOP','WEB_SHOP','OTHER')),  -- C
+  kind              TEXT NOT NULL DEFAULT 'MARKETPLACE' CHECK (kind IN ('MARKETPLACE','D2C')),  -- C D2C = AJT's own web shop
   customer_profile  TEXT NOT NULL DEFAULT 'B2C' CHECK (customer_profile = 'B2C'),  -- C B2C only; B2B channels are SAP Customer Groups
   is_active         BOOLEAN NOT NULL DEFAULT true
 );
-INSERT INTO sales_channels (code, name) VALUES ('LAZADA','Lazada'), ('SHOPEE','Shopee'), ('TIKTOK','TikTok');
+INSERT INTO sales_channels (code, name, kind) VALUES
+  ('D2C','AJT web shop (D2C)','D2C'), ('SHOPEE','Shopee','MARKETPLACE'),
+  ('LAZADA','Lazada','MARKETPLACE'), ('TIKTOK','TikTok','MARKETPLACE');
 
 CREATE TABLE b2c_products (
   id                INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -1099,7 +1103,7 @@ CREATE TABLE b2c_products (
   variant_type      TEXT NOT NULL DEFAULT 'STANDARD'
                     CHECK (variant_type IN ('STANDARD','KOL','PROMO','CLEARANCE','BUNDLE','OTHER')),  -- C from the suffix
   pack_qty          NUMERIC(10,3) NOT NULL DEFAULT 1 CHECK (pack_qty > 0),  -- C units of the base SKU per SKU sold: _4 = 4, promo 1+1 = 2
-  source_system     TEXT NOT NULL DEFAULT 'CDP' CHECK (source_system IN ('CDP','MARKETPLACE','ADMIN')),  -- C
+  source_system     TEXT NOT NULL DEFAULT 'CDP' CHECK (source_system IN ('CDP','CHANNEL','ADMIN')),  -- C
   status            TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','INACTIVE')),  -- C
   first_seen_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
   last_seen_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -1121,21 +1125,21 @@ CREATE TABLE b2c_channel_listings (
 );
 CREATE INDEX b2c_channel_listings_product ON b2c_channel_listings(b2c_product_id);
 
--- Sales documents: SAP B2B orders and B2C marketplace orders share one structure. No BU on the header (C3).
+-- Sales documents: SAP B2B orders and B2C channel orders (D2C, Shopee, Lazada, TikTok) share one structure. No BU on the header (C3).
 CREATE TABLE sales_order_headers (
   id                   INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  order_source         TEXT NOT NULL DEFAULT 'SAP_B2B' CHECK (order_source IN ('SAP_B2B','MARKETPLACE')),  -- C rev 6
+  order_source         TEXT NOT NULL DEFAULT 'SAP_B2B' CHECK (order_source IN ('SAP_B2B','B2C_CHANNEL')),  -- C rev 6
   sap_order_no         TEXT UNIQUE,                -- C B2B: SAP order number
   sap_customer_code    TEXT,                       -- C B2B: joins customers(sap_customer_code)
-  channel_id           INTEGER REFERENCES sales_channels(id),  -- C B2C: marketplace
-  external_order_no    TEXT,                       -- C B2C: marketplace order number
+  channel_id           INTEGER REFERENCES sales_channels(id),  -- C B2C: D2C, Shopee, Lazada or TikTok
+  external_order_no    TEXT,                       -- C B2C: web shop or marketplace order number
   customer_id          INTEGER REFERENCES customers(id),  -- I resolved at import; often empty for B2C
   customer_group_code  TEXT,                       -- C B2B: Customer Group 1, used only for the channel check
   order_date           DATE NOT NULL,              -- C
   synced_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (channel_id, external_order_no),
   CHECK (order_source <> 'SAP_B2B' OR (sap_order_no IS NOT NULL AND sap_customer_code IS NOT NULL AND channel_id IS NULL)),
-  CHECK (order_source <> 'MARKETPLACE' OR (channel_id IS NOT NULL AND external_order_no IS NOT NULL AND customer_group_code IS NULL))
+  CHECK (order_source <> 'B2C_CHANNEL' OR (channel_id IS NOT NULL AND external_order_no IS NOT NULL AND customer_group_code IS NULL))
 );
 
 CREATE TABLE sales_order_lines (
@@ -1143,13 +1147,13 @@ CREATE TABLE sales_order_lines (
   header_id            INTEGER NOT NULL REFERENCES sales_order_headers(id) ON DELETE CASCADE,
   line_no              TEXT NOT NULL,              -- C
   material_code        TEXT,                       -- C B2B: as sent by SAP; joins sellable_items(material_code)
-  channel_sku          TEXT,                       -- C B2C: SKU as sent by the marketplace
+  channel_sku          TEXT,                       -- C B2C: SKU as sent by the channel
   b2c_listing_id       INTEGER REFERENCES b2c_channel_listings(id),  -- I B2C: resolved at import
   b2c_product_id       INTEGER REFERENCES b2c_products(id),  -- I B2C: the B2C SKU sold
   sellable_item_id     INTEGER REFERENCES sellable_items(id),  -- I B2B: resolved at import
   quantity             NUMERIC(14,3),              -- C B2B: in the SAP sales unit; B2C: number of SKUs sold
   net_amount           NUMERIC(14,2),              -- C B2B: net amount; B2C: amount actually paid (no unit price, C17)
-  discount_amount      NUMERIC(14,2),              -- C B2C: discount if the marketplace sends it
+  discount_amount      NUMERIC(14,2),              -- C B2C: discount if the channel sends it
   -- Stamp (C9): all set together or not at all.
   bu_id                INTEGER REFERENCES business_units(id),  -- C
   bu_source            TEXT CHECK (bu_source IN ('CHANNEL','BRAND')),  -- C
@@ -1356,6 +1360,9 @@ order-1 customer has no BU row, so every B2B user sees it.
 Source: AJT's `Example_SKU_by_Channel.xlsx` (sheet 1: the same SKU in three channels;
 sheet 2: one row per product; sheet 3: SKUs that differ by channel).
 
+Phase 1 covers four B2C channels: **D2C** (AJT's own web shop), **Shopee**, **Lazada** and **TikTok**. The example
+file has the three marketplaces; D2C uses the same SKU codes, loaded from the web shop's product export.
+
 B2C and B2B use **different SKU codes**. The B2C catalog stands on its own: it is never
 matched, compared or reconciled with B2B products. It follows the same pattern as B2B
 (a catalog, sales order headers and lines, a BU on every line), but a B2C line carries
@@ -1363,7 +1370,7 @@ the amount paid instead of a unit price.
 
 | What the file shows | How the model holds it |
 |---------------------|------------------------|
-| Same SKU `TH_HYB_AJT-8850250014089` in Lazada, Shopee and TikTok | One `b2c_products` row, three `b2c_channel_listings` rows |
+| Same SKU `TH_HYB_AJT-8850250014089` in Lazada, Shopee and TikTok (and D2C) | One `b2c_products` row, one `b2c_channel_listings` row per channel |
 | `_KOL`, `_C2` (promo 1+1), `_C` (clearance), `_4` / `_PACK` (bundle) | Its own B2C SKU, pointing to the base SKU, with `variant_type` and `pack_qty` (`_C2` = 2, `_4` = 4) |
 | Lazada legacy code `110010050` for a product Shopee lists as `TH_HYB_AJT-8850250014492` | A Lazada listing an admin maps to that B2C SKU |
 | SKU missing in a channel (`–`) | No listing for that channel |
@@ -1408,7 +1415,7 @@ $$;
 -- Step A: a TH_HYB SKU seen on a listing but not yet in the catalog is added
 -- (the CDP feed normally creates it first, with its name and brand code).
 INSERT INTO b2c_products (b2c_sku, name_th, source_system)
-SELECT DISTINCT ON (l.channel_sku) l.channel_sku, l.listed_name, 'MARKETPLACE'
+SELECT DISTINCT ON (l.channel_sku) l.channel_sku, l.listed_name, 'CHANNEL'
 FROM b2c_channel_listings l
 WHERE l.channel_sku ~ '^TH_HYB_AJT-'
 ORDER BY l.channel_sku
@@ -1459,9 +1466,10 @@ LANGUAGE sql STABLE AS $$
   WHERE pb.b2c_product_id = p_b2c_product_id
 $$;
 
--- One row per B2C SKU and channel, like sheet 2 of the file (B2C channels only).
+-- One row per B2C SKU across the 4 channels, like sheet 2 of the file (B2C only). 'Same' = listed under its own code in all 4.
 CREATE VIEW b2c_channel_matrix AS
 SELECT p.b2c_sku, p.name_th,
+       string_agg(l.channel_sku, ', ') FILTER (WHERE ch.code = 'D2C')    AS d2c_sku,
        string_agg(l.channel_sku, ', ') FILTER (WHERE ch.code = 'LAZADA') AS lazada_sku,
        string_agg(l.channel_sku, ', ') FILTER (WHERE ch.code = 'SHOPEE') AS shopee_sku,
        string_agg(l.channel_sku, ', ') FILTER (WHERE ch.code = 'TIKTOK') AS tiktok_sku,
@@ -1480,7 +1488,7 @@ SELECT l.id AS line_id, h.external_order_no, ch.code AS channel, l.channel_sku, 
        l.net_amount AS paid,
        round(l.net_amount / NULLIF(l.quantity * p.pack_qty, 0), 2) AS paid_per_unit
 FROM sales_order_lines l
-JOIN sales_order_headers h ON h.id = l.header_id AND h.order_source = 'MARKETPLACE'
+JOIN sales_order_headers h ON h.id = l.header_id AND h.order_source = 'B2C_CHANNEL'
 JOIN sales_channels ch ON ch.id = h.channel_id
 JOIN b2c_products p ON p.id = l.b2c_product_id;
 ```
@@ -1492,14 +1500,14 @@ JOIN b2c_products p ON p.id = l.b2c_product_id;
 INSERT INTO b2c_channel_listings (channel_id, channel_sku)
 SELECT DISTINCT h.channel_id, l.channel_sku
 FROM sales_order_lines l JOIN sales_order_headers h ON h.id = l.header_id
-WHERE h.order_source = 'MARKETPLACE' AND l.channel_sku IS NOT NULL
+WHERE h.order_source = 'B2C_CHANNEL' AND l.channel_sku IS NOT NULL
 ON CONFLICT (channel_id, channel_sku) DO NOTHING;
 
 -- Step 2: run 12.1 steps A–E, then link each line to its listing and B2C SKU.
 UPDATE sales_order_lines l
 SET b2c_listing_id = cl.id, b2c_product_id = cl.b2c_product_id
 FROM sales_order_headers h, b2c_channel_listings cl
-WHERE h.id = l.header_id AND h.order_source = 'MARKETPLACE'
+WHERE h.id = l.header_id AND h.order_source = 'B2C_CHANNEL'
   AND cl.channel_id = h.channel_id AND cl.channel_sku = l.channel_sku
   AND (l.b2c_listing_id IS NULL OR l.b2c_product_id IS NULL);
 
@@ -1507,7 +1515,7 @@ WHERE h.id = l.header_id AND h.order_source = 'MARKETPLACE'
 WITH r AS (
   SELECT l.id AS line_id, h.order_date, x.*
   FROM sales_order_lines l
-  JOIN sales_order_headers h ON h.id = l.header_id AND h.order_source = 'MARKETPLACE'
+  JOIN sales_order_headers h ON h.id = l.header_id AND h.order_source = 'B2C_CHANNEL'
   CROSS JOIN LATERAL resolve_b2c_line_bu(l.b2c_product_id, h.order_date) x
   WHERE l.bu_id IS NULL
 )
@@ -1519,9 +1527,9 @@ FROM r WHERE l.id = r.line_id;
 
 ### 12.3 Operating rules
 
-1. **Channels:** Lazada, Shopee and TikTok are seeded. A new marketplace is a new `sales_channels` row; B2B channels stay SAP Customer Groups.
+1. **Channels:** Phase 1 covers four B2C channels only: D2C (AJT's own web shop), Shopee, Lazada and TikTok. All four use the same B2C SKU codes. Adding a channel is a change request (it widens the `sales_channels.code` check). B2B channels stay SAP Customer Groups.
 2. **Catalog:** the CDP sends B2C SKUs with their name and brand code. SKUs first seen on a listing or an order are added automatically and wait for their brand.
-3. **Listings:** loaded from each marketplace's SKU export (like sheet 1) and grown from orders. A listing whose SKU is a catalog SKU links itself; others (legacy codes) are mapped by an admin by hand or Excel.
+3. **Listings:** loaded from each channel's SKU export (like sheet 1; the D2C web shop's product export) and grown from orders. A listing whose SKU is a catalog SKU links itself; others (legacy codes) are mapped by an admin by hand or Excel.
 4. **Variants:** KOL, promo, clearance, and bundle SKUs point to their base SKU and count `pack_qty` base units each. Reports can split by `variant_type`.
 5. **Money:** B2C revenue is the paid amount. Per-unit figures are paid ÷ units, for analysis only.
 6. **BU:** every B2C line takes the BU of its brand (from the CDP brand code), stamped at import.
@@ -1531,10 +1539,10 @@ FROM r WHERE l.id = r.line_id;
 
 | B2C SKU / listing | Channels | Variant | Pack | Base SKU | Link |
 |-------------------|----------|---------|------|----------|------|
-| TH_HYB_AJT-8850250014089 | Lazada, Shopee, TikTok | STANDARD | 1 | — | SAME_SKU |
+| TH_HYB_AJT-8850250014089 | D2C, Shopee, Lazada, TikTok | STANDARD | 1 | — | SAME_SKU |
 | TH_HYB_AJT-8850250014089_KOL | TikTok | KOL | 1 | …14089 | SAME_SKU |
 | TH_HYB_AJT-8850250014805_C2 | Lazada, TikTok | PROMO | 2 | …14805 (AminoMOF) | SAME_SKU |
-| TH_HYB_AJT-8850250016038_4 | Lazada, Shopee, TikTok | BUNDLE | 4 | …16038 | SAME_SKU |
+| TH_HYB_AJT-8850250016038_4 | D2C, Shopee, Lazada, TikTok | BUNDLE | 4 | …16038 | SAME_SKU |
 | Lazada listing 110010050 | Lazada | — | — | → TH_HYB_AJT-8850250014492 | ADMIN |
 
 A TikTok order for two `_C2` AminoMOF SKUs paid 398 THB counts as 4 units of AminoMOF
