@@ -1,0 +1,370 @@
+<title>B2C SKU Master Control Procedure</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column of numbered controlled-document sections; tables scroll inside their own box. */
+:root {
+  --bg: #F6F7F6;
+  --surface: #FFFFFF;
+  --ink: #17221F;
+  --body: #3A4743;
+  --muted: #66736F;
+  --line: #DCE2DF;
+  --accent: #0F6B5C;
+  --accent-t: #E2F1ED;
+  --warn: #9A5B0B;
+  --warn-t: #FBEFDD;
+  --sys: #2F5D9E;
+  --sys-t: #E5EDF8;
+  --display: "Space Grotesk", "Segoe UI", Arial, sans-serif;
+  --text: "Inter", "Segoe UI", Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111816; --surface: #18211E; --ink: #E8EFEC; --body: #C3CEC9; --muted: #8E9C97; --line: #2B3733;
+  --accent: #5FC7B2; --accent-t: #16302A; --warn: #E8B266; --warn-t: #2F2414; --sys: #8EB4EE; --sys-t: #1A2638; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #111816; --surface: #18211E; --ink: #E8EFEC; --body: #C3CEC9; --muted: #8E9C97; --line: #2B3733;
+  --accent: #5FC7B2; --accent-t: #16302A; --warn: #E8B266; --warn-t: #2F2414; --sys: #8EB4EE; --sys-t: #1A2638; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--body); font: 16px/1.6 var(--text); }
+.wrap { max-width: 960px; margin: 0 auto; padding-block: 40px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--display); color: var(--ink); text-wrap: balance; line-height: 1.2; }
+h1 { font-size: clamp(30px, 5vw, 42px); margin: 6px 0 12px; }
+h2 { font-size: 24px; margin: 0 0 12px; display: flex; gap: 12px; align-items: baseline; }
+h2 .n { font-family: var(--mono); font-size: 15px; color: var(--accent); font-weight: 500; }
+h3 { font-size: 18px; margin: 0 0 8px; }
+p { margin: 0 0 12px; max-width: 72ch; }
+code, .mono { font-family: var(--mono); font-size: 0.86em; overflow-wrap: anywhere; }
+a { color: var(--accent); }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.eyebrow { font-size: 12.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.lead { font-size: 18px; max-width: 70ch; }
+.docmeta { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); margin: 22px 0 18px; }
+.docmeta div { padding: 10px 14px; border-right: 1px solid var(--line); min-width: 0; }
+.docmeta div:last-child { border-right: 0; }
+.docmeta dt { font-size: 11.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.docmeta dd { margin: 2px 0 0; color: var(--ink); font-weight: 500; font-size: 14.5px; }
+.toc { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 14.5px; padding: 12px 0 0; border-top: 1px solid var(--line); }
+.toc a { text-decoration: none; }
+.toc a:hover { text-decoration: underline; }
+
+section { padding-top: 40px; scroll-margin-top: 16px; }
+.note { border: 1px solid var(--line); border-left: 3px solid var(--warn); background: var(--warn-t); border-radius: 0 8px 8px 0; padding: 10px 14px; font-size: 15px; margin: 12px 0; max-width: none; }
+.note b { color: var(--ink); }
+
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); margin: 8px 0 16px; }
+table { width: 100%; border-collapse: collapse; font-size: 14.5px; min-width: 680px; }
+th { text-align: left; font-size: 11.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); font-weight: 600; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: bottom; }
+td { padding: 9px 12px; border-top: 1px solid var(--line); vertical-align: top; }
+tr:first-child td { border-top: 0; }
+td.k { color: var(--ink); font-weight: 600; }
+td.c { text-align: center; font-family: var(--mono); font-weight: 500; color: var(--ink); }
+.raci td.c:empty::after { content: "–"; color: var(--muted); font-weight: 400; }
+
+.chip { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 99px; white-space: nowrap; background: var(--accent-t); color: var(--accent); }
+.chip.sys { background: var(--sys-t); color: var(--sys); }
+.chip.team { background: var(--warn-t); color: var(--warn); }
+
+.proc { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin: 14px 0; }
+.proc header { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; margin-bottom: 8px; }
+.proc header .id { font-family: var(--mono); color: var(--accent); font-weight: 500; }
+.proc header h3 { margin: 0; }
+.proc .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 6px 18px; font-size: 14.5px; margin-bottom: 10px; }
+.proc .facts b { color: var(--ink); font-weight: 600; display: block; font-size: 11.5px; letter-spacing: 0.07em; text-transform: uppercase; }
+.proc ol { margin: 0; padding-left: 22px; display: grid; gap: 6px; }
+.proc li { padding-left: 2px; }
+.proc li .who { margin-right: 6px; }
+.proc .out { margin-top: 10px; font-size: 14.5px; color: var(--muted); }
+.proc .out b { color: var(--body); }
+
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; min-width: 0; }
+.card ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 15px; }
+footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 13.5px; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+<div class="wrap">
+<header>
+  <p class="eyebrow">AJT CRM · Master data procedure · B2C</p>
+  <h1>B2C SKU Master Control Procedure</h1>
+  <p class="lead">How AJT creates, links, changes and retires B2C SKUs for its four B2C channels, who does each step, and the checks that keep every B2C sale tied to the right brand and Business Unit (BU).</p>
+  <dl class="docmeta">
+    <div><dt>Document</dt><dd class="mono">AJT-CRM-MD-B2C-01</dd></div>
+    <div><dt>Version</dt><dd>0.1 draft for review</dd></div>
+    <div><dt>Date</dt><dd>18 November 2026</dd></div>
+    <div><dt>Process owner</dt><dd>CRM master-data admin (proposed)</dd></div>
+    <div><dt>Approver</dt><dd>AJT e-commerce lead (proposed)</dd></div>
+  </dl>
+  <nav class="toc" aria-label="Sections">
+    <a href="#scope">1 Scope</a><a href="#roles">2 Roles</a><a href="#standards">3 Data standards</a><a href="#procedures">4 Procedures</a><a href="#controls">5 Controls</a><a href="#change">6 Change rules</a><a href="#kpi">7 KPIs</a><a href="#templates">8 Templates</a><a href="#open">9 To confirm</a>
+  </nav>
+</header>
+
+<section id="scope" aria-labelledby="h-scope">
+  <h2 id="h-scope"><span class="n">1</span>Purpose and scope</h2>
+  <p>The B2C SKU master is the CRM's list of every product sold to consumers online, with its brand. Each B2C sale takes its BU from that brand, so a wrong or missing SKU record means a sale with the wrong BU or no BU.</p>
+  <div class="cols">
+    <div class="card"><h3>In scope</h3><ul>
+      <li>B2C SKUs, e.g. <code>TH_HYB_AJT-8850250014089</code>, and special SKUs (<code>_KOL</code>, <code>_C2</code>, <code>_C</code>, <code>_4</code>, <code>_PACK</code>)</li>
+      <li>Channel listings in the four Phase 1 channels: <b>D2C</b> (AJT web shop), <b>Shopee</b>, <b>Lazada</b>, <b>TikTok</b></li>
+      <li>Brand code on each B2C SKU, and the to-fix list for B2C</li>
+    </ul></div>
+    <div class="card"><h3>Out of scope</h3><ul>
+      <li>B2B products and SAP material codes (SAP master data process)</li>
+      <li>Prices and promotions in each channel (no B2C price list in the CRM)</li>
+      <li>The brand → BU list itself (changed only with AJT approval)</li>
+      <li>Any link between B2C SKUs and B2B products: there is none</li>
+    </ul></div>
+  </div>
+  <p class="note"><b>Labels used below.</b> <span class="chip sys">System blocks</span> the CRM refuses the data. <span class="chip team">Team checks</span> a person checks it, using a CRM report or the to-fix list.</p>
+</section>
+
+<section id="roles" aria-labelledby="h-roles">
+  <h2 id="h-roles"><span class="n">2</span>Roles and responsibilities</h2>
+  <p>R = does the work, A = accountable (one per activity), C = consulted, I = informed. Role names are proposed; AJT to confirm the people.</p>
+  <div class="tbl"><table class="raci">
+    <thead><tr><th>Activity</th><th>CDP team</th><th>E-commerce team</th><th>CRM master-data admin</th><th>Brand / BU owner (AJT)</th><th>IT integration</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Create a B2C SKU with name and brand code</td><td class="c">R</td><td class="c">A</td><td class="c">I</td><td class="c"></td><td class="c"></td></tr>
+      <tr><td class="k">Request a special SKU (KOL, promo, clearance, bundle)</td><td class="c">R</td><td class="c">A</td><td class="c">C</td><td class="c"></td><td class="c"></td></tr>
+      <tr><td class="k">Confirm pack quantity of a special SKU</td><td class="c"></td><td class="c">C</td><td class="c">A/R</td><td class="c"></td><td class="c"></td></tr>
+      <tr><td class="k">List a SKU in a channel and send the SKU export</td><td class="c"></td><td class="c">A/R</td><td class="c">I</td><td class="c"></td><td class="c">C</td></tr>
+      <tr><td class="k">Map a legacy or non-standard channel code</td><td class="c"></td><td class="c">R</td><td class="c">A</td><td class="c"></td><td class="c"></td></tr>
+      <tr><td class="k">Keep brand codes matching the CRM brand list</td><td class="c">R</td><td class="c"></td><td class="c">A</td><td class="c">C</td><td class="c"></td></tr>
+      <tr><td class="k">Change a brand → BU assignment</td><td class="c"></td><td class="c"></td><td class="c">R</td><td class="c">A</td><td class="c"></td></tr>
+      <tr><td class="k">Run the feeds and fix failed loads</td><td class="c">C</td><td class="c">C</td><td class="c">I</td><td class="c"></td><td class="c">A/R</td></tr>
+      <tr><td class="k">Weekly to-fix review and closure</td><td class="c">R</td><td class="c">R</td><td class="c">A</td><td class="c">I</td><td class="c">C</td></tr>
+      <tr><td class="k">Retire a SKU or listing</td><td class="c">R</td><td class="c">A</td><td class="c">R</td><td class="c"></td><td class="c"></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="standards" aria-labelledby="h-std">
+  <h2 id="h-std"><span class="n">3</span>Data standards</h2>
+  <div class="tbl"><table>
+    <thead><tr><th style="width:24%">Rule</th><th>Standard</th><th style="width:16%">Enforced by</th></tr></thead>
+    <tbody>
+      <tr><td class="k">B2C SKU code</td><td><code>TH_HYB_AJT-</code> + 13-digit barcode number, plus an optional suffix. Example <code>TH_HYB_AJT-8850250014805_C2</code>. Never a B2B or SAP material code.</td><td><span class="chip team">Team checks</span></td></tr>
+      <tr><td class="k">One code, all channels</td><td>One B2C SKU is used unchanged in D2C, Shopee, Lazada and TikTok. A channel that cannot use it gets a listing mapped to it (procedure P4).</td><td><span class="chip team">Team checks</span> monthly matrix</td></tr>
+      <tr><td class="k">Unique and permanent</td><td>A B2C SKU code is unique and never reused for another product, even after it is retired.</td><td><span class="chip sys">System blocks</span> duplicates</td></tr>
+      <tr><td class="k">Brand code</td><td>Every standard B2C SKU carries a brand code from the CRM brand list. A special SKU may leave it empty and takes its base SKU's brand.</td><td><span class="chip team">Team checks</span> via to-fix list</td></tr>
+      <tr><td class="k">Product name</td><td>Thai name as on the pack: brand, product, size, pack. Example <code>อะมิโน มอฟ 25 กรัม 5 ซอง/กล่อง x 1 กล่อง</code>.</td><td><span class="chip team">Team checks</span></td></tr>
+      <tr><td class="k">Channels</td><td>Only D2C, SHOPEE, LAZADA, TIKTOK. Another shop is a change request.</td><td><span class="chip sys">System blocks</span></td></tr>
+      <tr><td class="k">Listing</td><td>A SKU appears at most once per channel. A listing points to exactly one B2C SKU, or sits on the to-fix list.</td><td><span class="chip sys">System blocks</span></td></tr>
+    </tbody>
+  </table></div>
+  <h3>Allowed suffixes</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Suffix</th><th>Meaning</th><th>Pack quantity</th><th>Example</th></tr></thead>
+    <tbody>
+      <tr><td class="k"><code>(none)</code></td><td>Standard SKU</td><td>1</td><td><code>TH_HYB_AJT-8850250014089</code></td></tr>
+      <tr><td class="k"><code>_KOL</code></td><td>KOL / influencer SKU</td><td>1</td><td><code>TH_HYB_AJT-8850250014089_KOL</code> (TikTok)</td></tr>
+      <tr><td class="k"><code>_C2</code>, <code>_C3</code>…</td><td>Promo, e.g. 1+1</td><td>The number (2, 3…)</td><td><code>TH_HYB_AJT-8850250014805_C2</code></td></tr>
+      <tr><td class="k"><code>_C</code></td><td>Clearance</td><td>1</td><td><code>TH_HYB_AJT-8850250000150_C</code></td></tr>
+      <tr><td class="k"><code>_4</code>, <code>_6</code>…</td><td>Bundle</td><td>The number</td><td><code>TH_HYB_AJT-8850250016038_4</code></td></tr>
+      <tr><td class="k"><code>_PACK</code></td><td>Bundle, size stated by admin</td><td>Set by admin</td><td>Lazada <code>110050412_PACK</code> (legacy)</td></tr>
+    </tbody>
+  </table></div>
+  <p>A suffix not in this table is read as one unit and must be confirmed by the CRM master-data admin before the SKU is sold (P2).</p>
+</section>
+
+<section id="procedures" aria-labelledby="h-proc">
+  <h2 id="h-proc"><span class="n">4</span>Procedures</h2>
+
+  <article class="proc">
+    <header><span class="id">P1</span><h3>New standard B2C SKU</h3></header>
+    <div class="facts"><div><b>Trigger</b>New product to sell online</div><div><b>Lead time</b>2 working days before first listing (proposed)</div><div><b>Form</b>New B2C SKU request (8.1)</div></div>
+    <ol>
+      <li><span class="chip who">E-commerce</span>Fill the request: SKU code, Thai name, brand, channels, go-live date.</li>
+      <li><span class="chip who">CDP team</span>Check the code format and that the code is new; check the brand code is in the CRM brand list. Create the SKU in the CDP.</li>
+      <li><span class="chip sys who">CRM</span>The daily product feed adds the SKU and finds its brand. No brand or an unknown brand puts it on the to-fix list.</li>
+      <li><span class="chip who">CRM admin</span>Next working day: confirm the SKU shows a brand and no to-fix item.</li>
+      <li><span class="chip who">E-commerce</span>List the SKU in the channels (P3).</li>
+    </ol>
+    <p class="out"><b>Done when</b> the SKU is in the CRM with a brand, and no open to-fix item names it.</p>
+  </article>
+
+  <article class="proc">
+    <header><span class="id">P2</span><h3>New special SKU (KOL, promo, clearance, bundle)</h3></header>
+    <div class="facts"><div><b>Trigger</b>Campaign, promo or clearance</div><div><b>Lead time</b>2 working days before the campaign (proposed)</div><div><b>Form</b>New B2C SKU request (8.1), special part filled</div></div>
+    <ol>
+      <li><span class="chip who">E-commerce</span>Request the SKU with base SKU, suffix, pack quantity and campaign dates. Example: base <code>…14805</code>, suffix <code>_C2</code>, pack 2.</li>
+      <li><span class="chip who">CDP team</span>Create it with the suffix from section 3. Brand code may be empty.</li>
+      <li><span class="chip sys who">CRM</span>Links it to the base SKU and reads variant and pack quantity from the suffix.</li>
+      <li><span class="chip who">CRM admin</span>Check base SKU, variant and pack quantity against the request; correct by hand if they differ. Pack quantity must be right before the first sale.</li>
+      <li><span class="chip who">E-commerce</span>List it in the channels (P3). After the campaign, retire it (P6).</li>
+    </ol>
+    <p class="out"><b>Done when</b> the SKU shows the right base SKU and pack quantity. A sale of 2 × <code>_C2</code> then counts as 4 units.</p>
+  </article>
+
+  <article class="proc">
+    <header><span class="id">P3</span><h3>Channel listing load</h3></header>
+    <div class="facts"><div><b>Trigger</b>Listing added or changed in a channel</div><div><b>Frequency</b>When listings change; at least monthly per channel</div><div><b>Input</b>Channel SKU export (one file per channel)</div></div>
+    <ol>
+      <li><span class="chip who">E-commerce</span>Export the SKU list from the channel: D2C web shop, Shopee, Lazada or TikTok (channel, SKU, name).</li>
+      <li><span class="chip who">IT integration</span>Load it. Failed loads are fixed and reloaded the same day.</li>
+      <li><span class="chip sys who">CRM</span>A listing whose SKU is a B2C SKU links itself. Any other code goes on the to-fix list as an unknown channel SKU.</li>
+      <li><span class="chip who">E-commerce</span>For each new to-fix listing, either fix the code in the channel or request a mapping (P4).</li>
+    </ol>
+    <p class="out"><b>Done when</b> every active listing links to a B2C SKU.</p>
+  </article>
+
+  <article class="proc">
+    <header><span class="id">P4</span><h3>Map a legacy or non-standard channel code</h3></header>
+    <div class="facts"><div><b>Trigger</b>Unknown channel SKU on the to-fix list</div><div><b>Service level</b>5 working days (proposed)</div><div><b>Form</b>Listing mapping sheet (8.2)</div></div>
+    <ol>
+      <li><span class="chip who">E-commerce</span>Name the B2C SKU the code stands for. Example: Lazada <code>110010050</code> → <code>TH_HYB_AJT-8850250014492</code>.</li>
+      <li><span class="chip who">CRM admin</span>Check the B2C SKU exists and the names match. Map the listing by hand or by Excel upload.</li>
+      <li><span class="chip sys who">CRM</span>The next import links that channel's open orders to the SKU and gives them its brand's BU.</li>
+      <li><span class="chip who">CRM admin</span>Close the to-fix item with the mapping reference.</li>
+    </ol>
+    <p class="out"><b>Done when</b> the listing shows "mapped by admin" and its orders have a BU. Where possible, ask the channel to move to the standard code instead.</p>
+  </article>
+
+  <article class="proc">
+    <header><span class="id">P5</span><h3>Change a B2C SKU</h3></header>
+    <div class="facts"><div><b>Trigger</b>Name, brand or pack change</div><div><b>Approval</b>CRM admin; brand changes also the brand / BU owner</div><div><b>Rules</b>Section 6</div></div>
+    <ol>
+      <li><span class="chip who">E-commerce</span>Request the change with the reason and effective date.</li>
+      <li><span class="chip who">CRM admin</span>Check it against section 6. A new pack size or a different product needs a new SKU, not a change.</li>
+      <li><span class="chip who">CDP team</span>Change the name or brand code in the CDP; the feed carries it to the CRM.</li>
+      <li><span class="chip who">CRM admin</span>For a brand change, tell the brand / BU owner: sales imported after the change use the new brand's BU; past sales keep the BU saved at import.</li>
+    </ol>
+  </article>
+
+  <article class="proc">
+    <header><span class="id">P6</span><h3>Retire a SKU or listing</h3></header>
+    <div class="facts"><div><b>Trigger</b>Product delisted or campaign ended</div><div><b>Timing</b>Within 5 working days of delisting (proposed)</div></div>
+    <ol>
+      <li><span class="chip who">E-commerce</span>Delist in the channel and tell the CDP team and CRM admin.</li>
+      <li><span class="chip who">CDP team</span>Set the SKU inactive; the CRM admin sets its listings inactive.</li>
+      <li><span class="chip sys who">CRM</span>Keeps the SKU, listings and past sales. Records are never deleted, and the code is never reused.</li>
+    </ol>
+  </article>
+
+  <article class="proc">
+    <header><span class="id">P7</span><h3>Weekly to-fix review</h3></header>
+    <div class="facts"><div><b>When</b>Every Monday (proposed)</div><div><b>Chair</b>CRM master-data admin</div><div><b>Log</b>To-fix review log (8.3)</div></div>
+    <ol>
+      <li><span class="chip who">CRM admin</span>Open the to-fix list filtered to B2C reasons, oldest first.</li>
+      <li><span class="chip who">All owners</span>Assign each item: unknown channel SKU → e-commerce (P4); no brand or unknown brand → CDP team (P1 step 2).</li>
+      <li><span class="chip who">CRM admin</span>Close fixed items as resolved, or as ignored with a reason (e.g. test listing). Escalate items older than 10 working days to the e-commerce lead.</li>
+    </ol>
+  </article>
+
+  <article class="proc">
+    <header><span class="id">P8</span><h3>Add a channel</h3></header>
+    <div class="facts"><div><b>Trigger</b>AJT starts selling in a new shop (e.g. LINE)</div><div><b>Route</b>Change request to the CRM vendor</div></div>
+    <ol>
+      <li><span class="chip who">E-commerce</span>Raise a change request with the channel, its SKU codes and order feed.</li>
+      <li><span class="chip who">IT integration</span>Vendor widens the channel list and sets up the feeds.</li>
+      <li><span class="chip who">E-commerce</span>Load its listings (P3) before its first orders.</li>
+    </ol>
+  </article>
+</section>
+
+<section id="controls" aria-labelledby="h-ctl">
+  <h2 id="h-ctl"><span class="n">5</span>Controls</h2>
+  <div class="tbl"><table>
+    <thead><tr><th style="width:8%">ID</th><th>Control</th><th style="width:15%">Type</th><th style="width:14%">Frequency</th><th style="width:15%">Owner</th><th style="width:20%">Evidence</th></tr></thead>
+    <tbody>
+      <tr><td class="k">BC-01</td><td>Duplicate B2C SKU code refused</td><td><span class="chip sys">System blocks</span></td><td>Every load</td><td>CRM</td><td>Rejected row in the feed log</td></tr>
+      <tr><td class="k">BC-02</td><td>Channel outside the four refused</td><td><span class="chip sys">System blocks</span></td><td>Every load</td><td>CRM</td><td>Rejected row in the feed log</td></tr>
+      <tr><td class="k">BC-03</td><td>One listing per SKU per channel; a linked listing always points to a B2C SKU</td><td><span class="chip sys">System blocks</span></td><td>Every load</td><td>CRM</td><td>Feed log</td></tr>
+      <tr><td class="k">BC-04</td><td>Feeds ran and loaded: product feed, each channel's SKU export, each channel's orders</td><td><span class="chip team">Team checks</span></td><td>Daily</td><td>IT integration</td><td>Feed run report</td></tr>
+      <tr><td class="k">BC-05</td><td>Pack quantity of each new special SKU matches the request</td><td><span class="chip team">Team checks</span></td><td>Before first sale</td><td>CRM admin</td><td>Request form signed off</td></tr>
+      <tr><td class="k">BC-06</td><td>To-fix list reviewed and items assigned</td><td><span class="chip team">Team checks</span></td><td>Weekly</td><td>CRM admin</td><td>To-fix review log</td></tr>
+      <tr><td class="k">BC-07</td><td>SKU-by-channel check: SKUs marked "Different" are known and justified</td><td><span class="chip team">Team checks</span></td><td>Monthly</td><td>E-commerce</td><td>Saved matrix report</td></tr>
+      <tr><td class="k">BC-08</td><td>CDP brand codes match the CRM brand list</td><td><span class="chip team">Team checks</span></td><td>Quarterly, and before a new brand launches</td><td>CRM admin + CDP</td><td>Reconciliation sheet</td></tr>
+      <tr><td class="k">BC-09</td><td>Order totals per channel in the CRM match the channel's report (paid amount)</td><td><span class="chip team">Team checks</span></td><td>Monthly</td><td>E-commerce</td><td>Signed reconciliation</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="change" aria-labelledby="h-chg">
+  <h2 id="h-chg"><span class="n">6</span>What may change, and how</h2>
+  <div class="tbl"><table>
+    <thead><tr><th style="width:22%">Field</th><th style="width:18%">May change?</th><th>Rule</th></tr></thead>
+    <tbody>
+      <tr><td class="k">B2C SKU code</td><td>No</td><td>A new code is a new SKU (P1). The old one is retired (P6).</td></tr>
+      <tr><td class="k">Product name</td><td>Yes</td><td>Spelling and wording only. A new size or pack is a new SKU.</td></tr>
+      <tr><td class="k">Brand code</td><td>Yes, with approval</td><td>Sales imported after the change use the new brand's BU. Past sales keep the BU saved at import; correcting them needs the brand / BU owner's approval.</td></tr>
+      <tr><td class="k">Pack quantity</td><td>Only before the first sale</td><td>After a sale, a different pack is a new SKU, so past units stay right. <span class="chip team">Team checks</span> (the CRM does not block this yet).</td></tr>
+      <tr><td class="k">Base SKU / variant</td><td>Yes, by CRM admin</td><td>Only to correct a wrong automatic reading of the suffix.</td></tr>
+      <tr><td class="k">Listing → B2C SKU</td><td>Yes, by CRM admin</td><td>Only for listings mapped by an admin. Same-code listings link themselves.</td></tr>
+      <tr><td class="k">Status</td><td>Yes</td><td>Active ↔ inactive. Never delete.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="kpi" aria-labelledby="h-kpi">
+  <h2 id="h-kpi"><span class="n">7</span>KPIs</h2>
+  <p>Targets are proposed for Phase 1 and reviewed after three months.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>KPI</th><th>How it is counted</th><th style="width:16%">Target</th><th style="width:14%">Reviewed</th></tr></thead>
+    <tbody>
+      <tr><td class="k">B2C lines with a BU at import</td><td>B2C order lines with a BU ÷ all B2C order lines, per channel</td><td>≥ 99%</td><td>Weekly</td></tr>
+      <tr><td class="k">Listings linked</td><td>Active listings linked to a B2C SKU ÷ all active listings</td><td>≥ 99%</td><td>Weekly</td></tr>
+      <tr><td class="k">B2C SKUs without a brand</td><td>Active B2C SKUs with no usable brand, own or base</td><td>0</td><td>Weekly</td></tr>
+      <tr><td class="k">Overdue to-fix items</td><td>Open B2C to-fix items older than 5 working days</td><td>0</td><td>Weekly</td></tr>
+      <tr><td class="k">Same code in all channels</td><td>B2C SKUs marked "Same" ÷ SKUs listed in all four channels</td><td>Trend up</td><td>Monthly</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="templates" aria-labelledby="h-tpl">
+  <h2 id="h-tpl"><span class="n">8</span>Templates</h2>
+  <h3>8.1 New B2C SKU request</h3>
+  <div class="tbl"><table>
+    <thead><tr><th style="width:26%">Field</th><th style="width:14%">Required</th><th>Example</th></tr></thead>
+    <tbody>
+      <tr><td class="k">B2C SKU</td><td>Yes</td><td><code>TH_HYB_AJT-8850250014805_C2</code></td></tr>
+      <tr><td class="k">Thai name</td><td>Yes</td><td><code>อะมิโน มอฟ 25 กรัม 5 ซอง (โปร 1 แถม 1)</code></td></tr>
+      <tr><td class="k">Brand code</td><td>Standard SKU: yes</td><td><code>AMINOMOF</code> (example; from the CRM brand list)</td></tr>
+      <tr><td class="k">Channels</td><td>Yes</td><td>Lazada, TikTok</td></tr>
+      <tr><td class="k">Go-live date</td><td>Yes</td><td>2026-09-15</td></tr>
+      <tr><td class="k">Special SKU: base SKU</td><td>Special only</td><td><code>TH_HYB_AJT-8850250014805</code></td></tr>
+      <tr><td class="k">Special SKU: type and pack quantity</td><td>Special only</td><td>Promo 1+1, pack 2</td></tr>
+      <tr><td class="k">Special SKU: end date</td><td>Special only</td><td>2026-10-31</td></tr>
+      <tr><td class="k">Requested by / approved by</td><td>Yes</td><td>E-commerce team / e-commerce lead</td></tr>
+    </tbody>
+  </table></div>
+  <h3>8.2 Listing mapping sheet (Excel upload)</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Channel</th><th>Channel SKU</th><th>Name as listed</th><th>Maps to B2C SKU</th><th>Reason</th><th>Approved by</th></tr></thead>
+    <tbody>
+      <tr><td>LAZADA</td><td><code>110010050</code></td><td>อายิโนะโมะโต๊ะผงชูรส 50 กรัม x 1 ซอง</td><td><code>TH_HYB_AJT-8850250014492</code></td><td>Legacy SAP code</td><td>CRM admin</td></tr>
+      <tr><td>LAZADA</td><td><code>110260145</code></td><td>Birdy 3in1 Robusta 60 sachets</td><td><code>TH_HYB_AJT-8850250007951</code></td><td>Legacy SAP code</td><td>CRM admin</td></tr>
+    </tbody>
+  </table></div>
+  <h3>8.3 To-fix review log</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Week</th><th>Item</th><th>Reason</th><th>Owner</th><th>Action</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>2026-W41</td><td>Lazada <code>110010050</code></td><td>Unknown channel SKU</td><td>E-commerce</td><td>Mapped to <code>…14492</code> (P4)</td><td>Resolved</td></tr>
+      <tr><td>2026-W41</td><td><code>TH_HYB_AJT-8850250016038_4</code></td><td>Unknown brand <code>QUICKMEAL</code></td><td>CDP team</td><td>Correct brand code in the CDP</td><td>Open</td></tr>
+      <tr><td>2026-W41</td><td><code>TH_HYB_AJT-8850250000150_C</code></td><td>No brand</td><td>CDP team</td><td>Create base SKU <code>…000150</code> with brand</td><td>Open</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="open" aria-labelledby="h-open">
+  <h2 id="h-open"><span class="n">9</span>To confirm with AJT</h2>
+  <div class="tbl"><table>
+    <thead><tr><th style="width:6%">#</th><th>Item</th><th style="width:26%">Who decides</th></tr></thead>
+    <tbody>
+      <tr><td class="k">1</td><td>The people behind each role in section 2, and the approver of this procedure</td><td>AJT e-commerce lead</td></tr>
+      <tr><td class="k">2</td><td>Lead times and service levels marked "proposed"</td><td>AJT e-commerce lead</td></tr>
+      <tr><td class="k">3</td><td>The brand field and codes the CDP sends</td><td>CDP team, CRM admin</td></tr>
+      <tr><td class="k">4</td><td>Which system sends B2C orders for each channel, and whether discount comes separately</td><td>E-commerce, IT</td></tr>
+      <tr><td class="k">5</td><td>Whether the CRM should block pack-quantity changes after the first sale (change request)</td><td>CRM vendor, CRM admin</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<footer>Based on the AJT CRM data model, revision 6, section 12 (separate B2C SKU catalog, brand from the CDP, four channels), and AJT's Example_SKU_by_Channel.xlsx. Codes such as AMINOMOF and QUICKMEAL are examples.</footer>
+</div>
