@@ -307,12 +307,12 @@ const VIEWS = {
   b2c: {
     label: "B2C channels",
     dom: "bu",
-    text: "Marketplace SKUs (Lazada, Shopee, TikTok) link to the same product and sales unit by the EAN inside the SKU. B2C orders use the same header and line tables as B2B; a B2C line carries the amount paid, with no unit price.",
+    text: "B2C has its own SKU catalog, separate from B2B (different codes, never matched). Each marketplace listing (Lazada, Shopee, TikTok) points to one B2C SKU; the B2C source (CDP) sends its brand code, and the brand gives the BU. B2C orders use the same header and line tables as B2B; a B2C line carries the amount paid, with no unit price.",
     lanes: [
       ["sales_channels"],
-      ["sales_order_headers", "channel_skus"],
+      ["sales_order_headers", "b2c_channel_listings"],
       ["sales_order_lines", "bu_exceptions"],
-      ["sellable_items", "item_uoms"]
+      ["b2c_products", "brands"]
     ]
   },
   brand: {
@@ -353,7 +353,8 @@ const ORIGIN_TABLE = {
   sales_order_headers: ["COND", "From SAP for B2B orders; from the marketplace for B2C orders."],
   sales_order_lines: ["COND", "From SAP for B2B orders; from the marketplace for B2C orders."],
   sales_channels: ["CRM", "A CRM admin adds a marketplace (Lazada, Shopee, TikTok are seeded)."],
-  channel_skus: ["EXT", "From the marketplace SKU export or a B2C order."],
+  b2c_channel_listings: ["EXT", "From each marketplace's SKU export, or added when a B2C order shows a new SKU."],
+  b2c_products: ["EXT", "From the B2C source (CDP); SKUs first seen on a listing or order are added automatically."],
   customer_credit_snapshots: "SAP", customer_business_units: "SAP", stock_snapshots: "SAP",
   item_interest_tags: ["EXT", "From the CDP (interest tags are edited there)."],
   customer_source_ids: ["EXT", "From the source system that registered the customer, e.g. ChocoCRM."],
@@ -393,10 +394,10 @@ const ORIGIN_COL = {
   "brand_bu_assignments.approved_by": ["CRM", "Set when the AJT approver approves."],
   "channel_bu_rules.approved_by": ["CRM", "Set when the AJT approver approves."],
   "sales_order_headers.customer_id": ["SYS", "Matched by the CRM from sap_customer_code; empty until the customer exists."],
-  "sales_order_lines.sellable_item_id": ["SYS", "Matched by the CRM: B2B from material_code, B2C from the channel SKU; empty means unknown (to-fix list)."],
+  "sales_order_lines.sellable_item_id": ["SYS", "B2B only: matched by the CRM from material_code; empty means unknown (to-fix list)."],
   "sales_order_lines.material_code": ["SAP", "B2B only: sent by SAP."],
   "sales_order_lines.channel_sku": ["EXT", "B2C only: the SKU as sent by the marketplace."],
-  "sales_order_lines.channel_sku_id": ["SYS", "B2C only: matched by the CRM to the channel SKU list."],
+  "sales_order_lines.b2c_listing_id": ["SYS", "B2C only: the channel listing for this SKU."], "sales_order_lines.b2c_product_id": ["SYS", "B2C only: the B2C SKU sold, from the listing."],
   "sales_order_lines.discount_amount": ["EXT", "B2C only: sent by the marketplace, if it sends one."],
   "sales_order_lines.net_amount": ["COND", "B2B: net amount from SAP. B2C: the amount actually paid, from the marketplace. B2C has no unit price."],
   "sales_order_headers.order_source": ["SYS", "Set by the import: SAP_B2B or MARKETPLACE."],
@@ -404,14 +405,18 @@ const ORIGIN_COL = {
   "sales_order_headers.customer_group_code": ["SAP", "B2B only: SAP Customer Group 1. Always empty for B2C orders."],
   "sales_order_headers.channel_id": ["EXT", "B2C only: the marketplace the order came from."],
   "sales_order_headers.external_order_no": ["EXT", "B2C only: the marketplace order number."],
-  "channel_skus.sellable_item_id": ["COND", "Auto-match by the EAN in the SKU, or the legacy SAP code; set by an admin (by hand or Excel) when the match fails."],
-  "channel_skus.item_uom_id": ["COND", "The sales unit whose barcode equals the EAN; set by an admin when the match fails."],
-  "channel_skus.ean": ["SYS", "Read from the SKU text (13 digits after TH_HYB_AJT-)."],
-  "channel_skus.variant_type": ["COND", "Read from the suffix (_KOL, _C2, _C, _4); an admin can correct it."],
-  "channel_skus.pack_qty": ["COND", "Read from the suffix (_4 = 4, _C2 = 2); an admin confirms promos."],
-  "channel_skus.match_source": ["SYS", "Set by the match: EAN_AUTO, MATERIAL_CODE, ADMIN or NONE."],
-  "channel_skus.status": ["CRM", "A CRM admin deactivates SKUs no longer sold."],
-  "channel_skus.first_seen_at": ["SYS", "Set automatically."], "channel_skus.last_seen_at": ["SYS", "Set automatically."],
+  "b2c_products.b2c_sku": ["EXT", "The B2C SKU code, e.g. TH_HYB_AJT-8850250014089. Not a B2B code."],
+  "b2c_products.brand_code": ["EXT", "From the B2C source (CDP)."],
+  "b2c_products.brand_id": ["SYS", "Found by the CRM from brand_code; empty means the to-fix list."],
+  "b2c_products.base_product_id": ["COND", "Set automatically for _KOL, _C2, _C, _4 SKUs (the SKU without its suffix); an admin can correct it."],
+  "b2c_products.variant_type": ["COND", "Read from the suffix (_KOL, _C2, _C, _4); an admin can correct it."],
+  "b2c_products.pack_qty": ["COND", "Read from the suffix (_4 = 4, _C2 = 2); an admin confirms promos."],
+  "b2c_products.source_system": ["SYS", "CDP, MARKETPLACE (first seen on a listing or order) or ADMIN."],
+  "b2c_products.status": ["CRM", "A CRM admin deactivates SKUs no longer sold."],
+  "b2c_products.first_seen_at": ["SYS", "Set automatically."], "b2c_products.last_seen_at": ["SYS", "Set automatically."],
+  "b2c_channel_listings.b2c_product_id": ["COND", "Linked automatically when the listing SKU is a B2C catalog SKU; legacy codes (e.g. 110010050) are mapped by an admin, by hand or Excel."],
+  "b2c_channel_listings.match_source": ["SYS", "SAME_SKU (automatic), ADMIN or NONE (on the to-fix list)."],
+  "b2c_channel_listings.status": ["CRM", "A CRM admin deactivates listings no longer sold."],
   "payment_terms.sap_code": ["CRM", "Typed to match the SAP payment term code."],
   "price_lists.source_system": ["SYS", "Set by how the list arrived."], "price_list_rows.source_system": ["SYS", "Set by how the row arrived."],
   "bu_exceptions.status": ["CRM", "Staff set RESOLVED or IGNORED."], "bu_exceptions.resolved_by": ["CRM", "Set to the staff member who closed it."]
@@ -597,7 +602,7 @@ function renderPanel() {
     p.className = "panel";
     p.innerHTML = `<p class="empty"><b>Select a table</b> to see every column: where it comes from (SAP, created in the CRM, or filled automatically) and under what condition, plus its type, keys, allowed values and the Thai screen label.</p>
       <p class="empty">Lines run from a foreign key to the key it points at. A key that points outside the current view shows as <span style="font-family:var(--font-mono)">→ table</span> under the column name.</p>
-      <p class="empty">Source: docs/ajt-design-data-model-v6.md (revision 6: B2C channel SKUs on the same structure as B2B; Phase 1 BU rules). Prototype crawled 14 Nov 2026. Rebuild with scripts/er/gen_er.py and er_template_v6.html.</p>`;
+      <p class="empty">Source: docs/ajt-design-data-model-v6.md (revision 6: separate B2C SKU catalog with brand from the CDP; Phase 1 BU rules). Prototype crawled 14 Nov 2026. Rebuild with scripts/er/gen_er.py and er_template_v6.html.</p>`;
     return;
   }
   const def = DATA[t];

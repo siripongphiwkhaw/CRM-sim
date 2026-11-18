@@ -36,12 +36,12 @@ for m in re.finditer(r"((?:^--[^\n]*\n)*)CREATE TABLE (\w+) \((.*?)\n\);", sql, 
             dst = [x.strip() for x in tfk.group(3).split(",")]
             pending_fks.append((src, tfk.group(2), dst))
             continue
-        if re.match(r"^\s+(CHECK|UNIQUE|EXCLUDE)\b", line) and not re.match(r"^  [a-z_]+\s", line):
+        if re.match(r"^\s+(CHECK|UNIQUE|EXCLUDE)\b", line) and not re.match(r"^  [a-z0-9_]+\s", line):
             if last is not None and line.startswith("   "):
                 pass  # continuation constraint of last column (e.g. CHECK on next line)
             else:
                 continue
-        cm = re.match(r"^  ([a-z_]+)\s+([A-Z]+(?:\([^)]*\))?)(.*)$", line)
+        cm = re.match(r"^  ([a-z0-9_]+)\s+([A-Z]+(?:\([^)]*\))?)(.*)$", line)
         if cm:
             code, _, comment = cm.group(3).partition("--")
             last = {"n": cm.group(1), "t": cm.group(2), "code": code, "comment": comment.strip()}
