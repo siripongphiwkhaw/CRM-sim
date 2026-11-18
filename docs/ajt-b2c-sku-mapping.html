@@ -119,13 +119,84 @@ footer { margin-top: 44px; padding-top: 14px; border-top: 1px solid var(--line);
 
 @media (max-width: 980px) { .split, .roll { grid-template-columns: minmax(0, 1fr); } .path { position: static; } .steps { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); } }
 @media (max-width: 620px) { .lane, .joins { grid-template-columns: minmax(0, 1fr); } .lane > .lab { padding-top: 0; } }
+
+/* chart palette: categorical slots 1-4 = channels; status = mapped / to-fix */
+:root { --on-acc: #ffffff; --c-d2c: #2a78d6; --c-shopee: #eb6834; --c-lazada: #1baf7a; --c-tiktok: #eda100; --ok: #0ca30c; --crit: #d03b3b; --grid: #E6EBE8; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --on-acc: #0b0b0b; --c-d2c: #3987e5; --c-shopee: #d95926; --c-lazada: #199e70; --c-tiktok: #c98500; --grid: #26302D; } }
+:root[data-theme="dark"] { --on-acc: #0b0b0b; --c-d2c: #3987e5; --c-shopee: #d95926; --c-lazada: #199e70; --c-tiktok: #c98500; --grid: #26302D; }
+
+/* mapping diagram */
+.dg-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 8px 4px; }
+#dg { display: block; min-width: 1040px; width: 100%; height: auto; }
+#dg text { font-family: var(--text); fill: var(--ink); }
+#dg .colh { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; fill: var(--muted); }
+#dg .node rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.2; }
+#dg .node.bad rect { stroke: var(--bad); fill: var(--bad-t); }
+#dg .node.bad text.t { fill: var(--bad); }
+#dg .node .t { font-size: 12px; font-weight: 600; }
+#dg .node .s { font-size: 10.5px; fill: var(--muted); font-family: var(--mono); }
+#dg .node .dot { stroke: var(--surface); stroke-width: 2; }
+#dg .edge { fill: none; stroke: var(--accent); stroke-width: 1.6; opacity: 0.75; }
+#dg .edge.admin { stroke-dasharray: 5 4; }
+#dg .edge.bad { stroke: var(--bad); stroke-dasharray: 2 4; }
+#dg.hov .edge, #dg.hov .node { opacity: 0.18; }
+#dg.hov .edge.lit { opacity: 1; stroke-width: 2.4; }
+#dg.hov .node.lit { opacity: 1; }
+#dg .node { cursor: pointer; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--muted); margin: 10px 2px 0; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend svg { width: 28px; height: 8px; }
+.sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+/* dashboard */
+.dash { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+.dash-top { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.dash-top .period { font-size: 13px; color: var(--muted); }
+.dash-top .period b { color: var(--ink); }
+.kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+.kpi { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; min-width: 0; }
+.kpi .l { font-size: 12px; color: var(--muted); font-weight: 600; }
+.kpi .v { font-family: var(--display); font-size: 26px; color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1.15; margin-top: 2px; }
+.kpi .v small { font-size: 14px; color: var(--muted); font-family: var(--text); font-weight: 500; }
+.kpi .d { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.kpi .flag { display: inline-flex; gap: 4px; align-items: center; font-weight: 600; }
+.kpi .flag.ok { color: var(--accent); }
+.kpi .flag.bad { color: var(--bad); }
+.charts { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; }
+.chart { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+.chart h3 { font-size: 14.5px; }
+.chart .cs { font-size: 12.5px; color: var(--muted); margin: 2px 0 10px; }
+.hbars { display: grid; gap: 8px; }
+.hrow { display: grid; grid-template-columns: 112px minmax(0, 1fr) 78px; gap: 10px; align-items: center; font-size: 13px; }
+.hrow .nm { color: var(--ink); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hrow .tot { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink); }
+.track { display: flex; gap: 2px; height: 20px; background-image: linear-gradient(to right, var(--grid) 1px, transparent 1px); background-size: 25% 100%; }
+.seg { height: 100%; min-width: 3px; position: relative; }
+.seg:first-child { border-radius: 0; }
+.seg:last-child { border-radius: 0 4px 4px 0; }
+.seg span { position: absolute; inset: 0; display: flex; align-items: center; padding-left: 6px; font-size: 11px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; }
+.seg.dk span { color: #0b0b0b; }
+.seg.acc span { color: var(--on-acc); }
+.keys { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; color: var(--body); margin-top: 10px; }
+.keys span { display: inline-flex; align-items: center; gap: 6px; }
+.queue { margin-top: 16px; }
+.queue h3 { font-size: 14.5px; margin-bottom: 8px; }
+.queue table { min-width: 640px; }
+.sev { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; font-size: 12.5px; color: var(--bad); }
+.sev svg { width: 12px; height: 12px; }
+details.tv { margin-top: 12px; font-size: 13px; }
+details.tv summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+details.tv table { min-width: 520px; margin-top: 8px; }
+#tip { position: fixed; z-index: 20; pointer-events: none; background: var(--ink); color: var(--bg); font-size: 12.5px; padding: 6px 9px; border-radius: 6px; max-width: 260px; line-height: 1.4; }
+@media (max-width: 980px) { .kpis { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); } .charts { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 520px) { .hrow { grid-template-columns: 84px minmax(0, 1fr) 64px; } }
 </style>
 
 <div class="wrap">
 <header>
   <p class="eyebrow">AJT CRM · Data model revision 6 · B2C</p>
   <h1>B2C SKU Mapping</h1>
-  <p class="lead">How a B2C sale from D2C, Shopee, Lazada or TikTok is mapped from the SKU the channel sends to a B2C SKU, its brand and its Business Unit (BU). Below: the structure, the five mapping steps, and nine sample transactions you can click through.</p>
+  <p class="lead">How a B2C sale from D2C, Shopee, Lazada or TikTok is mapped from the SKU the channel sends to a B2C SKU, its brand and its Business Unit (BU). Below: the structure, a mapping diagram, the five mapping steps, nine sample transactions you can click through, and an example dashboard.</p>
 </header>
 
 <section aria-labelledby="h-str">
@@ -162,6 +233,18 @@ footer { margin-top: 44px; padding-top: 14px; border-top: 1px solid var(--line);
   </div>
 </section>
 
+<section aria-labelledby="h-dg">
+  <h2 id="h-dg">Mapping diagram</h2>
+  <p class="sub">Every channel listing in the sample, traced to its B2C SKU, base SKU, brand and BU. Hover or tap a box to light up its path. The same aminoVITAL SKU in all four channels lands on one B2C SKU; the KOL SKU rolls up to the same base SKU.</p>
+  <div class="dg-wrap"><svg id="dg" viewBox="0 0 1100 488" role="img" aria-labelledby="dg-t"><title id="dg-t">Mapping of 12 channel listings to B2C SKUs, base SKUs, brands and Business Units</title></svg></div>
+  <div class="legend">
+    <span><svg viewBox="0 0 28 8"><path d="M0 4h28" stroke="var(--accent)" stroke-width="2"/></svg>Same code, linked automatically</span>
+    <span><svg viewBox="0 0 28 8"><path d="M0 4h28" stroke="var(--accent)" stroke-width="2" stroke-dasharray="5 4"/></svg>Mapped by an admin</span>
+    <span><svg viewBox="0 0 28 8"><path d="M0 4h28" stroke="var(--bad)" stroke-width="2" stroke-dasharray="2 4"/></svg>Breaks here: goes to the to-fix list</span>
+    <span><i class="sw" style="background:var(--c-d2c)"></i>D2C</span><span><i class="sw" style="background:var(--c-shopee)"></i>Shopee</span><span><i class="sw" style="background:var(--c-lazada)"></i>Lazada</span><span><i class="sw" style="background:var(--c-tiktok)"></i>TikTok</span>
+  </div>
+</section>
+
 <section aria-labelledby="h-steps">
   <h2 id="h-steps">Mapping steps at import</h2>
   <p class="sub">Run for every B2C order line, in this order. A step that fails sends the line or SKU to the to-fix list; the line still loads.</p>
@@ -190,6 +273,26 @@ footer { margin-top: 44px; padding-top: 14px; border-top: 1px solid var(--line);
   <div class="roll">
     <div class="tbl"><table id="byBase"><thead><tr><th>Base SKU</th><th>Brand</th><th>Channels</th><th class="num">Units</th><th class="num">Paid</th></tr></thead><tbody></tbody></table></div>
     <div class="tbl"><table id="byBu"><thead><tr><th>BU</th><th class="num">Lines</th><th class="num">Paid</th><th></th></tr></thead><tbody></tbody></table></div>
+  </div>
+</section>
+
+<section aria-labelledby="h-dash">
+  <h2 id="h-dash">Dashboard example</h2>
+  <p class="sub">What a B2C sales dashboard built on <code>b2c_sales_mapping</code> could show, using the nine sample lines. Figures are examples, not AJT results.</p>
+  <div class="dash">
+    <div class="dash-top">
+      <div class="filters" role="group" aria-label="Dashboard channel" id="dfilters" style="margin:0"></div>
+      <div class="period">Period <b>1–31 Oct 2026</b> · amounts in THB paid</div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div class="charts">
+      <div class="chart"><h3>Paid by Business Unit</h3><p class="cs">Split by channel. "No BU" is sales waiting on the to-fix list.</p><div class="hbars" id="cBu"></div><div class="keys" id="kBu"></div></div>
+      <div class="chart"><h3>Paid by channel, mapped vs to-fix</h3><p class="cs">How much of each channel's sales already has a BU.</p><div class="hbars" id="cCh"></div><div class="keys"><span><i class="sw" style="background:var(--ok)"></i>Mapped (has a BU)</span><span><i class="sw" style="background:var(--crit)"></i>To-fix (no BU yet)</span></div></div>
+      <div class="chart"><h3>Units by base SKU</h3><p class="cs">Special SKUs counted in base units (2 × _C2 promo = 4).</p><div class="hbars" id="cSku"></div></div>
+      <div class="chart"><h3>Listing health</h3><p class="cs">All 28 listings in the sample catalog, by how they link.</p><div class="hbars" id="cList"></div></div>
+    </div>
+    <div class="queue"><h3>To-fix queue</h3><div class="tbl"><table id="qtab"><thead><tr><th>Item</th><th>Reason</th><th>Channel</th><th class="num">Paid waiting</th><th>Owner</th><th>Next step</th></tr></thead><tbody></tbody></table></div></div>
+    <details class="tv"><summary>Show the numbers as a table</summary><div class="tbl"><table id="tvtab"></table></div></details>
   </div>
 </section>
 
@@ -278,4 +381,143 @@ document.addEventListener("keydown", e => {
   if (r && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); sel = +r.dataset.i; renderTable(); $("tx").querySelector(`tr[data-i="${sel}"]`)?.focus(); }
 });
 renderFilters(); renderTable(); renderRoll();
+
+/* ---------- mapping diagram ---------- */
+const DG_COLS = ["CHANNEL LISTING", "B2C SKU", "BASE SKU", "BRAND (CDP)", "BUSINESS UNIT"];
+const N = {}; // id -> {col,row,t,s,bad,ch}
+const node = (id, col, row, t, s, o = {}) => (N[id] = { id, col, row, t, s, ...o });
+[["D2C", 1], ["SHOPEE", 2], ["LAZADA", 3], ["TIKTOK", 4]].forEach(([c, r]) => node("L4089" + c, 0, r, CH[c].replace(" web shop", ""), "…0014089", { ch: c }));
+node("LKOL", 0, 5, "TikTok", "…0014089_KOL", { ch: "TIKTOK" });
+node("LC2", 0, 6, "TikTok", "…0014805_C2", { ch: "TIKTOK" });
+node("L4096", 0, 7, "Shopee", "…0014096", { ch: "SHOPEE" });
+node("L2048", 0, 8, "D2C", "…0002048", { ch: "D2C" });
+node("LLEG1", 0, 9, "Lazada", "110010050 (legacy)", { ch: "LAZADA" });
+node("L6038", 0, 10, "Lazada", "…0016038_4", { ch: "LAZADA" });
+node("L0150", 0, 11, "TikTok", "…0000150_C", { ch: "TIKTOK" });
+node("LLEG2", 0, 12, "Lazada", "110260145 (legacy)", { ch: "LAZADA" });
+node("P4089", 1, 2.5, "Jelly Shot Red", "…0014089 · STANDARD");
+node("PKOL", 1, 5, "Jelly Shot Red KOL", "…_KOL · KOL · pack 1");
+node("PC2", 1, 6, "AminoMOF promo", "…_C2 · PROMO · pack 2");
+node("P4096", 1, 7, "YumYum Tom Yum", "…0014096 · STANDARD");
+node("P2048", 1, 8, "Birdy Robusta", "…0002048 · STANDARD");
+node("P4492", 1, 9, "Ajinomoto 50g", "…0014492 · STANDARD");
+node("P6038", 1, 10, "Quick Meal x4", "…_4 · BUNDLE · pack 4");
+node("P0150", 1, 11, "YumYum clearance", "…_C · CLEARANCE");
+node("PNONE", 1, 12, "No B2C SKU", "listing not mapped", { bad: true });
+node("B4089", 2, 3.75, "…0014089", "base of 2 SKUs");
+node("B4805", 2, 6, "…0014805", "AminoMOF");
+node("B4096", 2, 7, "…0014096", "");
+node("B2048", 2, 8, "…0002048", "");
+node("B4492", 2, 9, "…0014492", "");
+node("B6038", 2, 10, "…0016038_4", "own base");
+node("B0150", 2, 11, "…0000150", "not in catalog", { bad: true });
+node("RAV", 3, 3.75, "aminoVITAL", "AMINOVITAL");
+node("RMOF", 3, 6, "AminoMOF", "AMINOMOF");
+node("RYY", 3, 7, "YumYum", "YUMYUM");
+node("RBD", 3, 8, "Birdy", "BIRDY");
+node("RAJ", 3, 9, "Ajinomoto", "AJINOMOTO");
+node("RQM", 3, 10, "Unknown code", "QUICKMEAL", { bad: true });
+node("RNO", 3, 11, "No brand", "none sent", { bad: true });
+node("UHN", 4, 4.875, "H&N", "");
+node("UYY", 4, 7, "YumYum", "");
+node("UBD", 4, 8, "Birdy", "");
+node("USE", 4, 9, "Seasoning", "");
+node("UFIX", 4, 11, "To-fix list", "3 items", { bad: true });
+const E = [
+  ...["D2C", "SHOPEE", "LAZADA", "TIKTOK"].map(c => ["L4089" + c, "P4089"]),
+  ["LKOL", "PKOL"], ["LC2", "PC2"], ["L4096", "P4096"], ["L2048", "P2048"], ["LLEG1", "P4492", "admin"], ["L6038", "P6038"], ["L0150", "P0150"], ["LLEG2", "PNONE", "bad"],
+  ["P4089", "B4089"], ["PKOL", "B4089"], ["PC2", "B4805"], ["P4096", "B4096"], ["P2048", "B2048"], ["P4492", "B4492"], ["P6038", "B6038"], ["P0150", "B0150", "bad"],
+  ["B4089", "RAV"], ["B4805", "RMOF"], ["B4096", "RYY"], ["B2048", "RBD"], ["B4492", "RAJ"], ["B6038", "RQM", "bad"], ["B0150", "RNO", "bad"],
+  ["RAV", "UHN"], ["RMOF", "UHN"], ["RYY", "UYY"], ["RBD", "UBD"], ["RAJ", "USE"], ["RQM", "UFIX", "bad"], ["RNO", "UFIX", "bad"], ["PNONE", "UFIX", "bad"]
+];
+function drawDiagram() {
+  const svg = $("dg"), NS = "http://www.w3.org/2000/svg";
+  const W = 172, H = 32, X0 = 14, GAP = (1100 - 2 * X0 - W) / 4, Y0 = 44, RH = 36;
+  const pos = n => ({ x: X0 + n.col * GAP, y: Y0 + (n.row - 1) * RH });
+  let h = DG_COLS.map((c, i) => `<text class="colh" x="${X0 + i * GAP}" y="22">${c}</text>`).join("");
+  h += E.map(([a, b, k]) => { const p = pos(N[a]), q = pos(N[b]); const x1 = p.x + W, y1 = p.y + H / 2, x2 = q.x, y2 = q.y + H / 2, mx = (x1 + x2) / 2;
+    return `<path class="edge ${k || ""}" data-a="${a}" data-b="${b}" d="M${x1} ${y1} C${mx} ${y1} ${mx} ${y2} ${x2} ${y2}"/>`; }).join("");
+  h += Object.values(N).map(n => { const p = pos(n); const dot = n.ch ? `<circle class="dot" cx="${p.x + 12}" cy="${p.y + H / 2}" r="5" fill="var(--c-${n.ch.toLowerCase()})"/>` : "";
+    const tx = p.x + (n.ch ? 24 : 10);
+    return `<g class="node ${n.bad ? "bad" : ""}" data-id="${n.id}" tabindex="0"><rect x="${p.x}" y="${p.y}" width="${W}" height="${H}" rx="7"/>${dot}<text class="t" x="${tx}" y="${p.y + (n.s ? 13 : 20)}">${esc(n.t)}</text>${n.s ? `<text class="s" x="${tx}" y="${p.y + 26}">${esc(n.s)}</text>` : ""}</g>`; }).join("");
+  svg.insertAdjacentHTML("beforeend", h);
+  const up = {}, dn = {};
+  E.forEach(([a, b]) => { (dn[a] ||= []).push(b); (up[b] ||= []).push(a); });
+  const walk = (id, m, seen) => { (m[id] || []).forEach(x => { if (!seen.has(x)) { seen.add(x); walk(x, m, seen); } }); return seen; };
+  const light = id => {
+    const set = new Set([id]); walk(id, up, set); walk(id, dn, set);
+    svg.classList.add("hov");
+    svg.querySelectorAll(".node").forEach(g => g.classList.toggle("lit", set.has(g.dataset.id)));
+    svg.querySelectorAll(".edge").forEach(e => e.classList.toggle("lit", set.has(e.dataset.a) && set.has(e.dataset.b)));
+  };
+  const clear = () => { svg.classList.remove("hov"); svg.querySelectorAll(".lit").forEach(x => x.classList.remove("lit")); };
+  svg.querySelectorAll(".node").forEach(g => { g.addEventListener("mouseenter", () => light(g.dataset.id)); g.addEventListener("focus", () => light(g.dataset.id)); g.addEventListener("click", () => light(g.dataset.id)); });
+  svg.addEventListener("mouseleave", clear); svg.addEventListener("focusout", e => { if (!svg.contains(e.relatedTarget)) clear(); });
+}
+
+/* ---------- dashboard ---------- */
+const CHS = ["D2C", "SHOPEE", "LAZADA", "TIKTOK"];
+const CHN = { D2C: "D2C", SHOPEE: "Shopee", LAZADA: "Lazada", TIKTOK: "TikTok" };
+const DARKTXT = new Set(["TIKTOK", "LAZADA"]);
+const LISTINGS = { total: 28, same: 26, admin: 1, none: 1 };
+let dch = "ALL";
+const fmt = n => n.toLocaleString("en-US", { maximumFractionDigits: 0 });
+const tipAttr = s => `data-tip="${esc(s)}"`;
+function segs(parts, max, total) {
+  return parts.filter(p => p.v > 0).map(p => `<div class="seg ${p.dk ? "dk" : ""} ${p.acc ? "acc" : ""}" style="width:${(p.v / max * 100).toFixed(2)}%;background:${p.c}" ${tipAttr(p.tip)}>${p.v / max > 0.14 ? `<span>${esc(p.lab)}</span>` : ""}</div>`).join("");
+}
+function renderDash() {
+  $("dfilters").innerHTML = [["ALL", "All channels"], ...CHS.map(c => [c, CHN[c]])].map(([k, l]) => `<button type="button" data-df="${k}" aria-pressed="${dch === k}">${l}</button>`).join("");
+  const rows = TX.filter(t => dch === "ALL" || t.ch === dch);
+  const paid = rows.reduce((a, t) => a + t.paid, 0), mapped = rows.filter(t => t.status === "MAPPED"), mp = mapped.reduce((a, t) => a + t.paid, 0);
+  const units = mapped.reduce((a, t) => a + t.units, 0), fix = rows.filter(t => t.status !== "MAPPED");
+  const pct = paid ? mp / paid * 100 : 0;
+  const lk = dch === "ALL" ? `${((LISTINGS.same + LISTINGS.admin) / LISTINGS.total * 100).toFixed(1)}%` : "–";
+  $("kpis").innerHTML = [
+    ["Paid (B2C)", `${fmt(paid)} <small>THB</small>`, `${rows.length} lines · ${new Set(rows.map(t => t.order)).size} orders`],
+    ["Paid with a BU", `${pct.toFixed(1)}<small>%</small>`, `<span class="flag ${pct >= 99 ? "ok" : "bad"}">${pct >= 99 ? "✓ On target" : "▲ Below 99% target"}</span>`],
+    ["Units sold (mapped)", `${units}`, "base units, specials unpacked"],
+    ["Open to-fix items", `${fix.length}`, fix.length ? `<span class="flag bad">▲ ${fmt(fix.reduce((a, t) => a + t.paid, 0))} THB waiting</span>` : `<span class="flag ok">✓ None</span>`],
+    ["Listings linked", lk, dch === "ALL" ? "27 of 28 listings" : "all channels only"]
+  ].map(([l, v, d]) => `<div class="kpi"><div class="l">${l}</div><div class="v">${v}</div><div class="d">${d}</div></div>`).join("");
+
+  // paid by BU, split by channel
+  const bus = ["H&N", "Birdy", "YumYum", "Seasoning", "No BU"], by = {};
+  rows.forEach(t => { const k = t.bu || "No BU"; (by[k] ||= {}); by[k][t.ch] = (by[k][t.ch] || 0) + t.paid; });
+  const tot = k => CHS.reduce((a, c) => a + ((by[k] || {})[c] || 0), 0);
+  const maxBu = Math.max(1, ...bus.map(tot));
+  $("cBu").innerHTML = bus.filter(k => tot(k) > 0).map(k => `<div class="hrow"><div class="nm">${esc(k)}</div><div class="track">${segs(CHS.map(c => ({ v: (by[k] || {})[c] || 0, c: `var(--c-${c.toLowerCase()})`, dk: DARKTXT.has(c), lab: CHN[c], tip: `${k} · ${CHN[c]}: ${fmt((by[k] || {})[c] || 0)} THB` })), maxBu)}</div><div class="tot">${fmt(tot(k))}</div></div>`).join("") || `<p class="cs">No sales.</p>`;
+  $("kBu").innerHTML = CHS.filter(c => dch === "ALL" || c === dch).map(c => `<span><i class="sw" style="background:var(--c-${c.toLowerCase()})"></i>${CHN[c]}</span>`).join("");
+
+  // paid by channel, mapped vs to-fix
+  const chs = CHS.filter(c => dch === "ALL" || c === dch);
+  const cm = c => TX.filter(t => t.ch === c && t.status === "MAPPED").reduce((a, t) => a + t.paid, 0), cf = c => TX.filter(t => t.ch === c && t.status !== "MAPPED").reduce((a, t) => a + t.paid, 0);
+  const maxCh = Math.max(1, ...chs.map(c => cm(c) + cf(c)));
+  $("cCh").innerHTML = chs.map(c => `<div class="hrow"><div class="nm">${CHN[c]}</div><div class="track">${segs([{ v: cm(c), c: "var(--ok)", lab: "Mapped", tip: `${CHN[c]} mapped: ${fmt(cm(c))} THB` }, { v: cf(c), c: "var(--crit)", lab: "To-fix", tip: `${CHN[c]} to-fix: ${fmt(cf(c))} THB` }], maxCh)}</div><div class="tot">${fmt(cm(c) + cf(c))}</div></div>`).join("");
+
+  // units by base SKU
+  const bs = {};
+  mapped.forEach(t => { const r = bs[t.base] ||= { name: t.brandName, std: 0, sp: 0 }; if (t.variant === "STANDARD") r.std += t.units; else r.sp += t.units; });
+  const label = { "TH_HYB_AJT-8850250014089": "Jelly Shot Red", "TH_HYB_AJT-8850250014805": "AminoMOF", "TH_HYB_AJT-8850250014096": "YumYum Tom Yum", "TH_HYB_AJT-8850250014492": "Ajinomoto 50g", "TH_HYB_AJT-8850250002048": "Birdy Robusta" };
+  const arr = Object.entries(bs).map(([k, r]) => ({ k, ...r, t: r.std + r.sp })).sort((a, b) => b.t - a.t);
+  const maxU = Math.max(1, ...arr.map(r => r.t));
+  $("cSku").innerHTML = arr.map(r => `<div class="hrow"><div class="nm" title="${esc(r.k)}">${esc(label[r.k] || short(r.k))}</div><div class="track">${segs([{ v: r.std, acc: 1, c: "var(--accent)", lab: `${r.std} std`, tip: `${label[r.k]}: ${r.std} standard units` }, { v: r.sp, acc: 1, c: "var(--tx)", lab: `${r.sp} special`, tip: `${label[r.k]}: ${r.sp} units from special SKUs` }], maxU)}</div><div class="tot">${r.t} units</div></div>`).join("") + `<div class="keys"><span><i class="sw" style="background:var(--accent)"></i>Standard SKU</span><span><i class="sw" style="background:var(--tx)"></i>Special SKU (KOL, promo…)</span></div>`;
+
+  // listing health (catalog-wide)
+  const lh = [["Same code", LISTINGS.same, "var(--ok)", "Linked automatically"], ["Admin mapped", LISTINGS.admin, "var(--accent)", "Legacy code mapped by an admin"], ["Not linked", LISTINGS.none, "var(--crit)", "On the to-fix list"]];
+  $("cList").innerHTML = lh.map(([n, v, c, tip]) => `<div class="hrow"><div class="nm">${n}</div><div class="track">${segs([{ v, c, lab: String(v), tip: `${n}: ${v} listings · ${tip}` }], LISTINGS.total)}</div><div class="tot">${v}</div></div>`).join("");
+
+  // to-fix queue
+  const Q = { UNKNOWN_CHANNEL_SKU: ["E-commerce team", "Map 110260145 → …0007951"], B2C_UNKNOWN_BRAND: ["CDP team", "Correct brand code QUICKMEAL"], B2C_NO_BRAND: ["CDP team", "Add base SKU …0000150 with its brand"] };
+  const sev = `<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1 11 10H1z" fill="currentColor"/></svg>`;
+  $("qtab").querySelector("tbody").innerHTML = fix.map(t => `<tr><td><code>${esc(t.sku ? short(t.sku) : t.sent)}</code></td><td><span class="sev">${sev}${esc(t.status)}</span></td><td>${CHN[t.ch]}</td><td class="num">${thb(t.paid)}</td><td>${Q[t.status][0]}</td><td>${Q[t.status][1]}</td></tr>`).join("") || `<tr><td colspan="6" class="dim">Nothing waiting for this channel.</td></tr>`;
+
+  // table view
+  $("tvtab").innerHTML = `<tr><th>BU</th>${CHS.map(c => `<th class="num">${CHN[c]}</th>`).join("")}<th class="num">Total</th></tr>` +
+    bus.filter(k => tot(k) > 0).map(k => `<tr><td>${esc(k)}</td>${CHS.map(c => `<td class="num">${fmt((by[k] || {})[c] || 0)}</td>`).join("")}<td class="num">${fmt(tot(k))}</td></tr>`).join("");
+}
+const tip = document.createElement("div"); tip.id = "tip"; tip.hidden = true; document.body.appendChild(tip);
+document.addEventListener("mousemove", e => { const t = e.target.closest && e.target.closest("[data-tip]"); if (!t) { tip.hidden = true; return; } tip.textContent = t.dataset.tip; tip.hidden = false; const x = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 8); tip.style.left = x + "px"; tip.style.top = (e.clientY + 16) + "px"; });
+document.addEventListener("click", e => { const f = e.target.closest("[data-df]"); if (f) { dch = f.dataset.df; renderDash(); } });
+drawDiagram(); renderDash();
 </script>
