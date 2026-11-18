@@ -1535,8 +1535,6 @@ FROM r WHERE l.id = r.line_id;
 6. **BU:** every B2C line takes the BU of its brand (from the CDP brand code), stamped at import.
 7. **No B2B link:** B2C SKUs are never matched to B2B products, and B2C figures are not reconciled with B2B.
 
-The full operating procedure (roles, step-by-step procedures P1–P8, controls BC-01 to BC-09, KPIs and request templates) is `docs/ajt-b2c-sku-master-procedure.html`.
-
 ### 12.4 Worked example (from the file)
 
 | B2C SKU / listing | Channels | Variant | Pack | Base SKU | Link |
